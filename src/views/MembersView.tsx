@@ -1,0 +1,664 @@
+import React, { useState } from 'react';
+import {
+  BookOpen,
+  Briefcase,
+  Calendar,
+  Compass,
+  Download,
+  Edit,
+  Eye,
+  Filter,
+  GraduationCap,
+  Mail,
+  MapPin,
+  Phone,
+  Plus,
+  Search,
+  Star,
+  Target,
+  Users,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  type LucideIcon
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Select } from '../components/ui/select';
+import { Modal } from '../components/ui/modal';
+import { Badge } from '../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { mockMembers, Member, MemberSkill, SkillLevel, FACULTY_MAJOR_MAP } from '../data/members';
+
+const ITEMS_PER_PAGE = 10;
+
+export const MembersView = () => {
+  const { t } = useTranslation();
+  const [members, setMembers] = useState<Member[]>(mockMembers);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterBan, setFilterBan] = useState('All');
+  const [filterStatus, setFilterStatus] = useState<'All' | Member['status']>('All');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  type MemberFormData = Omit<Member, 'id'>;
+
+  const initialFormState: MemberFormData = {
+    mssv: '', name: '', gender: 'Nam', dob: '', ban: 'Ban Chu nhiem', role: 'Thanh vien',
+    status: 'Active' as 'Active' | 'Inactive', phone: '', email: '', joinDate: '', lop: '', 
+    khoa: 'Công nghệ Thông tin', chuyenNganh: 'Khoa học Dữ liệu', address: '', experience: '', goal: '', orientation: '',
+    hardSkills: [], softSkills: []
+  };
+  
+  const [formData, setFormData] = useState(initialFormState);
+
+  // Lọc dữ liệu
+  const filteredMembers = members.filter((member) => {
+    const matchSearch =
+      member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.mssv.includes(searchTerm);
+    const matchBan = filterBan === 'All' || member.ban === filterBan;
+    const matchStatus = filterStatus === 'All' || member.status === filterStatus;
+    return matchSearch && matchBan && matchStatus;
+  });
+
+  // Phân trang
+  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
+  const paginatedMembers = filteredMembers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handleExport = () => {
+    const headers = ['ID', 'MSSV', 'Name', 'Gender', 'DOB', 'Ban', 'Role', 'Status', 'Phone', 'Email', 'Join Date', 'Lop', 'Chuyen Nganh', 'Khoa', 'Address'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredMembers.map(m => 
+        `${m.id},${m.mssv},"${m.name}",${m.gender},${m.dob},"${m.ban}","${m.role}",${m.status},${m.phone},${m.email},${m.joinDate},"${m.lop}","${m.chuyenNganh}","${m.khoa}","${m.address}"`
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'members_export.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    if (name === 'khoa') {
+      const firstMajor = FACULTY_MAJOR_MAP[value]?.[0] || '';
+      setFormData(prev => ({ ...prev, khoa: value, chuyenNganh: firstMajor }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const sanitizeSkills = (skills: MemberSkill[]): MemberSkill[] => {
+    return skills
+      .map(skill => ({ ...skill, name: skill.name.trim() }))
+      .filter(skill => skill.name);
+  };
+
+  const handleAddSkill = (type: 'hard' | 'soft') => {
+    const newSkill: MemberSkill = { name: '', level: 'Cơ bản' };
+    if (type === 'hard') {
+      setFormData(prev => ({ ...prev, hardSkills: [...prev.hardSkills, newSkill] }));
+      return;
+    }
+    setFormData(prev => ({ ...prev, softSkills: [...prev.softSkills, newSkill] }));
+  };
+
+  const handleRemoveSkill = (type: 'hard' | 'soft', index: number) => {
+    if (type === 'hard') {
+      setFormData(prev => ({
+        ...prev,
+        hardSkills: prev.hardSkills.filter((_, idx) => idx !== index)
+      }));
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      softSkills: prev.softSkills.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleSkillChange = (
+    type: 'hard' | 'soft',
+    index: number,
+    field: 'name' | 'level',
+    value: string
+  ) => {
+    if (type === 'hard') {
+      setFormData(prev => ({
+        ...prev,
+        hardSkills: prev.hardSkills.map((skill, idx) =>
+          idx === index ? { ...skill, [field]: value } : skill
+        )
+      }));
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      softSkills: prev.softSkills.map((skill, idx) =>
+        idx === index ? { ...skill, [field]: value } : skill
+      )
+    }));
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newMember: Member = {
+      id: Date.now(),
+      ...formData,
+      hardSkills: sanitizeSkills(formData.hardSkills),
+      softSkills: sanitizeSkills(formData.softSkills)
+    };
+    mockMembers.unshift(newMember); // Sync to mock DB
+    setMembers((prev) => [newMember, ...prev]);
+    setIsAddModalOpen(false);
+    setFormData(initialFormState);
+  };
+
+  const openEditModal = (member: Member) => {
+    const { id, ...memberData } = member;
+    setSelectedMember(member);
+    setFormData({
+      ...memberData,
+      hardSkills: member.hardSkills.map(skill => ({ ...skill })),
+      softSkills: member.softSkills.map(skill => ({ ...skill }))
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updatedMember: Member = {
+      ...selectedMember!,
+      ...formData,
+      hardSkills: sanitizeSkills(formData.hardSkills),
+      softSkills: sanitizeSkills(formData.softSkills)
+    };
+    const index = mockMembers.findIndex(m => m.id === updatedMember.id);
+    if (index !== -1) mockMembers[index] = updatedMember; // Sync to mock DB
+    setMembers((prev) => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
+    setIsEditModalOpen(false);
+    setSelectedMember(updatedMember); // Update detail view
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">{t('members.title')}</h2>
+          <p className="text-secondary mt-1">{t('members.subtitle', { count: filteredMembers.length })}</p>
+        </div>
+        <div className="flex space-x-3">
+          <Button variant="outline" onClick={handleExport} className="flex items-center">
+            <Download size={16} className="mr-2" />
+            {t('members.exportBtn')}
+          </Button>
+          <Button onClick={() => { setFormData(initialFormState); setIsAddModalOpen(true); }} className="flex items-center">
+            <Plus size={16} className="mr-2" />
+            {t('members.addBtn')}
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-card p-4 rounded-xl border border-border flex flex-col lg:flex-row gap-4 items-center justify-between shadow-sm">
+        <div className="w-full lg:w-1/3">
+          <Input
+            type="text"
+            placeholder={t('members.searchPlaceholder')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            icon={<Search size={18} />}
+          />
+        </div>
+
+        <div className="flex gap-4 w-full lg:w-auto">
+          <div className="w-full lg:w-48">
+            <Select
+              value={filterBan}
+              onChange={(e) => setFilterBan(e.target.value)}
+              icon={<Filter size={16} />}
+            >
+              <option value="All">{t('members.filterDeptAll')}</option>
+              <option value="Ban Chu nhiem">Ban Chu nhiem</option>
+              <option value="Ban Cong nghe">Ban Cong nghe</option>
+              <option value="Ban Truyen thong">Ban Truyen thong</option>
+            </Select>
+          </div>
+          <div className="w-full lg:w-44">
+            <Select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as 'All' | Member['status'])}
+              icon={<Filter size={16} />}
+            >
+              <option value="All">{t('members.filterStatusAll')}</option>
+              <option value="Active">{t('members.statusActive')}</option>
+              <option value="Inactive">{t('members.statusInactive')}</option>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16 text-center">{t('members.thStt')}</TableHead>
+              <TableHead>{t('members.thName')}</TableHead>
+              <TableHead>{t('members.thMssv')}</TableHead>
+              <TableHead>{t('members.thDept')}</TableHead>
+              <TableHead>{t('members.thRole')}</TableHead>
+              <TableHead>{t('members.thStatus')}</TableHead>
+              <TableHead className="text-center w-24">{t('members.thAction')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedMembers.map((member, index) => (
+              <TableRow key={member.id}>
+                <TableCell className="text-center text-secondary font-medium">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
+                </TableCell>
+                <TableCell className="font-medium text-primary">{member.name}</TableCell>
+                <TableCell className="text-secondary">{member.mssv}</TableCell>
+                <TableCell className="text-secondary">{member.ban}</TableCell>
+                <TableCell className="text-secondary">{member.role}</TableCell>
+                <TableCell>
+                  <Badge variant={member.status === 'Active' ? 'success' : 'danger'}>
+                    {member.status === 'Active' ? t('members.statusActive') : t('members.statusInactive')}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedMember(member)}
+                    title={t('members.viewDetail')}
+                    className="text-brand-gold hover:text-gold hover:bg-gold/10"
+                  >
+                    <Eye size={18} />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {paginatedMembers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center text-secondary">
+                  {t('members.emptyState')}
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-end px-4 py-3 border-t border-border bg-brand-light">
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              <span className="flex items-center text-sm text-secondary px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Member Detail Modal */}
+      <Modal 
+        isOpen={!!selectedMember && !isEditModalOpen} 
+        onClose={() => setSelectedMember(null)}
+        title={t('members.profileTitle')}
+        className="max-w-3xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setSelectedMember(null)}>
+              {t('members.close')}
+            </Button>
+            <Button onClick={() => openEditModal(selectedMember!)}>
+              <Edit size={16} className="mr-2" />
+              {t('members.update')}
+            </Button>
+          </>
+        }
+      >
+        {selectedMember && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-brand-light p-5 rounded-xl border border-border">
+              <InfoItem Icon={Users} label={t('members.lblGender')} value={selectedMember.gender} />
+              <InfoItem Icon={Calendar} label={t('members.lblDob')} value={selectedMember.dob} />
+              <InfoItem Icon={Phone} label={t('members.lblPhone')} value={selectedMember.phone} />
+              <InfoItem Icon={Mail} label={t('members.lblEmail')} value={selectedMember.email} />
+              <InfoItem Icon={MapPin} label={t('members.lblAddress')} value={selectedMember.address} />
+              <InfoItem Icon={GraduationCap} label={t('members.lblMajor')} value={selectedMember.chuyenNganh} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-brand-light p-5 rounded-xl border border-border">
+                <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
+                  <Star size={16} className="mr-2" />
+                  {t('members.skills')}
+                </h5>
+                <div className="flex flex-wrap gap-2">
+                  {[...selectedMember.hardSkills, ...selectedMember.softSkills].map((skill, idx) => (
+                    <SkillBadge key={`${skill.name}-${idx}`} name={skill.name} level={skill.level} />
+                  ))}
+                </div>
+              </div>
+              <div className="bg-brand-light p-5 rounded-xl border border-border space-y-3">
+                <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center">
+                  <Target size={16} className="mr-2" />
+                  {t('members.goals')}
+                </h5>
+                <p className="text-sm text-primary leading-relaxed">{selectedMember.goal || t('members.notUpdated')}</p>
+                <p className="text-sm text-secondary leading-relaxed flex items-start">
+                  <Compass size={14} className="mr-2 mt-1 shrink-0" />
+                  {selectedMember.orientation || t('members.notUpdated')}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-brand-light p-5 rounded-xl border border-border">
+              <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
+                <BookOpen size={16} className="mr-2" />
+                {t('members.experience')}
+              </h5>
+              <p className="text-sm text-secondary italic">{selectedMember.experience || t('members.noExperience')}</p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Add / Edit Member Modal */}
+      <Modal
+        isOpen={isAddModalOpen || isEditModalOpen}
+        onClose={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}
+        title={isEditModalOpen ? t('members.update') : t('members.addBtn')}
+        className="max-w-4xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}>
+              Hủy
+            </Button>
+            <Button onClick={isEditModalOpen ? handleEditSubmit : handleAddSubmit}>
+              {isEditModalOpen ? 'Lưu thay đổi' : 'Thêm mới'}
+            </Button>
+          </>
+        }
+      >
+        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Thông tin cơ bản */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gold border-b border-border pb-2">Thông tin cơ bản</h4>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Họ và tên *</label>
+                <Input name="name" value={formData.name} onChange={handleFormChange} required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">MSSV *</label>
+                  <Input name="mssv" value={formData.mssv} onChange={handleFormChange} required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Giới tính *</label>
+                  <Select name="gender" value={formData.gender} onChange={handleFormChange} required>
+                    <option value="Nam">Nam</option>
+                    <option value="Nu">Nữ</option>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Ngày sinh *</label>
+                <Input name="dob" type="date" value={formData.dob} onChange={handleFormChange} required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email *</label>
+                <Input name="email" type="email" value={formData.email} onChange={handleFormChange} required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Số điện thoại *</label>
+                <Input name="phone" value={formData.phone} onChange={handleFormChange} required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Địa chỉ *</label>
+                <Input name="address" value={formData.address} onChange={handleFormChange} required />
+              </div>
+            </div>
+
+            {/* Thông tin CLB & Học vấn */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gold border-b border-border pb-2">CLB & Học vấn</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Ban *</label>
+                  <Select name="ban" value={formData.ban} onChange={handleFormChange} required>
+                    <option value="Ban Chu nhiem">Ban Chủ nhiệm</option>
+                    <option value="Ban Truyen thong">Ban Truyền thông</option>
+                    <option value="Ban Cong nghe">Ban Công nghệ</option>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Chức vụ *</label>
+                  <Input name="role" value={formData.role} onChange={handleFormChange} required />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Trạng thái *</label>
+                  <Select name="status" value={formData.status} onChange={handleFormChange} required>
+                    <option value="Active">Hoạt động</option>
+                    <option value="Inactive">Tạm nghỉ</option>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Ngày tham gia *</label>
+                  <Input name="joinDate" type="date" value={formData.joinDate} onChange={handleFormChange} required />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Lớp *</label>
+                <Input name="lop" value={formData.lop} onChange={handleFormChange} required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Khoa *</label>
+                <Select name="khoa" value={formData.khoa} onChange={handleFormChange} required>
+                  {Object.keys(FACULTY_MAJOR_MAP).map(khoa => (
+                    <option key={khoa} value={khoa}>{khoa}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Chuyên ngành *</label>
+                <Select name="chuyenNganh" value={formData.chuyenNganh} onChange={handleFormChange} required>
+                  {FACULTY_MAJOR_MAP[formData.khoa]?.map(major => (
+                    <option key={major} value={major}>{major}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Kỹ năng & Định hướng */}
+          <div className="space-y-4 pt-4">
+            <h4 className="font-semibold text-gold border-b border-border pb-2">Kỹ năng & Định hướng</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-medium">Kỹ năng chuyên môn *</label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleAddSkill('hard')}>
+                      <Plus size={14} className="mr-1" />
+                      Thêm kỹ năng
+                    </Button>
+                  </div>
+                  {formData.hardSkills.length === 0 ? (
+                    <p className="text-xs text-secondary border border-dashed border-border rounded-lg px-3 py-2">
+                      Chưa có kỹ năng chuyên môn. Nhấn "Thêm kỹ năng" để bắt đầu.
+                    </p>
+                  ) : null}
+                  <div className="space-y-2">
+                    {formData.hardSkills.map((skill, index) => (
+                      <div key={`hard-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2 items-center">
+                        <Input
+                          value={skill.name}
+                          onChange={(e) => handleSkillChange('hard', index, 'name', e.target.value)}
+                          placeholder="Tên kỹ năng"
+                        />
+                        <Select
+                          value={skill.level}
+                          onChange={(e) => handleSkillChange('hard', index, 'level', e.target.value)}
+                        >
+                          <option value="Tốt">Tốt</option>
+                          <option value="Trung bình">Trung bình</option>
+                          <option value="Cơ bản">Cơ bản</option>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => handleRemoveSkill('hard', index)}
+                          title="Xóa kỹ năng"
+                        >
+                          <X size={14} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-medium">Kỹ năng mềm *</label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleAddSkill('soft')}>
+                      <Plus size={14} className="mr-1" />
+                      Thêm kỹ năng
+                    </Button>
+                  </div>
+                  {formData.softSkills.length === 0 ? (
+                    <p className="text-xs text-secondary border border-dashed border-border rounded-lg px-3 py-2">
+                      Chưa có kỹ năng mềm. Nhấn "Thêm kỹ năng" để bắt đầu.
+                    </p>
+                  ) : null}
+                  <div className="space-y-2">
+                    {formData.softSkills.map((skill, index) => (
+                      <div key={`soft-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2 items-center">
+                        <Input
+                          value={skill.name}
+                          onChange={(e) => handleSkillChange('soft', index, 'name', e.target.value)}
+                          placeholder="Tên kỹ năng"
+                        />
+                        <Select
+                          value={skill.level}
+                          onChange={(e) => handleSkillChange('soft', index, 'level', e.target.value)}
+                        >
+                          <option value="Tốt">Tốt</option>
+                          <option value="Trung bình">Trung bình</option>
+                          <option value="Cơ bản">Cơ bản</option>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => handleRemoveSkill('soft', index)}
+                          title="Xóa kỹ năng"
+                        >
+                          <X size={14} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Mục tiêu trong CLB *</label>
+                  <textarea 
+                    name="goal" 
+                    value={formData.goal} 
+                    onChange={handleFormChange} 
+                    className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold min-h-[80px]" 
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Kinh nghiệm trước đây *</label>
+                  <textarea 
+                    name="experience" 
+                    value={formData.experience} 
+                    onChange={handleFormChange} 
+                    className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold min-h-[80px]" 
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Định hướng tương lai *</label>
+              <Input name="orientation" value={formData.orientation} onChange={handleFormChange} placeholder="Vd: Trở thành Developer trong 3 năm tới..." required />
+            </div>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+interface InfoItemProps {
+  Icon: LucideIcon;
+  label: string;
+  value: string;
+}
+
+const InfoItem = ({ Icon, label, value }: InfoItemProps) => (
+  <div className="flex flex-col">
+    <span className="flex items-center text-xs text-secondary mb-1">
+      <span className="mr-1.5 opacity-70">
+        <Icon size={16} />
+      </span>
+      {label}
+    </span>
+    <span className="text-sm font-medium text-primary">{value || '---'}</span>
+  </div>
+);
+
+interface SkillBadgeProps {
+  name: string;
+  level: SkillLevel;
+}
+
+const SkillBadge = ({ name, level }: SkillBadgeProps) => {
+  let badgeVariant: 'default' | 'success' | 'warning' | 'secondary' = 'secondary';
+  if (level === 'Tốt') badgeVariant = 'success';
+  if (level === 'Trung bình') badgeVariant = 'warning';
+  
+  return (
+    <Badge variant={badgeVariant} className="px-2.5 py-1 text-xs flex items-center">
+      {name} <span className="ml-1 opacity-70 font-normal">({level})</span>
+    </Badge>
+  );
+};

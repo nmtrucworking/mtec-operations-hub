@@ -1,0 +1,60 @@
+import type { UserAccount } from '../types/app';
+
+export const mockAccounts: UserAccount[] = [
+  {
+    id: 'ACC-001',
+    username: 'admin',
+    password: '123',
+    fullName: 'Ban Chủ Nhiệm',
+    role: 'bcn',
+    avatarInitials: 'BC',
+  },
+  {
+    id: 'ACC-002',
+    username: 'hr',
+    password: '123',
+    fullName: 'Ban Vận Hành (Nhân sự)',
+    role: 'bvh_hr',
+    avatarInitials: 'HR',
+  },
+  {
+    id: 'ACC-003',
+    username: 'finance',
+    password: '123',
+    fullName: 'Ban Vận Hành (Tài chính)',
+    role: 'bvh_finance',
+    avatarInitials: 'FI',
+  },
+  {
+    id: 'ACC-004',
+    username: 'discipline',
+    password: '123',
+    fullName: 'Ban Vận Hành (Kỷ luật)',
+    role: 'bvh_discipline',
+    avatarInitials: 'DI',
+  },
+  {
+    id: 'ACC-005',
+    username: 'logistics',
+    password: '123',
+    fullName: 'Ban Vận Hành (Hậu cần)',
+    role: 'bvh_logistics',
+    avatarInitials: 'LO',
+  },
+  {
+    id: 'ACC-006',
+    username: 'tech',
+    password: '123',
+    fullName: 'Ban Công Nghệ',
+    role: 'bcm',
+    avatarInitials: 'TE',
+  },
+  {
+    id: 'ACC-007',
+    username: 'member',
+    password: '123',
+    fullName: 'Thành viên chung',
+    role: 'member',
+    avatarInitials: 'ME',
+  },
+];
