@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
   Briefcase,
@@ -29,33 +29,97 @@ import { Select } from '../components/ui/select';
 import { Modal } from '../components/ui/modal';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { mockMembers, Member, MemberSkill, SkillLevel, FACULTY_MAJOR_MAP } from '../data/members';
+import { createMember, getMembers, updateMember } from '../services/members';
+import type { ApiResponse } from '../services/api';
+import { FACULTY_MAJOR_MAP, type Member, type MemberSkill, type SkillLevel } from '../data/members';
 
 const ITEMS_PER_PAGE = 10;
 
-export const MembersView = () => {
+interface MembersViewProps {
+  authToken?: string;
+}
+
+export const MembersView = ({ authToken }: MembersViewProps) => {
   const { t } = useTranslation();
-  const [members, setMembers] = useState<Member[]>(mockMembers);
+  const [members, setMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBan, setFilterBan] = useState('All');
   const [filterStatus, setFilterStatus] = useState<'All' | Member['status']>('All');
-  
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+  const [isSavingMember, setIsSavingMember] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   type MemberFormData = Omit<Member, 'id'>;
 
   const initialFormState: MemberFormData = {
-    mssv: '', name: '', gender: 'Nam', dob: '', ban: 'Ban Chu nhiem', role: 'Thanh vien',
-    status: 'Active' as 'Active' | 'Inactive', phone: '', email: '', joinDate: '', lop: '', 
-    khoa: 'Công nghệ Thông tin', chuyenNganh: 'Khoa học Dữ liệu', address: '', experience: '', goal: '', orientation: '',
-    hardSkills: [], softSkills: []
+    mssv: '',
+    name: '',
+    gender: 'Nam',
+    dob: '',
+    ban: 'Ban Chu nhiem',
+    role: 'Thanh vien',
+    status: 'Active',
+    phone: '',
+    email: '',
+    joinDate: '',
+    lop: '',
+    khoa: 'Công nghệ Thông tin',
+    chuyenNganh: 'Khoa học Dữ liệu',
+    address: '',
+    experience: '',
+    goal: '',
+    orientation: '',
+    hardSkills: [],
+    softSkills: []
   };
-  
+
   const [formData, setFormData] = useState(initialFormState);
+
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!authToken) {
+        setMembers([]);
+        setLoadError('Thiếu token đăng nhập để tải danh sách thành viên.');
+        setIsLoadingMembers(false);
+        return;
+      }
+
+      setIsLoadingMembers(true);
+      setLoadError('');
+      const response = await getMembers(authToken);
+      if (response.status >= 200 && response.status < 300 && response.data) {
+        setMembers(response.data);
+      } else {
+        setLoadError(response.error || 'Không tải được danh sách thành viên từ backend.');
+      }
+      setIsLoadingMembers(false);
+    };
+
+    void loadMembers();
+  }, [authToken]);
+
+  const refreshMembers = async (preserveSelectionId?: number) => {
+    if (!authToken) {
+      return false;
+    }
+
+    const response = await getMembers(authToken);
+    if (response.status >= 200 && response.status < 300 && response.data) {
+      setMembers(response.data);
+      if (preserveSelectionId) {
+        setSelectedMember(response.data.find((member) => member.id === preserveSelectionId) ?? null);
+      }
+      setLoadError('');
+      return true;
+    }
+
+    setLoadError(response.error || 'Không tải được danh sách thành viên từ backend.');
+    return false;
+  };
 
   // Lọc dữ liệu
   const filteredMembers = members.filter((member) => {
@@ -154,18 +218,24 @@ export const MembersView = () => {
     }));
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newMember: Member = {
-      id: Date.now(),
+  const handleAddSubmit = async () => {
+    setIsSavingMember(true);
+    const payload = {
       ...formData,
       hardSkills: sanitizeSkills(formData.hardSkills),
       softSkills: sanitizeSkills(formData.softSkills)
     };
-    mockMembers.unshift(newMember); // Sync to mock DB
-    setMembers((prev) => [newMember, ...prev]);
-    setIsAddModalOpen(false);
-    setFormData(initialFormState);
+
+    const response = await createMember(payload, authToken);
+    if (response.status >= 200 && response.status < 300) {
+      await refreshMembers();
+      setIsAddModalOpen(false);
+      setFormData(initialFormState);
+      setSelectedMember(null);
+    } else {
+      setLoadError(response.error || 'Không thể tạo thành viên mới.');
+    }
+    setIsSavingMember(false);
   };
 
   const openEditModal = (member: Member) => {
@@ -179,19 +249,29 @@ export const MembersView = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const updatedMember: Member = {
-      ...selectedMember!,
+  const handleEditSubmit = async () => {
+    if (!selectedMember) {
+      return;
+    }
+
+    setIsSavingMember(true);
+    const payload = {
       ...formData,
       hardSkills: sanitizeSkills(formData.hardSkills),
       softSkills: sanitizeSkills(formData.softSkills)
     };
-    const index = mockMembers.findIndex(m => m.id === updatedMember.id);
-    if (index !== -1) mockMembers[index] = updatedMember; // Sync to mock DB
-    setMembers((prev) => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
-    setIsEditModalOpen(false);
-    setSelectedMember(updatedMember); // Update detail view
+
+    const response = await updateMember(selectedMember.id, payload, authToken);
+    if (response.status >= 200 && response.status < 300) {
+      await refreshMembers(selectedMember.id);
+      setIsEditModalOpen(false);
+      if (response.data) {
+        setSelectedMember(response.data);
+      }
+    } else {
+      setLoadError(response.error || 'Không thể cập nhật thành viên.');
+    }
+    setIsSavingMember(false);
   };
 
   return (
@@ -251,7 +331,19 @@ export const MembersView = () => {
         </div>
       </div>
 
+      {loadError ? (
+        <div className="rounded-xl border border-danger-border bg-danger-bg text-danger-text px-4 py-3 text-sm flex items-center justify-between gap-4">
+          <span>{loadError}</span>
+          <Button variant="outline" size="sm" onClick={() => void refreshMembers()} disabled={!authToken}>
+            Tải lại
+          </Button>
+        </div>
+      ) : null}
+
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+        {isLoadingMembers ? (
+          <div className="p-8 text-center text-secondary">Đang tải dữ liệu thành viên từ backend...</div>
+        ) : null}
         <Table>
           <TableHeader>
             <TableRow>
@@ -292,7 +384,7 @@ export const MembersView = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {paginatedMembers.length === 0 ? (
+            {!isLoadingMembers && paginatedMembers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center text-secondary">
                   {t('members.emptyState')}
@@ -405,7 +497,7 @@ export const MembersView = () => {
             <Button variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}>
               Hủy
             </Button>
-            <Button onClick={isEditModalOpen ? handleEditSubmit : handleAddSubmit}>
+            <Button isLoading={isSavingMember} onClick={() => void (isEditModalOpen ? handleEditSubmit() : handleAddSubmit())}>
               {isEditModalOpen ? 'Lưu thay đổi' : 'Thêm mới'}
             </Button>
           </>

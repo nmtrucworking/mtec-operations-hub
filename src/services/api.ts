@@ -9,7 +9,7 @@ interface RequestOptions extends RequestInit {
   headers?: HeadersInit;
 }
 
-interface ApiResponse<T> {
+export interface ApiResponse<T> {
   data?: T;
   status: number;
   error?: string;

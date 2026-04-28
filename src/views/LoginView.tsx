@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Lock, LogIn, Mail } from 'lucide-react';
-import { mockAccounts } from '../data/accounts';
+import { login as loginRequest } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import type { UserAccount } from '../types/app';
+import type { UserAccount, UserRole } from '../types/app';
 
 interface LoginViewProps {
-  onLogin: (user: UserAccount) => void;
+  onLogin: (user: UserAccount, token?: string) => void;
 }
 
 export const LoginView = ({ onLogin }: LoginViewProps) => {
@@ -18,29 +18,56 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const normalizeUser = (payload: unknown): UserAccount => {
+    const record = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+    const fullName = String(record.fullName ?? record.full_name ?? record.name ?? '').trim();
+    const usernameValue = String(record.username ?? username).trim();
+    const role = String(record.role ?? 'member') as UserRole;
+    const initials = String(
+      record.avatarInitials ??
+        record.avatar_initials ??
+        (fullName
+          ? fullName
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((part) => part[0]?.toUpperCase() ?? '')
+              .join('')
+          : usernameValue.slice(0, 2).toUpperCase())
+    );
+
+    return {
+      id: String(record.id ?? usernameValue),
+      username: usernameValue,
+      password: String(record.password ?? password),
+      fullName: fullName || usernameValue,
+      role,
+      avatarInitials: initials || usernameValue.slice(0, 2).toUpperCase()
+    };
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!username || !password) {
       setError(t('login.errorEmpty'));
       return;
     }
 
     setIsLoading(true);
-    // Giả lập gọi API đăng nhập
-    setTimeout(() => {
-      const matchedUser = mockAccounts.find(
-        (acc) => acc.username === username && acc.password === password
-      );
-      
-      if (matchedUser) {
-        onLogin(matchedUser);
-      } else {
-        setError(t('login.errorInvalid'));
-        setIsLoading(false);
-      }
-    }, 800);
+
+    const response = await loginRequest(username.trim(), password);
+    const responseData = response.data as Record<string, unknown> | undefined;
+
+    if (response.status >= 200 && response.status < 300 && responseData) {
+      const userPayload = responseData.user ?? responseData.account ?? responseData.data ?? responseData;
+      const token = String(responseData.accessToken ?? responseData.access_token ?? responseData.token ?? '');
+      onLogin(normalizeUser(userPayload), token || undefined);
+      return;
+    }
+
+    setError(response.error || t('login.errorInvalid'));
+    setIsLoading(false);
   };
 
   return (
