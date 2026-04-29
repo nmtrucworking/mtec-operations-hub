@@ -65,7 +65,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const pctMedia = totalMembers ? Math.round((getDeptCount('Ban Truyen thong') / totalMembers) * 100) : 0;
   const pctTech = totalMembers ? Math.round((getDeptCount('Ban Cong nghe') / totalMembers) * 100) : 0;
   const pctBoard = totalMembers ? Math.round((getDeptCount('Ban Chu nhiem') / totalMembers) * 100) : 0;
-  const pctOps = 100 - pctMedia - pctTech - pctBoard; // Remaining for Operations/Logistics
+  const pctOps = totalMembers ? Math.round((getDeptCount('Ban Dieu hanh') / totalMembers) * 100) : 0;
   
   const resignRequests = [] as RequestItem[]; // Replace with actual request filtering logic if needed
   const maintenanceCount = assetSeedData.filter((item) => item.status === 'Cần bảo trì').length;
@@ -298,16 +298,16 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-primary">Họ và tên</label>
-            <Input placeholder="Nhập họ tên thành viên..." />
+            <label className="text-sm font-medium text-primary">{t('dashboard.memberName')}</label>
+            <Input placeholder={t('dashboard.placeholder.memberName')} />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-primary">MSSV</label>
-            <Input placeholder="Nhập MSSV..." />
+            <label className="text-sm font-medium text-primary">{t('dashboard.studentId')}</label>
+            <Input placeholder={t('dashboard.placeholder.studentId')} />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-primary">Email</label>
-            <Input type="email" placeholder="Nhập địa chỉ email..." />
+            <label className="text-sm font-medium text-primary">{t('dashboard.email')}</label>
+            <Input type="email" placeholder={t('dashboard.placeholder.email')} />
           </div>
         </div>
       </Modal>
@@ -325,19 +325,19 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-primary">Loại giao dịch</label>
+            <label className="text-sm font-medium text-primary">{t('dashboard.transactionType')}</label>
             <select className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary">
-              <option value="thu">Thu</option>
-              <option value="chi">Chi</option>
+              <option value="thu">{t('dashboard.income')}</option>
+              <option value="chi">{t('dashboard.expense')}</option>
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-primary">Số tiền (VNĐ)</label>
+            <label className="text-sm font-medium text-primary">{t('dashboard.amount')}</label>
             <Input type="number" placeholder="0" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-primary">Lý do</label>
-            <Input placeholder="Nhập lý do giao dịch..." />
+            <label className="text-sm font-medium text-primary">{t('dashboard.reason')}</label>
+            <Input placeholder={t('dashboard.placeholder.reason')} />
           </div>
         </div>
       </Modal>
@@ -354,19 +354,19 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-secondary mb-4">Chọn loại báo cáo bạn muốn xuất:</p>
+          <p className="text-sm text-secondary mb-4">{t('dashboard.selectReportType')}</p>
           <div className="space-y-2">
             <label className="flex items-center space-x-2">
               <input type="radio" name="exportType" defaultChecked className="text-gold focus:ring-gold" />
-              <span className="text-sm text-primary">Báo cáo tổng quan hoạt động</span>
+              <span className="text-sm text-primary">{t('dashboard.overviewReport')}</span>
             </label>
             <label className="flex items-center space-x-2">
               <input type="radio" name="exportType" className="text-gold focus:ring-gold" />
-              <span className="text-sm text-primary">Báo cáo thu chi tài chính</span>
+              <span className="text-sm text-primary">{t('dashboard.financeReport')}</span>
             </label>
             <label className="flex items-center space-x-2">
               <input type="radio" name="exportType" className="text-gold focus:ring-gold" />
-              <span className="text-sm text-primary">Danh sách thành viên hiện tại</span>
+              <span className="text-sm text-primary">{t('dashboard.memberList')}</span>
             </label>
           </div>
         </div>
@@ -375,7 +375,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       <Modal 
         isOpen={activeModal === 'roles'} 
         onClose={() => setActiveModal(null)} 
-        title={('dashboard.qaRoles')}
+        title={t('dashboard.qaRoles')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
@@ -384,12 +384,12 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-secondary mb-4">Tìm kiếm thành viên để thay đổi quyền hạn:</p>
+          <p className="text-sm text-secondary mb-4">{t('dashboard.searchMembers')}</p>
           <div className="space-y-2">
-            <Input placeholder="Nhập tên hoặc MSSV..." />
+            <Input placeholder={t('dashboard.placeholder.searchMembers')} />
           </div>
           <div className="p-4 border border-border rounded-lg bg-background mt-4 text-center">
-            <p className="text-sm text-secondary">Vui lòng nhập thông tin tìm kiếm</p>
+            <p className="text-sm text-secondary">{t('dashboard.enterSearchInfo')}</p>
           </div>
         </div>
       </Modal>
