@@ -1,11 +1,11 @@
 import logoSvg from '../../assets/mtec_logo.svg';
 import React, { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, LayoutDashboard, LogOut, Search, Settings, Users, Globe } from 'lucide-react';
+import { Bell, LogOut, Search, Globe } from 'lucide-react';
 import { NavItem } from '../shared/Widgets';
 import { useTheme } from '../theme-provider';
 import type { AppTab, UserAccount, UserRole } from '../../types/app';
-import { APP_VERSION, APP_VISIBLE_TABS } from '../../config/appVersion';
+import { APP_VERSION, getVisibleTabDefinitions } from '../../config/appRegistry';
 
 interface AppShellProps {
   activeTab: AppTab;
@@ -15,29 +15,13 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-const navigationItems: Array<{
-  tab: AppTab;
-  labelKey: string;
-  icon: ReactNode;
-}> = [
-  { tab: 'dashboard', labelKey: 'appShell.navDashboard', icon: <LayoutDashboard size={20} /> },
-  { tab: 'members', labelKey: 'appShell.navMembers', icon: <Users size={20} /> },
-  { tab: 'settings', labelKey: 'appShell.navSettings', icon: <Settings size={20} /> }
-];
-
 const checkTabAccess = (tab: AppTab, role: UserRole): boolean => {
-  if (!APP_VISIBLE_TABS.includes(tab)) {
+  const definition = getVisibleTabDefinitions().find((item) => item.tab === tab);
+  if (!definition) {
     return false;
   }
 
-  switch (tab) {
-    case 'dashboard':
-    case 'members':
-    case 'settings':
-      return true; // All roles have at least some access (View/Own) to these tabs
-    default:
-      return false;
-  }
+  return definition.allowedRoles === 'all' || definition.allowedRoles.includes(role);
 };
 
 export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, children }: AppShellProps) => {
@@ -65,7 +49,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          {navigationItems
+          {getVisibleTabDefinitions()
             .filter((item) => checkTabAccess(item.tab, currentUser.role))
             .map((item) => (
               <NavItem

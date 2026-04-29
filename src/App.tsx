@@ -1,17 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from './components/layout/AppShell';
-import { DashboardView } from './views/DashboardView';
-import { DisciplineView } from './views/DisciplineView';
-import { FinanceView } from './views/FinanceView';
-import { GeneratorView } from './views/GeneratorView';
 import { LoginView } from './views/LoginView';
-import { LogisticsView } from './views/LogisticsView';
-import { MembersView } from './views/MembersView';
-import { RequestsView } from './views/RequestsView';
-import { SettingsView } from './views/SettingsView';
 import { getCurrentUser } from './services/api';
-import { APP_VISIBLE_TABS } from './config/appVersion';
-import { todayViDate, useOperationsData } from './hooks/useOperationsData';
+import { APP_VISIBLE_TABS, getVisibleTabDefinitions } from './config/appRegistry';
 import type { AppTab, UserAccount, UserRole } from './types/app';
 
 import { useTranslation } from 'react-i18next';
@@ -57,21 +48,6 @@ const App = () => {
   const [authToken, setAuthToken] = useState('');
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const {
-    requests,
-    activeTransactions,
-    pendingTransactions,
-    pendingRequests,
-    totalIncome,
-    totalExpense,
-    currentFund,
-    upsertTransaction,
-    reviewTransaction,
-    softDeleteTransaction,
-    upsertRequest,
-    reviewRequest,
-    canReviewFinanceTransaction
-  } = useOperationsData();
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -156,16 +132,10 @@ const App = () => {
       return null;
     }
 
-    switch (normalizedActiveTab) {
-      case 'dashboard':
-        return <DashboardView authToken={authToken} />;
-      case 'members':
-        return <MembersView authToken={authToken} />;
-      case 'settings':
-        return <SettingsView currentUser={currentUser!} authToken={authToken} />;
-      default:
-        return <DashboardView authToken={authToken} />;
-    }
+    const visibleTabs = getVisibleTabDefinitions();
+    const matchedTab = visibleTabs.find((item) => item.tab === normalizedActiveTab) ?? visibleTabs[0];
+
+    return matchedTab ? matchedTab.render({ authToken, currentUser }) : null;
   };
 
   if (isBootstrapping) {
