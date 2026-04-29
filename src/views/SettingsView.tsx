@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle } from 'lucide-react';
-import { mockAccounts as initialAccounts } from '../data/accounts';
 import { changePassword } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -11,6 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge';
 import type { UserAccount, UserRole } from '../types/app';
 
+// Mock Data
+import { mockAccounts as initialAccounts } from '../data/accounts';
+
 interface SettingsViewProps {
   currentUser: UserAccount;
   authToken?: string;
@@ -19,23 +21,23 @@ interface SettingsViewProps {
 export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'accounts'>('profile');
-  
+
   // Generic states
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Profile states
+  // 1. Profile states
   const [profileForm, setProfileForm] = useState({
-    fullName: currentUser.fullName,
-    email: 'admin@mtec.edu.vn',
-    phone: '0123456789'
+    fullName: '',
+    email: '',
+    phone: ''
   });
 
-  // Security states
+  // 2. Security states
   const [pwdForm, setPwdForm] = useState({ current: '', new: '', confirm: '' });
   const [pwdError, setPwdError] = useState('');
 
-  // Notifications states
+  // 3. Notifications states
   const [notis, setNotis] = useState({
     'noti-1': true,
     'noti-2': true,
@@ -43,21 +45,85 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
     'noti-4': true
   });
 
-  // Accounts Admin states
+  // 4. Accounts Admin states
   const [accountsList, setAccountsList] = useState<UserAccount[]>(initialAccounts);
   const [searchAccount, setSearchAccount] = useState('');
   const [roleFilter, setRoleFilter] = useState<'All' | UserRole>('All');
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Partial<UserAccount> | null>(null);
 
-  const handleSaveProfile = () => {
+  // Fetch profile and notification settings on component mount or when authToken changes
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        // 1. Fetch profile information
+        const profileRes = await fetch('/api/settings/profile', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const profileData = await profileRes.json();
+        if (profileData.success) {
+          setProfileForm({
+            fullName: profileData.data.fullName,
+            email: profileData.data.email,
+            phone: profileData.data.phone
+          });
+        }
+
+        // 2. Fetch notification settings
+        const notiRes = await fetch('/api/settings/notifications', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const notiData = await notiRes.json();
+        if (notiData.success) {
+          setNotis({
+            'noti-1': notiData.data.noti1,
+            'noti-2': notiData.data.noti2,
+            'noti-3': notiData.data.noti3,
+            'noti-4': notiData.data.noti4
+          });
+        }
+
+        // 3. Fetch Accounts if Admin
+        if (currentUser.role === 'bcn') {
+          const accRes = await fetch('/api/users', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          const accJson = await accRes.json();
+          if (accJson.success) setAccountsList(accJson.data);
+        }
+
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      }
+    };
+
+    fetchSettings();
+  }, [authToken]);
+
+  // Additional handlers for saving profile, updating password, and managing accounts will go here
+  const handleSaveProfile = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/settings/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(profileForm)
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setSuccessMsg(t('settings.saveSuccess'));
+        setTimeout(() => setSuccessMsg(''), 3000);
+      }
+    } catch (error) {
+      setPwdError("Cannot update profile");
+    } finally {
       setIsSaving(false);
-      setSuccessMsg(t('settings.saveSuccess', 'Đã lưu thông tin hồ sơ thành công!'));
-      setTimeout(() => setSuccessMsg(''), 3000);
-    }, 800);
+    }
   };
 
   const handleUpdatePassword = async () => {
@@ -77,7 +143,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
     setIsSaving(true);
     const response = await changePassword(pwdForm.current, pwdForm.new, authToken || '');
-    
+
     if (response.status >= 200 && response.status < 300) {
       setPwdForm({ current: '', new: '', confirm: '' });
       setSuccessMsg(t('settings.pwdSuccess', 'Cập nhật mật khẩu thành công!'));
@@ -108,6 +174,19 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
+  const handleNotiChange = async (id: string, checked: boolean) => {
+    const updatedNotis = { ...notis, [id]: checked };
+    setNotis(updatedNotis);
+    await fetch('/api/settings/notifications', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ [id]: checked })
+    });
+  };
+
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl">
       <div className="flex items-center justify-between">
@@ -128,46 +207,42 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         <div className="md:col-span-1 space-y-2">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'profile'
-                ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-                : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
-            }`}
+            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'profile'
+              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
+              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              }`}
           >
             <User size={18} className="mr-3" />
             {t('settings.tabProfile')}
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'security'
-                ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-                : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
-            }`}
+            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'security'
+              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
+              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              }`}
           >
             <Shield size={18} className="mr-3" />
             {t('settings.tabSecurity')}
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'notifications'
-                ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-                : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
-            }`}
+            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications'
+              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
+              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              }`}
           >
             <Bell size={18} className="mr-3" />
             {t('settings.tabNotifications')}
           </button>
-          
+
           {currentUser.role === 'bcn' && (
             <button
               onClick={() => setActiveTab('accounts')}
-              className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === 'accounts'
-                  ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-                  : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
-              }`}
+              className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'accounts'
+                ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
+                : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+                }`}
             >
               <Users size={18} className="mr-3" />
               {t('admin.tabAccounts')}
@@ -180,7 +255,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           {activeTab === 'profile' && (
             <div className="p-5 space-y-4 animate-in fade-in duration-300">
               <h3 className="text-lg font-bold border-b border-border pb-4">{t('settings.profileTitle')}</h3>
-              
+
               <div className="flex items-center space-x-6">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-r from-brand-gold to-orange-400 flex items-center justify-center text-brand-blue font-bold text-3xl shadow-lg">
                   {currentUser.avatarInitials}
@@ -194,7 +269,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-secondary">{t('settings.fullName')}</label>
-                  <Input type="text" value={profileForm.fullName} onChange={(e) => setProfileForm({...profileForm, fullName: e.target.value})} />
+                  <Input type="text" value={profileForm.fullName} onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-secondary">{t('settings.role')}</label>
@@ -202,16 +277,16 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-secondary">{t('settings.email')}</label>
-                  <Input type="email" value={profileForm.email} onChange={(e) => setProfileForm({...profileForm, email: e.target.value})} />
+                  <Input type="email" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-secondary">{t('settings.phone')}</label>
-                  <Input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})} />
+                  <Input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} />
                 </div>
               </div>
 
               <div className="pt-6 border-t border-border flex justify-end">
-                <Button 
+                <Button
                   onClick={handleSaveProfile}
                   isLoading={isSaving}
                 >
@@ -225,22 +300,22 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           {activeTab === 'security' && (
             <div className="p-5 space-y-4 animate-in fade-in duration-300">
               <h3 className="text-lg font-bold border-b border-border pb-4">{t('settings.securityTitle')}</h3>
-              
+
               <div className="space-y-5 max-w-md">
                 {pwdError && <p className="text-danger-text text-sm">{pwdError}</p>}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-secondary">{t('settings.currentPassword')}</label>
-                  <Input type="password" value={pwdForm.current} onChange={(e) => setPwdForm({...pwdForm, current: e.target.value})} placeholder={t('settings.currentPasswordPlaceholder')} icon={<Key size={16} />} />
+                  <Input type="password" value={pwdForm.current} onChange={(e) => setPwdForm({ ...pwdForm, current: e.target.value })} placeholder={t('settings.currentPasswordPlaceholder')} icon={<Key size={16} />} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-secondary">{t('settings.newPassword')}</label>
-                  <Input type="password" value={pwdForm.new} onChange={(e) => setPwdForm({...pwdForm, new: e.target.value})} placeholder={t('settings.newPasswordPlaceholder')} icon={<Key size={16} />} />
+                  <Input type="password" value={pwdForm.new} onChange={(e) => setPwdForm({ ...pwdForm, new: e.target.value })} placeholder={t('settings.newPasswordPlaceholder')} icon={<Key size={16} />} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-secondary">{t('settings.confirmPassword')}</label>
-                  <Input type="password" value={pwdForm.confirm} onChange={(e) => setPwdForm({...pwdForm, confirm: e.target.value})} placeholder={t('settings.confirmPasswordPlaceholder')} icon={<Key size={16} />} />
+                  <Input type="password" value={pwdForm.confirm} onChange={(e) => setPwdForm({ ...pwdForm, confirm: e.target.value })} placeholder={t('settings.confirmPasswordPlaceholder')} icon={<Key size={16} />} />
                 </div>
-                <Button 
+                <Button
                   onClick={handleUpdatePassword}
                   isLoading={isSaving}
                   className="w-full mt-4"
@@ -260,7 +335,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           {activeTab === 'notifications' && (
             <div className="p-5 space-y-4 animate-in fade-in duration-300">
               <h3 className="text-lg font-bold border-b border-[#2a4d85] pb-4">{t('settings.notiTitle')}</h3>
-              
+
               <div className="space-y-4">
                 {[
                   { id: 'noti-1', labelKey: 'settings.noti1Label', descKey: 'settings.noti1Desc' },
@@ -274,11 +349,11 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                       <p className="text-xs text-blue-300 mt-1">{t(item.descKey)}</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer mt-1">
-                      <input 
-                        type="checkbox" 
-                        checked={notis[item.id as keyof typeof notis]} 
-                        onChange={(e) => setNotis({...notis, [item.id]: e.target.checked})}
-                        className="sr-only peer" 
+                      <input
+                        type="checkbox"
+                        checked={notis[item.id as keyof typeof notis]}
+                        onChange={(e) => setNotis({ ...notis, [item.id]: e.target.checked })}
+                        className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold"></div>
                     </label>
@@ -334,38 +409,38 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                 <TableBody>
                   {accountsList
                     .filter(acc => roleFilter === 'All' || acc.role === roleFilter)
-                    .filter(acc => 
-                      acc.username.toLowerCase().includes(searchAccount.toLowerCase()) || 
+                    .filter(acc =>
+                      acc.username.toLowerCase().includes(searchAccount.toLowerCase()) ||
                       acc.fullName.toLowerCase().includes(searchAccount.toLowerCase())
                     )
                     .map((acc) => (
-                    <TableRow key={acc.id}>
-                      <TableCell className="font-medium">{acc.username}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">
-                            {acc.avatarInitials}
+                      <TableRow key={acc.id}>
+                        <TableCell className="font-medium">{acc.username}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">
+                              {acc.avatarInitials}
+                            </div>
+                            {acc.fullName}
                           </div>
-                          {acc.fullName}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {t(`roles.${acc.role}`)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="icon" className="h-8 w-8 text-blue-500" onClick={() => { setEditingAcc(acc); setIsModalOpen(true); }} title={t('admin.editBtn')}>
-                            <Pencil size={14} />
-                          </Button>
-                          <Button variant="outline" size="icon" className="h-8 w-8 text-orange-500" title={t('admin.resetPwdBtn')}>
-                            <RefreshCw size={14} />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {t(`roles.${acc.role}`)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-blue-500" onClick={() => { setEditingAcc(acc); setIsModalOpen(true); }} title={t('admin.editBtn')}>
+                              <Pencil size={14} />
+                            </Button>
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-orange-500" title={t('admin.resetPwdBtn')}>
+                              <RefreshCw size={14} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
@@ -375,9 +450,9 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
       {/* Account Modal overlay */}
       {editingAcc && (
-        <Modal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
           title={editingAcc.id ? 'Sửa thông tin tài khoản' : 'Thêm tài khoản mới'}
           footer={
             <>
@@ -389,25 +464,25 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-secondary">Tên đăng nhập</label>
-              <Input 
-                type="text" 
+              <Input
+                type="text"
                 value={editingAcc.username || ''}
-                onChange={e => setEditingAcc({...editingAcc, username: e.target.value})}
+                onChange={e => setEditingAcc({ ...editingAcc, username: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-secondary">Họ và tên</label>
-              <Input 
-                type="text" 
+              <Input
+                type="text"
                 value={editingAcc.fullName || ''}
-                onChange={e => setEditingAcc({...editingAcc, fullName: e.target.value})}
+                onChange={e => setEditingAcc({ ...editingAcc, fullName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-secondary">Quyền truy cập</label>
-              <Select 
+              <Select
                 value={editingAcc.role || 'member'}
-                onChange={e => setEditingAcc({...editingAcc, role: e.target.value as UserRole})}
+                onChange={e => setEditingAcc({ ...editingAcc, role: e.target.value as UserRole })}
               >
                 <option value="bcn">{t('roles.bcn')}</option>
                 <option value="bvh_hr">{t('roles.bvh_hr')}</option>
@@ -421,8 +496,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
             {!editingAcc.id && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-secondary">Mật khẩu khởi tạo</label>
-                <Input 
-                  type="text" 
+                <Input
+                  type="text"
                   defaultValue="123456"
                   disabled
                 />
