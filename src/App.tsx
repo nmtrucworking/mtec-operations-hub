@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { LoginView } from './views/LoginView';
+import { ToastProvider } from './components/ui/toast';
 import { getCurrentUser, normalizeUser } from './services/auth';
 import { APP_VISIBLE_TABS, getVisibleTabDefinitions } from './config/appRegistry';
 import type { AppTab, UserAccount, UserRole } from './types/app';
@@ -126,9 +127,11 @@ const App = () => {
   }
 
   return (
-    <AppShell activeTab={normalizedActiveTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
-      {renderActiveView()}
-    </AppShell>
+    <ToastProvider>
+      <AppShell activeTab={normalizedActiveTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
+        {renderActiveView()}
+      </AppShell>
+    </ToastProvider>
   );
 };
 

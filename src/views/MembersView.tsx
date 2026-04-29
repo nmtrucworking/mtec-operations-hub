@@ -27,6 +27,7 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '../components/ui/toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
@@ -60,8 +61,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [isSavingMember, setIsSavingMember] = useState(false);
-  const [loadError, setLoadError] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState('');
+  const toast = useToast();
   const [sortConfig, setSortConfig] = useState<{ field: SortField; order: SortOrder }>({
     field: 'id',
     order: 'asc'
@@ -97,18 +97,16 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const loadMembers = async () => {
       if (!authToken) {
         setMembers([]);
-        setLoadError('Thiếu token đăng nhập để tải danh sách thành viên.');
+        toast.error('Thiếu token đăng nhập để tải danh sách thành viên.');
         setIsLoadingMembers(false);
         return;
       }
-
       setIsLoadingMembers(true);
-      setLoadError('');
       const response = await getMembers({ pageSize: 1000 }, authToken);
       if (response.status >= 200 && response.status < 300 && response.data) {
         setMembers(response.data.members);
       } else {
-        setLoadError(response.error || 'Không tải được danh sách thành viên từ backend.');
+        toast.error(response.error || 'Không tải được danh sách thành viên từ backend.');
       }
       setIsLoadingMembers(false);
     };
@@ -127,11 +125,10 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       if (preserveSelectionId) {
         setSelectedMember(response.data.members.find((member) => member.id === preserveSelectionId) ?? null);
       }
-      setLoadError('');
+      // success - nothing to show here, callers may display toast
       return true;
     }
-
-    setLoadError(response.error || 'Không tải được danh sách thành viên từ backend.');
+    toast.error(response.error || 'Không tải được danh sách thành viên từ backend.');
     return false;
   };
 
@@ -192,7 +189,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       const filename = `members_export_${new Date().getTime()}.${format === 'csv' ? 'csv' : 'zip'}`;
       const success = await downloadFileWithAuth(exportUrl, authToken, filename);
       if (!success) {
-        setLoadError('Không thể tải tệp xuất. Vui lòng kiểm tra lại quyền truy cập.');
+        toast.error('Không thể tải tệp xuất. Vui lòng kiểm tra lại quyền truy cập.');
       }
     } else {
       window.open(exportUrl, '_blank');
@@ -209,10 +206,9 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     if (response.status >= 200 && response.status < 300) {
       await refreshMembers();
       setSelectedMember(null);
-      setSaveSuccess('Xóa thành viên thành công!');
-      setTimeout(() => setSaveSuccess(''), 2000);
+      toast.success('Xóa thành viên thành công!');
     } else {
-      setLoadError(response.error || 'Không thể xóa thành viên.');
+      toast.error(response.error || 'Không thể xóa thành viên.');
     }
     setIsSavingMember(false);
   };
@@ -293,8 +289,6 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
 
   const handleAddSubmit = async () => {
     setIsSavingMember(true);
-    setLoadError('');
-    setSaveSuccess('');
     
     const { role, ban, ...rest } = formData;
     const payload = {
@@ -310,15 +304,12 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const response = await createMember(payload as any, authToken);
     if (response.status >= 200 && response.status < 300) {
       await refreshMembers();
-      setSaveSuccess('Thêm thành viên mới thành công!');
-      setTimeout(() => {
-        setIsAddModalOpen(false);
-        setFormData(initialFormState);
-        setSelectedMember(null);
-        setSaveSuccess('');
-      }, 1500);
+      toast.success('Thêm thành viên mới thành công!');
+      setIsAddModalOpen(false);
+      setFormData(initialFormState);
+      setSelectedMember(null);
     } else {
-      setLoadError(response.error || 'Không thể tạo thành viên mới.');
+      toast.error(response.error || 'Không thể tạo thành viên mới.');
     }
     setIsSavingMember(false);
   };
@@ -342,8 +333,6 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     }
 
     setIsSavingMember(true);
-    setLoadError('');
-    setSaveSuccess('');
 
     const { role, ban, ...rest } = formData;
     const payload = {
@@ -359,16 +348,13 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const response = await updateMember(selectedMember.id, payload as any, authToken);
     if (response.status >= 200 && response.status < 300) {
       await refreshMembers(selectedMember.id);
-      setSaveSuccess('Cập nhật thông tin thành viên thành công!');
-      setTimeout(() => {
-        setIsEditModalOpen(false);
-        if (response.data) {
-          setSelectedMember(response.data);
-        }
-        setSaveSuccess('');
-      }, 1500);
+      toast.success('Cập nhật thông tin thành viên thành công!');
+      setIsEditModalOpen(false);
+      if (response.data) {
+        setSelectedMember(response.data);
+      }
     } else {
-      setLoadError(response.error || 'Không thể cập nhật thành viên.');
+      toast.error(response.error || 'Không thể cập nhật thành viên.');
     }
     setIsSavingMember(false);
   };
@@ -651,11 +637,11 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
               variant="outline" 
               onClick={async () => {
                 const url = exportMemberProfileUrl(selectedMember!.id);
-                if (authToken) {
+                  if (authToken) {
                   const filename = `Ho_so_${selectedMember!.name.replace(/\s+/g, '_')}_${selectedMember!.mssv}.docx`;
                   const success = await downloadFileWithAuth(url, authToken, filename);
                   if (!success) {
-                    setLoadError('Không thể tải hồ sơ. Vui lòng thử lại sau.');
+                    toast.error('Không thể tải hồ sơ. Vui lòng thử lại sau.');
                   }
                 } else {
                   window.open(url, '_blank');
@@ -760,16 +746,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
         }
       >
         <div className="space-y-4">
-          {saveSuccess && (
-            <div className="bg-success-bg text-success-text p-3 rounded-lg text-sm border border-success-border animate-in fade-in slide-in-from-top-2">
-              {saveSuccess}
-            </div>
-          )}
-          {loadError && (
-            <div className="bg-danger-bg text-danger-text p-3 rounded-lg text-sm border border-danger-border animate-in fade-in slide-in-from-top-2">
-              {loadError}
-            </div>
-          )}
+          {/* Toast messages shown via global toast; removed inline modal banners */}
           
           <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
