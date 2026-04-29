@@ -5,6 +5,7 @@ import { login as loginRequest } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { ForgotPasswordView } from './ForgotPasswordView';
 import type { UserAccount, UserRole } from '../types/app';
 
 interface LoginViewProps {
@@ -17,6 +18,7 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const normalizeUser = (payload: unknown): UserAccount => {
     const record = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
@@ -70,6 +72,10 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
     setIsLoading(false);
   };
 
+  if (showForgotPassword) {
+    return <ForgotPasswordView onBack={() => setShowForgotPassword(false)} />;
+  }
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background font-sans relative overflow-hidden">
       {/* Background decorations */}
@@ -107,7 +113,13 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium text-secondary block">{t('login.passwordLabel')}</label>
-                <a href="#" className="text-xs text-primary hover:text-gold transition-colors">{t('login.forgotPassword')}</a>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-xs text-primary hover:text-gold transition-colors"
+                >
+                  {t('login.forgotPassword')}
+                </button>
               </div>
               <Input
                 type="password"

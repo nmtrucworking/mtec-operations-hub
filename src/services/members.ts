@@ -2,6 +2,11 @@ import type { ApiResponse } from './api';
 import { apiCall } from './api';
 import type { Member, MemberSkill, SkillLevel } from '../data/members';
 
+/**
+ * 
+ * @param level 
+ * @returns 
+ */
 const normalizeSkillLevel = (level: unknown): SkillLevel => {
   if (level === 'Tốt' || level === 'Trung bình' || level === 'Cơ bản') {
     return level;

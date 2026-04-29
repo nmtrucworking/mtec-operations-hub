@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle } from 'lucide-react';
 import { mockAccounts as initialAccounts } from '../data/accounts';
+import { changePassword } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
@@ -12,9 +13,10 @@ import type { UserAccount, UserRole } from '../types/app';
 
 interface SettingsViewProps {
   currentUser: UserAccount;
+  authToken?: string;
 }
 
-export const SettingsView = ({ currentUser }: SettingsViewProps) => {
+export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'accounts'>('profile');
   
@@ -58,23 +60,32 @@ export const SettingsView = ({ currentUser }: SettingsViewProps) => {
     }, 800);
   };
 
-  const handleUpdatePassword = () => {
+  const handleUpdatePassword = async () => {
     setPwdError('');
     if (!pwdForm.current || !pwdForm.new || !pwdForm.confirm) {
-      setPwdError('Vui lòng điền đầy đủ thông tin.');
+      setPwdError(t('login.errorEmpty'));
       return;
     }
     if (pwdForm.new !== pwdForm.confirm) {
-      setPwdError('Mật khẩu mới không khớp.');
+      setPwdError(t('auth.passwordMismatch'));
       return;
     }
+    if (pwdForm.new.length < 8) {
+      setPwdError('Password must be at least 8 characters');
+      return;
+    }
+
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    const response = await changePassword(pwdForm.current, pwdForm.new, authToken || '');
+    
+    if (response.status >= 200 && response.status < 300) {
       setPwdForm({ current: '', new: '', confirm: '' });
       setSuccessMsg(t('settings.pwdSuccess', 'Cập nhật mật khẩu thành công!'));
       setTimeout(() => setSuccessMsg(''), 3000);
-    }, 800);
+    } else {
+      setPwdError(response.error || 'Failed to change password');
+    }
+    setIsSaving(false);
   };
 
   const handleSaveAccount = () => {

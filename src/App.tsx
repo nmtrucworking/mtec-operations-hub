@@ -186,7 +186,7 @@ const App = () => {
       case 'generator':
         return <GeneratorView />;
       case 'settings':
-        return <SettingsView currentUser={currentUser!} />;
+        return <SettingsView currentUser={currentUser!} authToken={authToken} />;
       default:
         return (
           <DashboardView

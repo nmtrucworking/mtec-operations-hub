@@ -108,11 +108,83 @@ export const getCurrentUser = async (token: string) => {
   return apiCall('/api/auth/me', { method: 'GET' }, token);
 };
 
+/**
+ * Forgot password - Request password reset email
+ * POST /api/auth/forgot-password
+ */
+export const forgotPassword = async (emailOrUsername: string) => {
+  return apiCall('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email: emailOrUsername, username: emailOrUsername })
+  });
+};
+
+/**
+ * Verify reset token - Check if reset token is valid
+ * POST /api/auth/verify-reset-token
+ */
+export const verifyResetToken = async (token: string) => {
+  return apiCall('/api/auth/verify-reset-token', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  });
+};
+
+/**
+ * Reset password - Set new password with reset token
+ * POST /api/auth/reset-password
+ */
+export const resetPassword = async (token: string, newPassword: string) => {
+  return apiCall('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword, password: newPassword })
+  });
+};
+
+/**
+ * Change password - Update password when already logged in
+ * POST /api/auth/change-password
+ */
+export const changePassword = async (currentPassword: string, newPassword: string, token: string) => {
+  return apiCall('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword })
+  }, token);
+};
+
+/**
+ * Verify email - Send verification code to email
+ * POST /api/auth/send-verification-email
+ */
+export const sendVerificationEmail = async (email: string) => {
+  return apiCall('/api/auth/send-verification-email', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  });
+};
+
+/**
+ * Verify email code - Verify email with code
+ * POST /api/auth/verify-email
+ */
+export const verifyEmail = async (email: string, code: string) => {
+  return apiCall('/api/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ email, code })
+  });
+};
+
 export default {
   apiCall,
   checkApiHealth,
   login,
   refreshToken,
   getCurrentUser,
+  forgotPassword,
+  verifyResetToken,
+  resetPassword,
+  changePassword,
+  sendVerificationEmail,
+  verifyEmail,
   API_BASE_URL
 };
