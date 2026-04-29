@@ -21,6 +21,7 @@ interface DashboardViewProps {
 }
 
 export const DashboardView = ({ authToken }: DashboardViewProps) => {
+  const { t } = useTranslation();
   const [dashboardData, setDashboardData] = useState<DashboardOverviewData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,16 +52,22 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Derived data
-  const totalMembers = mockMembers.length;
+  const totalMembers = dashboardData?.totalMembers ?? 0;
   
   // Calculate dept stats
   const countBan = (ban: string) => mockMembers.filter(m => m.ban === ban).length;
-  const pctMedia = totalMembers ? Math.round((countBan('Ban Truyen thong') / totalMembers) * 100) : 0;
-  const pctTech = totalMembers ? Math.round((countBan('Ban Cong nghe') / totalMembers) * 100) : 0;
-  const pctBoard = totalMembers ? Math.round((countBan('Ban Chu nhiem') / totalMembers) * 100) : 0;
-  const pctOps = 100 - pctMedia - pctTech - pctBoard; // Remaining for Operations/Logistics
-  const resignRequests = [] as RequestItem[]; // Replace with actual request filtering logic if needed
 
+  const getDeptCount = (ban: string) => {
+  const dept = dashboardData?.deptDistribution.find((d: any) => d.ban === ban);
+    return dept ? dept.count : 0;
+  };
+
+  const pctMedia = totalMembers ? Math.round((getDeptCount('Ban Truyen thong') / totalMembers) * 100) : 0;
+  const pctTech = totalMembers ? Math.round((getDeptCount('Ban Cong nghe') / totalMembers) * 100) : 0;
+  const pctBoard = totalMembers ? Math.round((getDeptCount('Ban Chu nhiem') / totalMembers) * 100) : 0;
+  const pctOps = 100 - pctMedia - pctTech - pctBoard; // Remaining for Operations/Logistics
+  
+  const resignRequests = [] as RequestItem[]; // Replace with actual request filtering logic if needed
   const maintenanceCount = assetSeedData.filter((item) => item.status === 'Cần bảo trì').length;
 /*
   // Calculate dynamic activities
@@ -100,7 +107,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
     setIsAiLoading(true);
     
     const prompt = `Với tư cách là chuyên gia Nhân sự và Quản lý của CLB MTEC. Hãy phân tích ngắn gọn (khoảng 3-4 dòng) về tình hình hiện tại của CLB dựa trên dữ liệu sau:
-    - Tổng thành viên: ${dashboardData.totalMembers}
+    - Tổng thành viên: ${totalMembers}
     - Đơn yêu cầu đang chờ duyệt: ${dashboardData.pendingRequestsCount}
     - Số dư quỹ: ${formatCurrency(dashboardData.currentFund)} (Tổng thu: ${formatCurrency(dashboardData.totalIncome)}, Tổng chi: ${formatCurrency(dashboardData.totalExpense)})
     - Thiết bị cần bảo trì: ${dashboardData.maintenanceCount}
@@ -149,8 +156,8 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-bold">{('dashboard.title')}</h2>
-          <p className="text-blue-300 mt-1">{('dashboard.subtitle')}</p>
+          <h2 className="text-2xl font-bold">{t('dashboard.title')}</h2>
+          <p className="text-blue-300 mt-1">{t('dashboard.subtitle')}</p>
         </div>
         <div className="flex space-x-3">
           <Button
@@ -160,7 +167,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
             className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-lg shadow-purple-500/20 border-0"
           >
             {!isAiLoading && <Sparkles size={16} className="mr-2" />}
-            ✨ {('dashboard.aiInsightBtn')}
+            ✨ {t('dashboard.aiInsightBtn')}
           </Button>
         </div>
       </div>
@@ -172,7 +179,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
           </div>
           <div>
             <h4 className="font-semibold text-indigo-200 mb-1 flex items-center">
-              {('dashboard.aiInsightTitle')} <Sparkles size={14} className="ml-2 text-indigo-300" />
+              {t('dashboard.aiInsightTitle')} <Sparkles size={14} className="ml-2 text-indigo-300" />
             </h4>
             <p className="text-sm text-blue-100 leading-relaxed">{aiInsight}</p>
           </div>
@@ -181,10 +188,10 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title={('dashboard.statTotalMembers')} value={totalMembers.toString()} icon={<Users size={24} />} trend="+12" trendUp />
-        <StatCard title={('dashboard.statCurrentFund')} value={formatCurrency(dashboardData?.currentFund ?? 0)} icon={<DollarSign size={24} />} color="text-green-400" trend={`${(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0) ? '+' : ''}${formatCurrency((dashboardData?.totalIncome ?? 0) - (dashboardData?.totalExpense ?? 0))}`} trendUp={(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0)} />
-        <StatCard title={('dashboard.statMaintenance')} value={dashboardData?.maintenanceCount.toString()} icon={<Package size={24} />} color="text-red-400" />
-        <StatCard title={('dashboard.statPendingReqs')} value={dashboardData?.pendingRequestsCount.toString()} icon={<Clock size={24} />} color="text-orange-400" />
+        <StatCard title={t('dashboard.statTotalMembers')} value={totalMembers.toString()} icon={<Users size={24} />} trend="+12" trendUp />
+        <StatCard title={t('dashboard.statCurrentFund')} value={formatCurrency(dashboardData?.currentFund ?? 0)} icon={<DollarSign size={24} />} color="text-green-400" trend={`${(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0) ? '+' : ''}${formatCurrency((dashboardData?.totalIncome ?? 0) - (dashboardData?.totalExpense ?? 0))}`} trendUp={(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0)} />
+        <StatCard title={t('dashboard.statMaintenance')} value={dashboardData?.maintenanceCount.toString()} icon={<Package size={24} />} color="text-red-400" />
+        <StatCard title={t('dashboard.statPendingReqs')} value={dashboardData?.pendingRequestsCount.toString()} icon={<Clock size={24} />} color="text-orange-400" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -192,14 +199,14 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         <div className="col-span-1 lg:col-span-2 space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg">{('dashboard.chartMembersByDept')}</CardTitle>
+              <CardTitle className="text-lg">{t('dashboard.chartMembersByDept')}</CardTitle>
               <BarChart3 className="text-secondary" />
             </CardHeader>
             <CardContent className="space-y-4">
-              <ProgressBar label={('dashboard.deptMedia')} percent={pctMedia} color="bg-blue-400" />
-              <ProgressBar label={('dashboard.deptTech')} percent={pctTech} color="bg-indigo-400" />
-              <ProgressBar label={('dashboard.deptOps')} percent={pctOps} color="bg-green-400" />
-              <ProgressBar label={('dashboard.deptBoard')} percent={pctBoard} color="bg-yellow-400" />
+              <ProgressBar label={t('dashboard.deptMedia')} percent={pctMedia} color="bg-blue-400" />
+              <ProgressBar label={t('dashboard.deptTech')} percent={pctTech} color="bg-indigo-400" />
+              <ProgressBar label={t('dashboard.deptOps')} percent={pctOps} color="bg-green-400" />
+              <ProgressBar label={t('dashboard.deptBoard')} percent={pctBoard} color="bg-yellow-400" />
             </CardContent>
           </Card>
 
@@ -207,10 +214,10 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
                 <AlertTriangle size={18} className="text-orange-400" />
-                {('dashboard.urgentTasks')}
+                {t('dashboard.urgentTasks')}
               </CardTitle>
               <button className="text-sm text-secondary hover:text-gold transition-colors flex items-center">
-                {('dashboard.viewAll')} <ArrowRight size={14} className="ml-1" />
+                {t('dashboard.viewAll')} <ArrowRight size={14} className="ml-1" />
               </button>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -224,7 +231,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
                 />
               ))}
               {dashboardData.pendingRequestsCount === 0 && (
-                <p className="text-sm text-secondary italic text-center py-4">{('dashboard.noPendingReqs')}</p>
+                <p className="text-sm text-secondary italic text-center py-4">{t('dashboard.noPendingReqs')}</p>
               )}
             </CardContent>
           </Card>
@@ -234,21 +241,21 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{('dashboard.quickActions')}</CardTitle>
+              <CardTitle className="text-lg">{t('dashboard.quickActions')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => setActiveModal('addMember')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {('dashboard.qaAddMember')}
+                  {t('dashboard.qaAddMember')}
                 </button>
                 <button onClick={() => setActiveModal('financeTx')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {('dashboard.qaFinanceTx')}
+                  {t('dashboard.qaFinanceTx')}
                 </button>
                 <button onClick={() => setActiveModal('export')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {('dashboard.qaExport')}
+                  {t('dashboard.qaExport')}
                 </button>
                 <button onClick={() => setActiveModal('roles')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {('dashboard.qaRoles')}
+                  {t('dashboard.qaRoles')}
                 </button>
               </div>
             </CardContent>
@@ -256,7 +263,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{('dashboard.recentActivity')}</CardTitle>
+              <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {dashboardData.recentActivities.map((activity) => (
@@ -269,7 +276,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
               ))}
               {dashboardData.recentActivities.length === 0 && (
                 <p className="text-sm text-secondary italic text-center py-4">
-                  {('dashboard.noRecentActivity')}
+                  {t('dashboard.noRecentActivity')}
                 </p>
               )}
             </CardContent>
@@ -281,7 +288,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       <Modal 
         isOpen={activeModal === 'addMember'} 
         onClose={() => setActiveModal(null)} 
-        title={('dashboard.qaAddMember')}
+        title={t('dashboard.qaAddMember')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
@@ -308,7 +315,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       <Modal 
         isOpen={activeModal === 'financeTx'} 
         onClose={() => setActiveModal(null)} 
-        title={('dashboard.qaFinanceTx')}
+        title={t('dashboard.qaFinanceTx')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
@@ -338,7 +345,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       <Modal 
         isOpen={activeModal === 'export'} 
         onClose={() => setActiveModal(null)} 
-        title={('dashboard.qaExport')}
+        title={t('dashboard.qaExport')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
