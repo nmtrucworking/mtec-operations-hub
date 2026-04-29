@@ -180,6 +180,67 @@ export const verifyEmail = async (email: string, code: string) => {
   });
 };
 
+/**
+ * Settings Endpoints
+ */
+
+export const getProfile = async (token: string) => {
+  return apiCall('/api/settings/profile', { method: 'GET' }, token);
+};
+
+export const updateProfile = async (data: { fullName?: string; email?: string; phone?: string; avatarInitials?: string }, token: string) => {
+  return apiCall('/api/settings/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(data)
+  }, token);
+};
+
+export const getNotificationSettings = async (token: string) => {
+  return apiCall('/api/settings/notifications', { method: 'GET' }, token);
+};
+
+export const updateNotificationSettings = async (data: Record<string, boolean>, token: string) => {
+  return apiCall('/api/settings/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify(data)
+  }, token);
+};
+
+/**
+ * User Management Endpoints (Admin)
+ */
+
+export const getUsers = async (token: string, params?: { search?: string; role?: string; page?: number; pageSize?: number }) => {
+  let query = '';
+  if (params) {
+    const searchParams = new URLSearchParams();
+    if (params.search) searchParams.append('search', params.search);
+    if (params.role) searchParams.append('role', params.role);
+    if (params.page) searchParams.append('page', params.page.toString());
+    if (params.pageSize) searchParams.append('pageSize', params.pageSize.toString());
+    query = `?${searchParams.toString()}`;
+  }
+  return apiCall(`/api/users${query}`, { method: 'GET' }, token);
+};
+
+export const createUser = async (userData: any, token: string) => {
+  return apiCall('/api/users', {
+    method: 'POST',
+    body: JSON.stringify(userData)
+  }, token);
+};
+
+export const updateUser = async (userId: string, userData: any, token: string) => {
+  return apiCall(`/api/users/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(userData)
+  }, token);
+};
+
+export const deleteUser = async (userId: string, token: string) => {
+  return apiCall(`/api/users/${userId}`, { method: 'DELETE' }, token);
+};
+
 export default {
   apiCall,
   checkApiHealth,
@@ -192,5 +253,13 @@ export default {
   changePassword,
   sendVerificationEmail,
   verifyEmail,
+  getProfile,
+  updateProfile,
+  getNotificationSettings,
+  updateNotificationSettings,
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
   API_BASE_URL
 };

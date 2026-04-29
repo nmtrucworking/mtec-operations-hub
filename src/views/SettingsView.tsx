@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle } from 'lucide-react';
-import { changePassword } from '../services/api';
+import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle, Trash2, Plus } from 'lucide-react';
+import { 
+  changePassword, 
+  getProfile, 
+  updateProfile, 
+  getNotificationSettings, 
+  updateNotificationSettings,
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser
+} from '../services/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
@@ -9,9 +19,6 @@ import { Modal } from '../components/ui/modal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import type { UserAccount, UserRole } from '../types/app';
-
-// Mock Data
-import { mockAccounts as initialAccounts } from '../data/accounts';
 
 interface SettingsViewProps {
   currentUser: UserAccount;
@@ -24,7 +31,9 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
   // Generic states
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   // 1. Profile states
   const [profileForm, setProfileForm] = useState({
@@ -38,95 +47,78 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const [pwdError, setPwdError] = useState('');
 
   // 3. Notifications states
-  const [notis, setNotis] = useState({
-    'noti-1': true,
-    'noti-2': true,
-    'noti-3': false,
-    'noti-4': true
-  });
+  const [notis, setNotis] = useState<Record<string, boolean>>({});
 
   // 4. Accounts Admin states
-  const [accountsList, setAccountsList] = useState<UserAccount[]>(initialAccounts);
+  const [accountsList, setAccountsList] = useState<UserAccount[]>([]);
   const [searchAccount, setSearchAccount] = useState('');
   const [roleFilter, setRoleFilter] = useState<'All' | UserRole>('All');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Partial<UserAccount> | null>(null);
 
-  // Fetch profile and notification settings on component mount or when authToken changes
+  // Fetch settings on component mount
   useEffect(() => {
     const fetchSettings = async () => {
+      if (!authToken) return;
+      setIsLoading(true);
       try {
-        // 1. Fetch profile information
-        const profileRes = await fetch('/api/settings/profile', {
-          headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        const profileData = await profileRes.json();
-        if (profileData.success) {
+        // 1. Fetch profile
+        const profileRes = await getProfile(authToken);
+        if (profileRes.status === 200 && profileRes.data?.success) {
+          const data = profileRes.data.data;
           setProfileForm({
-            fullName: profileData.data.fullName,
-            email: profileData.data.email,
-            phone: profileData.data.phone
+            fullName: data.fullName || '',
+            email: data.email || '',
+            phone: data.phone || ''
           });
         }
 
-        // 2. Fetch notification settings
-        const notiRes = await fetch('/api/settings/notifications', {
-          headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        const notiData = await notiRes.json();
-        if (notiData.success) {
-          setNotis({
-            'noti-1': notiData.data.noti1,
-            'noti-2': notiData.data.noti2,
-            'noti-3': notiData.data.noti3,
-            'noti-4': notiData.data.noti4
-          });
+        // 2. Fetch notifications
+        const notiRes = await getNotificationSettings(authToken);
+        if (notiRes.status === 200 && notiRes.data?.success) {
+          setNotis(notiRes.data.data);
         }
 
         // 3. Fetch Accounts if Admin
         if (currentUser.role === 'bcn') {
-          const accRes = await fetch('/api/users', {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-          });
-          const accJson = await accRes.json();
-          if (accJson.success) setAccountsList(accJson.data);
+          const accRes = await getUsers(authToken);
+          if (accRes.status === 200 && accRes.data?.success) {
+            setAccountsList(accRes.data.data);
+          }
         }
-
       } catch (error) {
         console.error("Error fetching settings:", error);
+        setErrorMsg("Không thể tải cài đặt");
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchSettings();
-  }, [authToken]);
+  }, [authToken, currentUser.role]);
 
-  // Additional handlers for saving profile, updating password, and managing accounts will go here
   const handleSaveProfile = async () => {
+    if (!authToken) return;
     setIsSaving(true);
+    setErrorMsg('');
     try {
-      const response = await fetch('/api/settings/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(profileForm)
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        setSuccessMsg(t('settings.saveSuccess'));
+      const response = await updateProfile(profileForm, authToken);
+      if (response.status === 200 && response.data?.success) {
+        setSuccessMsg(t('common.success'));
         setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        setErrorMsg(response.error || "Không thể cập nhật hồ sơ");
       }
     } catch (error) {
-      setPwdError("Cannot update profile");
+      setErrorMsg("Lỗi kết nối");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleUpdatePassword = async () => {
+    if (!authToken) return;
     setPwdError('');
     if (!pwdForm.current || !pwdForm.new || !pwdForm.confirm) {
       setPwdError(t('login.errorEmpty'));
@@ -137,55 +129,91 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
       return;
     }
     if (pwdForm.new.length < 8) {
-      setPwdError('Password must be at least 8 characters');
+      setPwdError('Mật khẩu phải từ 8 ký tự trở lên');
       return;
     }
 
     setIsSaving(true);
-    const response = await changePassword(pwdForm.current, pwdForm.new, authToken || '');
-
-    if (response.status >= 200 && response.status < 300) {
-      setPwdForm({ current: '', new: '', confirm: '' });
-      setSuccessMsg(t('settings.pwdSuccess', 'Cập nhật mật khẩu thành công!'));
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } else {
-      setPwdError(response.error || 'Failed to change password');
+    try {
+      const response = await changePassword(pwdForm.current, pwdForm.new, authToken);
+      if (response.status === 200) {
+        setPwdForm({ current: '', new: '', confirm: '' });
+        setSuccessMsg(t('common.success'));
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        setPwdError(response.error || 'Đổi mật khẩu thất bại');
+      }
+    } catch (error) {
+      setPwdError("Lỗi kết nối");
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
-  };
-
-  const handleSaveAccount = () => {
-    if (editingAcc?.id) {
-      // Edit
-      setAccountsList(prev => prev.map(a => a.id === editingAcc.id ? { ...a, ...editingAcc } as UserAccount : a));
-    } else {
-      // Add
-      const newAcc: UserAccount = {
-        id: `ACC-00${accountsList.length + 1}`,
-        username: editingAcc?.username || '',
-        fullName: editingAcc?.fullName || '',
-        role: editingAcc?.role || 'member',
-        avatarInitials: editingAcc?.fullName?.substring(0, 2).toUpperCase() || 'UN'
-      };
-      setAccountsList([...accountsList, newAcc]);
-    }
-    setIsModalOpen(false);
-    setSuccessMsg('Đã cập nhật danh sách tài khoản!');
-    setTimeout(() => setSuccessMsg(''), 3000);
   };
 
   const handleNotiChange = async (id: string, checked: boolean) => {
+    if (!authToken) return;
     const updatedNotis = { ...notis, [id]: checked };
     setNotis(updatedNotis);
-    await fetch('/api/settings/notifications', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify({ [id]: checked })
-    });
+    try {
+      await updateNotificationSettings({ [id]: checked }, authToken);
+    } catch (error) {
+      console.error("Error updating notifications:", error);
+    }
   };
+
+  const handleSaveAccount = async () => {
+    if (!authToken) return;
+    setIsSaving(true);
+    try {
+      let response;
+      if (editingAcc?.id) {
+        // Update
+        response = await updateUser(editingAcc.id, editingAcc, authToken);
+      } else {
+        // Create
+        response = await createUser(editingAcc, authToken);
+      }
+
+      if (response.status === 200 && response.data?.success) {
+        // Refresh list
+        const accRes = await getUsers(authToken);
+        if (accRes.status === 200 && accRes.data?.success) {
+          setAccountsList(accRes.data.data);
+        }
+        setIsModalOpen(false);
+        setSuccessMsg(t('common.success'));
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        setErrorMsg(response.error || "Thao tác thất bại");
+      }
+    } catch (error) {
+      setErrorMsg("Lỗi kết nối");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    if (!authToken || !window.confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) return;
+    try {
+      const response = await deleteUser(id, authToken);
+      if (response.status === 200) {
+        setAccountsList(prev => prev.filter(a => a.id !== id));
+        setSuccessMsg(t('common.success'));
+        setTimeout(() => setSuccessMsg(''), 3000);
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error);
+    }
+  };
+
+  // Filter accounts
+  const filteredAccounts = accountsList.filter(acc => {
+    const matchSearch = acc.fullName.toLowerCase().includes(searchAccount.toLowerCase()) || 
+                       acc.username.toLowerCase().includes(searchAccount.toLowerCase());
+    const matchRole = roleFilter === 'All' || acc.role === roleFilter;
+    return matchSearch && matchRole;
+  });
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl">
@@ -334,7 +362,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
           {activeTab === 'notifications' && (
             <div className="p-5 space-y-4 animate-in fade-in duration-300">
-              <h3 className="text-lg font-bold border-b border-[#2a4d85] pb-4">{t('settings.notiTitle')}</h3>
+              <h3 className="text-lg font-bold border-b border-border pb-4">{t('settings.notiTitle')}</h3>
 
               <div className="space-y-4">
                 {[
@@ -343,16 +371,16 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                   { id: 'noti-3', labelKey: 'settings.noti3Label', descKey: 'settings.noti3Desc' },
                   { id: 'noti-4', labelKey: 'settings.noti4Label', descKey: 'settings.noti4Desc' }
                 ].map((item) => (
-                  <div key={item.id} className="flex items-start justify-between p-4 bg-[#0a1f3f] border border-[#2a4d85] rounded-lg">
+                  <div key={item.id} className="flex items-start justify-between p-4 bg-background border border-border rounded-lg">
                     <div>
-                      <h4 className="text-sm font-semibold text-white">{t(item.labelKey)}</h4>
-                      <p className="text-xs text-blue-300 mt-1">{t(item.descKey)}</p>
+                      <h4 className="text-sm font-semibold text-primary">{t(item.labelKey)}</h4>
+                      <p className="text-xs text-secondary mt-1">{t(item.descKey)}</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer mt-1">
                       <input
                         type="checkbox"
-                        checked={notis[item.id as keyof typeof notis]}
-                        onChange={(e) => setNotis({ ...notis, [item.id]: e.target.checked })}
+                        checked={notis[item.id] || false}
+                        onChange={(e) => handleNotiChange(item.id, e.target.checked)}
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold"></div>
@@ -368,7 +396,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
               <div className="flex justify-between items-center border-b border-border pb-4">
                 <h3 className="text-lg font-bold">{t('admin.accountsTitle')}</h3>
                 <Button onClick={() => { setEditingAcc({ role: 'member' }); setIsModalOpen(true); }}>
-                  + {t('admin.addAccountBtn')}
+                  <Plus size={16} className="mr-2" />
+                  {t('admin.addAccountBtn')}
                 </Button>
               </div>
 
@@ -384,7 +413,6 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                 <Select
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value as 'All' | UserRole)}
-                  icon={<Filter size={18} />}
                 >
                   <option value="All">{t('admin.filterRoleAll')}</option>
                   <option value="bcn">{t('roles.bcn')}</option>
@@ -403,22 +431,16 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                     <TableHead>{t('admin.thUsername')}</TableHead>
                     <TableHead>{t('admin.thFullName')}</TableHead>
                     <TableHead>{t('admin.thRole')}</TableHead>
-                    <TableHead>{t('admin.thAction')}</TableHead>
+                    <TableHead className="text-right">{t('admin.thAction')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accountsList
-                    .filter(acc => roleFilter === 'All' || acc.role === roleFilter)
-                    .filter(acc =>
-                      acc.username.toLowerCase().includes(searchAccount.toLowerCase()) ||
-                      acc.fullName.toLowerCase().includes(searchAccount.toLowerCase())
-                    )
-                    .map((acc) => (
+                  {filteredAccounts.map((acc) => (
                       <TableRow key={acc.id}>
                         <TableCell className="font-medium">{acc.username}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">
                               {acc.avatarInitials}
                             </div>
                             {acc.fullName}
@@ -430,12 +452,12 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-blue-500" onClick={() => { setEditingAcc(acc); setIsModalOpen(true); }} title={t('admin.editBtn')}>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-secondary hover:text-gold" onClick={() => { setEditingAcc(acc); setIsModalOpen(true); }} title={t('admin.editBtn')}>
                               <Pencil size={14} />
                             </Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-orange-500" title={t('admin.resetPwdBtn')}>
-                              <RefreshCw size={14} />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-secondary hover:text-danger-text" onClick={() => handleDeleteAccount(acc.id)} title={t('admin.deleteBtn')}>
+                              <Trash2 size={14} />
                             </Button>
                           </div>
                         </TableCell>
@@ -456,8 +478,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           title={editingAcc.id ? 'Sửa thông tin tài khoản' : 'Thêm tài khoản mới'}
           footer={
             <>
-              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Hủy bỏ</Button>
-              <Button onClick={handleSaveAccount}>Lưu thông tin</Button>
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Hủy bỏ</Button>
+              <Button onClick={handleSaveAccount} isLoading={isSaving}>Lưu thông tin</Button>
             </>
           }
         >
@@ -468,8 +490,19 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                 type="text"
                 value={editingAcc.username || ''}
                 onChange={e => setEditingAcc({ ...editingAcc, username: e.target.value })}
+                disabled={!!editingAcc.id}
               />
             </div>
+            {!editingAcc.id && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-secondary">Mật khẩu</label>
+                <Input
+                  type="password"
+                  placeholder="Nhập mật khẩu cho tài khoản mới"
+                  onChange={e => setEditingAcc({ ...editingAcc, password: e.target.value })}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium text-secondary">Họ và tên</label>
               <Input
@@ -479,7 +512,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-secondary">Quyền truy cập</label>
+              <label className="text-sm font-medium text-secondary">Chức vụ (Phân quyền)</label>
               <Select
                 value={editingAcc.role || 'member'}
                 onChange={e => setEditingAcc({ ...editingAcc, role: e.target.value as UserRole })}
@@ -493,17 +526,6 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                 <option value="member">{t('roles.member')}</option>
               </Select>
             </div>
-            {!editingAcc.id && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-secondary">Mật khẩu khởi tạo</label>
-                <Input
-                  type="text"
-                  defaultValue="123456"
-                  disabled
-                />
-                <p className="text-xs text-secondary/70">Mật khẩu mặc định là 123456.</p>
-              </div>
-            )}
           </div>
         </Modal>
       )}
