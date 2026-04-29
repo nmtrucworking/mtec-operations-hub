@@ -16,12 +16,12 @@ interface RequestsViewProps {
     date: string;
     reason: string;
     financeDraft?: RequestItem['financeDraft'];
-  }) => string;
+  }) => Promise<string>;
   onReviewRequest: (payload: {
     requestId: string;
     status: Exclude<RequestStatus, 'Chờ duyệt'>;
     reviewNote?: string;
-  }) => string | undefined;
+  }) => Promise<string | undefined>;
 }
 
 const nextRequestId = (list: RequestItem[]) => {

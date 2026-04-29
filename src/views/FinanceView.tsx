@@ -19,13 +19,13 @@ interface FinanceViewProps {
     category: string;
     approvalNote?: string;
     linkedRequest?: Transaction['linkedRequest'];
-  }) => string;
+  }) => Promise<string>;
   onReviewTransaction: (payload: {
     transactionId: string;
     status: Exclude<TransactionStatus, 'Chờ duyệt'>;
     reviewNote?: string;
-  }) => boolean;
-  onSoftDeleteTransaction: (transactionId: string) => boolean;
+  }) => Promise<boolean>;
+  onSoftDeleteTransaction: (transactionId: string) => Promise<boolean>;
   canReviewTransaction: (transaction: Transaction) => boolean;
   totalIncome: number;
   totalExpense: number;

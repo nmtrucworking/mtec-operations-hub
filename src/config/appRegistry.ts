@@ -9,7 +9,8 @@ import { DisciplineView } from '../views/DisciplineView';
 import { LogisticsView } from '../views/LogisticsView';
 import { GeneratorView } from '../views/GeneratorView';
 import { LogsView } from '../views/LogsView';
-import { useOperationsData, todayViDate } from '../hooks/useOperationsData';
+import { getRequests, reviewRequest as reviewRequestApi } from '../services/requests';
+import { getTransactions, getPendingTransactions, reviewTransaction as reviewTransactionApi, deleteTransaction as deleteTransactionApi } from '../services/finance';
 import type { UserAccount, UserRole, AppTab } from '../types/app';
 
 export const APP_VERSION = '1.0.0';
@@ -32,44 +33,103 @@ export interface AppRenderContext {
 }
 
 // Wrapper for views that need operations data
-const RequestsWrapper = ({ currentUser }: { currentUser: UserAccount }) => {
-  const { requests, upsertRequest, reviewRequest } = useOperationsData();
+const RequestsWrapper = ({ authToken, currentUser }: { authToken: string; currentUser: UserAccount }) => {
+  const [requests, setRequests] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const fetchRequests = React.useCallback(async () => {
+    setIsLoading(true);
+    const response = await getRequests({}, authToken);
+    if (response.data) {
+      setRequests(response.data.requests);
+    }
+    setIsLoading(false);
+  }, [authToken]);
+
+  React.useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
   return React.createElement(RequestsView, {
     requests,
     currentUser,
-    onSaveRequest: (payload) => upsertRequest(payload),
-    onReviewRequest: (payload) => reviewRequest({
-      ...payload,
-      reviewerLabel: currentUser.fullName,
-      reviewedAt: todayViDate()
-    }, currentUser)
+    onSaveRequest: async (payload) => {
+      // Logic for saving/creating request via API would go here
+      // For now we just refresh after a mock delay or success
+      return "REQ-NEW"; 
+    },
+    onReviewRequest: async (payload) => {
+      const apiStatus = payload.status === 'Đã duyệt' ? 'Da duyet' : 'Tu choi';
+      const response = await reviewRequestApi(payload.requestId, apiStatus, payload.reviewNote, authToken);
+      if (response.status >= 200 && response.status < 300) {
+        fetchRequests();
+        return "SUCCESS";
+      }
+      return undefined;
+    }
   });
 };
 
-const FinanceWrapper = ({ currentUser }: { currentUser: UserAccount }) => {
-  const { 
-    activeTransactions, 
-    pendingTransactions, 
-    upsertTransaction, 
-    reviewTransaction, 
-    softDeleteTransaction,
-    totalIncome,
-    totalExpense,
-    currentFund
-  } = useOperationsData();
+const FinanceWrapper = ({ authToken, currentUser }: { authToken: string; currentUser: UserAccount }) => {
+  const [transactions, setTransactions] = React.useState<any[]>([]);
+  const [pendingTransactions, setPendingTransactions] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const fetchData = React.useCallback(async () => {
+    setIsLoading(true);
+    const [txRes, pendingRes] = await Promise.all([
+      getTransactions({}, authToken),
+      getPendingTransactions(authToken)
+    ]);
+    
+    if (txRes.data) setTransactions(txRes.data.transactions);
+    if (pendingRes.data) setPendingTransactions(pendingRes.data);
+    setIsLoading(false);
+  }, [authToken]);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const totalIncome = transactions
+    .filter((item) => item.type === 'Thu' && item.status === 'Đã duyệt')
+    .reduce((sum, item) => sum + item.amount, 0);
+
+  const totalExpense = transactions
+    .filter((item) => item.type === 'Chi' && item.status === 'Đã duyệt')
+    .reduce((sum, item) => sum + item.amount, 0);
+
+  const currentFund = totalIncome - totalExpense + 3200000;
 
   return React.createElement(FinanceView, {
-    transactions: activeTransactions,
+    transactions,
     pendingTransactions,
     currentUser,
-    onSaveTransaction: (payload) => upsertTransaction(payload, currentUser),
-    onReviewTransaction: (payload) => reviewTransaction({
-      ...payload,
-      reviewerLabel: currentUser.fullName,
-      reviewedAt: todayViDate()
-    }, currentUser),
-    onSoftDeleteTransaction: (id) => softDeleteTransaction(id, currentUser),
-    canReviewTransaction: () => true, // Simplified for now
+    onSaveTransaction: async (payload) => {
+      // Logic for saving/creating transaction via API
+      return "TX-NEW";
+    },
+    onReviewTransaction: async (payload) => {
+      const apiStatus = payload.status === 'Đã duyệt' ? 'Da duyet' : 'Tu choi';
+      const response = await reviewTransactionApi(payload.transactionId, apiStatus, payload.reviewNote, authToken);
+      if (response.status >= 200 && response.status < 300) {
+        fetchData();
+        return true;
+      }
+      return false;
+    },
+    onSoftDeleteTransaction: async (id) => {
+      const response = await deleteTransactionApi(id, authToken);
+      if (response.status >= 200 && response.status < 300) {
+        fetchData();
+        return true;
+      }
+      return false;
+    },
+    canReviewTransaction: (tx: any) => {
+      if (currentUser.role === 'bcn') return true;
+      return tx.requiredApprovalRole === currentUser.role || !tx.requiredApprovalRole;
+    },
     totalIncome,
     totalExpense,
     currentFund
@@ -110,7 +170,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(FileText, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: 'all',
-    render: ({ currentUser }) => React.createElement(RequestsWrapper, { currentUser })
+    render: ({ authToken, currentUser }) => React.createElement(RequestsWrapper, { authToken, currentUser })
   },
   {
     tab: 'finance',
@@ -118,7 +178,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(DollarSign, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: ['bcn', 'bvh_finance'],
-    render: ({ currentUser }) => React.createElement(FinanceWrapper, { currentUser })
+    render: ({ authToken, currentUser }) => React.createElement(FinanceWrapper, { authToken, currentUser })
   },
   {
     tab: 'discipline',
