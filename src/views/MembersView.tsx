@@ -38,7 +38,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl } from '../services/members';
 import { formatDate, toDateInputFormat, downloadFileWithAuth } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
-import { FACULTY_MAJOR_MAP, type Member, type MemberSkill, type SkillLevel, DEPARTMENTS } from '../data/members';
+import {
+  FACULTY_MAJOR_MAP,
+  type Member,
+  type MemberSkill,
+  type SkillLevel,
+  DEPARTMENTS,
+  banListMatches,
+  compareBanLists,
+  formatBanList,
+  normalizeBanList
+} from '../data/members';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -136,7 +146,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   const filteredMembers = members.filter((member) => {
     const matchSearch =
       member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.mssv.includes(searchTerm);
-    const matchBan = filterBan === 'All' || member.ban.includes(filterBan);
+    const matchBan = filterBan === 'All' || banListMatches(member.ban, filterBan);
     const matchStatus = filterStatus === 'All' || member.status === filterStatus;
     return matchSearch && matchBan && matchStatus;
   });
@@ -151,12 +161,12 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const bValue = b[field];
 
     if (aValue === bValue) return 0;
-    
+
     let comparison = 0;
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       comparison = aValue.localeCompare(bValue);
-    } else if (Array.isArray(aValue) && Array.isArray(bValue)) {
-      comparison = aValue.join(', ').localeCompare(bValue.join(', '));
+    } else if (Array.isArray(aValue) || Array.isArray(bValue)) {
+      comparison = compareBanLists(aValue, bValue);
     } else if (typeof aValue === 'number' && typeof bValue === 'number') {
       comparison = aValue - bValue;
     }
@@ -294,7 +304,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const payload = {
       ...rest,
       roleTitle: role,
-      ban: ban.join(', '), // API expects string according to docs
+      ban: formatBanList(ban),
       dob: toDateInputFormat(formData.dob),
       joinDate: toDateInputFormat(formData.joinDate),
       hardSkills: sanitizeSkills(formData.hardSkills),
@@ -319,6 +329,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     setSelectedMember(member);
     setFormData({
       ...memberData,
+      ban: normalizeBanList(member.ban),
       dob: toDateInputFormat(member.dob),
       joinDate: toDateInputFormat(member.joinDate),
       hardSkills: member.hardSkills.map(skill => ({ ...skill })),
@@ -338,7 +349,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const payload = {
       ...rest,
       roleTitle: role,
-      ban: ban.join(', '), // API expects string according to docs
+      ban: formatBanList(ban),
       dob: toDateInputFormat(formData.dob),
       joinDate: toDateInputFormat(formData.joinDate),
       hardSkills: sanitizeSkills(formData.hardSkills),
@@ -405,7 +416,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
         <TableCell className="text-secondary">{member.mssv}</TableCell>
         <TableCell>
           <div className="flex flex-wrap gap-1">
-            {member.ban.map((b) => (
+            {normalizeBanList(member.ban).map((b) => (
               <Badge key={b} variant="secondary" className="text-[10px] py-0 px-1.5 bg-brand-light border-border text-secondary">
                 {b}
               </Badge>
@@ -680,10 +691,10 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
                   Ban Chuyên môn
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  {selectedMember.ban.map(b => (
+                  {normalizeBanList(selectedMember.ban).map(b => (
                     <Badge key={b} variant="secondary" className="px-3 py-1">{b}</Badge>
                   ))}
-                  {selectedMember.ban.length === 0 && <span className="text-sm text-secondary italic">Chưa tham gia ban nào</span>}
+                  {normalizeBanList(selectedMember.ban).length === 0 && <span className="text-sm text-secondary italic">Chưa tham gia ban nào</span>}
                 </div>
               </div>
             </div>
@@ -801,7 +812,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
                     <label key={dept} className="flex items-center space-x-2 cursor-pointer group">
                       <input 
                         type="checkbox" 
-                        checked={formData.ban.includes(dept)} 
+                        checked={banListMatches(formData.ban, dept)} 
                         onChange={() => handleBanToggle(dept)}
                         className="rounded border-border text-gold focus:ring-gold transition-colors"
                       />

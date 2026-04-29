@@ -16,6 +16,61 @@ export interface MemberSkill {
 
 export const DEPARTMENTS = ['Ban Chu nhiem', 'Ban Cong nghe', 'Ban Truyen thong'];
 
+const compareText = (left: string, right: string) => left.localeCompare(right, 'vi', { sensitivity: 'base' });
+
+export const normalizeText = (value: unknown): string =>
+  String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+export const normalizeBanList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => normalizeBanList(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return normalizeBanList(record.ban ?? record.department ?? record.name ?? record.title);
+  }
+
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return [];
+  }
+
+  return text
+    .split(/[,;/\n|]+/g)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+};
+
+export const formatBanList = (value: unknown): string => {
+  const uniqueBans = Array.from(new Set(normalizeBanList(value)));
+  uniqueBans.sort(compareText);
+  return uniqueBans.join(', ');
+};
+
+export const banListMatches = (value: unknown, target: string): boolean => {
+  const normalizedTarget = normalizeText(target);
+  if (!normalizedTarget) {
+    return false;
+  }
+
+  return normalizeBanList(value).some((item) => {
+    const normalizedItem = normalizeText(item);
+    return (
+      normalizedItem === normalizedTarget ||
+      normalizedItem.includes(normalizedTarget) ||
+      normalizedTarget.includes(normalizedItem)
+    );
+  });
+};
+
+export const compareBanLists = (left: unknown, right: unknown): number => formatBanList(left).localeCompare(formatBanList(right), 'vi', { sensitivity: 'base' });
+
 export interface Member {
   id: number;
   mssv: string;

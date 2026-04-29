@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarChart3, Bot, Clock, Loader2, PieChart, Sparkles, Users, XCircle, DollarSign, Package, AlertTriangle, ArrowRight, CheckCircle2, Download, Star } from 'lucide-react';
 import { ActivityItem, ProgressBar, StatCard, RequestCard } from '../components/shared/Widgets';
@@ -6,13 +6,14 @@ import { callGeminiAPI } from '../services/gemini';
 import { formatCurrency, type Transaction } from '../data/finance';
 import { assetSeedData } from '../data/logistics';
 import type { RequestItem } from '../data/requests';
-import { mockMembers } from '../data/members';
+import { normalizeBanList, normalizeText, type Member } from '../data/members';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Modal } from '../components/ui/modal';
 import { Input } from '../components/ui/input';
 import { DashboardOverviewData, DashboardActivity } from '../types/dashboard';
 import { getDashboardOverview } from '../services/dashboard';
+import { getMembers } from '../services/members';
 
 import { apiCall } from '../services/api';
 
@@ -25,20 +26,29 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const [dashboardData, setDashboardData] = useState<DashboardOverviewData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [memberDirectory, setMemberDirectory] = useState<Member[] | null>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       setError(null);
-      
-      const response = await getDashboardOverview(authToken);
+      const [overviewResponse, membersResponse] = await Promise.all([
+        getDashboardOverview(authToken),
+        getMembers({ pageSize: 1000 }, authToken)
+      ]);
 
-      if (response.status === 200 && response.data) {
-        setDashboardData(response.data);
+      if (overviewResponse.status === 200 && overviewResponse.data) {
+        setDashboardData(overviewResponse.data);
       } else {
-        setError(response.error || 'Không thể truy xuất dữ liệu từ máy chủ.');
+        setError(overviewResponse.error || 'Không thể truy xuất dữ liệu từ máy chủ.');
       }
-      
+
+      if (membersResponse.status >= 200 && membersResponse.status < 300 && membersResponse.data) {
+        setMemberDirectory(membersResponse.data.members);
+      } else {
+        setMemberDirectory(null);
+      }
+
       setIsLoading(false);
     };
     if (authToken) {
@@ -52,30 +62,29 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Derived data
-  const totalMembers = dashboardData?.totalMembers ?? 0;
-  
-  // Calculate dept stats
-  const normalizeText = (s: unknown) =>
-    String(s ?? '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+  const totalMembers = memberDirectory ? memberDirectory.length : (dashboardData?.totalMembers ?? 0);
 
-  const getDeptCount = (ban: string) => {
-    const target = normalizeText(ban);
-    const dept = dashboardData?.deptDistribution.find((d: any) => {
-      const name = normalizeText(d?.ban);
-      return name === target || name.includes(target) || target.includes(name);
+  const countMembersByAliases = (aliases: string[]) => {
+    if (memberDirectory) {
+      return memberDirectory.reduce((count, member) => {
+        const memberBans = normalizeBanList(member.ban).map((ban) => normalizeText(ban));
+        const hasMatch = memberBans.some((ban) => aliases.some((alias) => ban.includes(alias)));
+        return count + (hasMatch ? 1 : 0);
+      }, 0);
+    }
+
+    const normalizedAliases = aliases.map((alias) => normalizeText(alias));
+    const dept = dashboardData?.deptDistribution.find((item: any) => {
+      const name = normalizeText(item?.ban);
+      return normalizedAliases.some((alias) => name === alias || name.includes(alias) || alias.includes(name));
     });
     return dept ? dept.count : 0;
   };
 
-  const pctMedia = totalMembers ? Math.round((getDeptCount('Truyen thong') / totalMembers) * 100) : 0;
-  const pctTech = totalMembers ? Math.round((getDeptCount('Cong nghe') / totalMembers) * 100) : 0;
-  const pctBoard = totalMembers ? Math.round((getDeptCount('Chu nhiem') / totalMembers) * 100) : 0;
-  const pctOps = totalMembers ? Math.round((getDeptCount('Dieu hanh') / totalMembers) * 100) : 0;
+  const pctMedia = totalMembers ? Math.round((countMembersByAliases(['truyen thong']) / totalMembers) * 100) : 0;
+  const pctTech = totalMembers ? Math.round((countMembersByAliases(['cong nghe']) / totalMembers) * 100) : 0;
+  const pctBoard = totalMembers ? Math.round((countMembersByAliases(['chu nhiem']) / totalMembers) * 100) : 0;
+  const pctOps = totalMembers ? Math.round((countMembersByAliases(['van hanh', 'dieu hanh']) / totalMembers) * 100) : 0;
   
   const resignRequests = [] as RequestItem[]; // Replace with actual request filtering logic if needed
   const maintenanceCount = assetSeedData.filter((item) => item.status === 'Cần bảo trì').length;

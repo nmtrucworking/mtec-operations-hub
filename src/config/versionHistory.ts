@@ -9,6 +9,16 @@ export interface VersionEntry {
 
 export const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: '1.0.1',
+    date: '2026-04-30',
+    changes: [
+      { type: 'fix', description: 'Sửa lỗi thống kê Ban chuyên môn trên Dashboard (chuẩn hóa tên, bỏ dấu).' },
+      { type: 'feature', description: 'Thêm hệ thống Toast toàn cục (ToastProvider, useToast) và hiển thị thông báo ở góc trên phải.' },
+      { type: 'improvement', description: 'Chuyển MembersView sang sử dụng `useToast` và loại bỏ banner inline.' },
+      { type: 'improvement', description: 'Tích hợp các API Dashboard và Members, chuẩn hoá xử lý dữ liệu trả về.' }
+    ]
+  },
+  {
     version: '1.0.0',
     date: '2026-04-30',
     changes: [
