@@ -55,7 +55,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const totalMembers = dashboardData?.totalMembers ?? 0;
   
   // Calculate dept stats
-  const countBan = (ban: string) => mockMembers.filter(m => m.ban === ban).length;
+  const countBan = (ban: string) => mockMembers.filter(m => m.ban.includes(ban)).length;
 
   const getDeptCount = (ban: string) => {
   const dept = dashboardData?.deptDistribution.find((d: any) => d.ban === ban);

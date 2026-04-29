@@ -65,6 +65,16 @@ const normalizeStatus = (value: unknown): Member['status'] => {
   return text.includes('inactive') || text.includes('tạm nghỉ') || text.includes('tam nghi') ? 'Inactive' : 'Active';
 };
 
+const normalizeBan = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map(v => String(v).trim()).filter(v => v);
+  }
+  const str = String(value ?? '').trim();
+  if (!str) return [];
+  // Split by comma if it's a string
+  return str.split(',').map(v => v.trim()).filter(v => v);
+};
+
 const normalizeMember = (input: unknown): Member => {
   const record = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
 
@@ -74,7 +84,7 @@ const normalizeMember = (input: unknown): Member => {
     name: pickString(record.name, record.fullName, record.full_name),
     gender: pickString(record.gender, record.sex),
     dob: pickString(record.dob, record.birthDate, record.birth_date),
-    ban: pickString(record.ban, record.department),
+    ban: normalizeBan(record.ban ?? record.department),
     role: pickString(record.role, record.position),
     status: normalizeStatus(record.status),
     phone: pickString(record.phone, record.phoneNumber, record.phone_number),

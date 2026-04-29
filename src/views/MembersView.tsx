@@ -31,13 +31,53 @@ import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { createMember, getMembers, updateMember } from '../services/members';
 import type { ApiResponse } from '../services/api';
-import { FACULTY_MAJOR_MAP, type Member, type MemberSkill, type SkillLevel } from '../data/members';
+import { FACULTY_MAJOR_MAP, type Member, type MemberSkill, type SkillLevel, DEPARTMENTS } from '../data/members';
 
 const ITEMS_PER_PAGE = 10;
 
 interface MembersViewProps {
   authToken?: string;
 }
+
+type SortField = keyof Member | 'stt';
+type SortOrder = 'asc' | 'desc';
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '---';
+  // If it's already in dd/mm/yyyy format, return it
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
+  
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateStr;
+  }
+};
+
+const toDateInputFormat = (dateStr: string) => {
+  if (!dateStr) return '';
+  // If it's in dd/mm/yyyy format, convert to yyyy-mm-dd
+  const ddmmyyyyMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    return `${ddmmyyyyMatch[3]}-${ddmmyyyyMatch[2]}-${ddmmyyyyMatch[1]}`;
+  }
+  
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return '';
+  }
+};
 
 export const MembersView = ({ authToken }: MembersViewProps) => {
   const { t } = useTranslation();
@@ -52,6 +92,11 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [isSavingMember, setIsSavingMember] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ field: SortField; order: SortOrder }>({
+    field: 'id',
+    order: 'asc'
+  });
 
   type MemberFormData = Omit<Member, 'id'>;
 
@@ -60,7 +105,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     name: '',
     gender: 'Nam',
     dob: '',
-    ban: 'Ban Chu nhiem',
+    ban: [],
     role: 'Thanh vien',
     status: 'Active',
     phone: '',
@@ -125,24 +170,54 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   const filteredMembers = members.filter((member) => {
     const matchSearch =
       member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.mssv.includes(searchTerm);
-    const matchBan = filterBan === 'All' || member.ban === filterBan;
+    const matchBan = filterBan === 'All' || member.ban.includes(filterBan);
     const matchStatus = filterStatus === 'All' || member.status === filterStatus;
     return matchSearch && matchBan && matchStatus;
   });
 
+  // Sắp xếp dữ liệu
+  const sortedMembers = [...filteredMembers].sort((a, b) => {
+    const field = sortConfig?.field ?? 'id';
+    const order = sortConfig?.order ?? 'asc';
+    if (field === 'stt') return 0; // STT is calculated based on current page
+
+    const aValue = a[field];
+    const bValue = b[field];
+
+    if (aValue === bValue) return 0;
+    
+    let comparison = 0;
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      comparison = aValue.localeCompare(bValue);
+    } else if (Array.isArray(aValue) && Array.isArray(bValue)) {
+      comparison = aValue.join(', ').localeCompare(bValue.join(', '));
+    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+      comparison = aValue - bValue;
+    }
+
+    return order === 'asc' ? comparison : -comparison;
+  });
+
   // Phân trang
-  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
-  const paginatedMembers = filteredMembers.slice(
+  const totalPages = Math.ceil(sortedMembers.length / ITEMS_PER_PAGE);
+  const paginatedMembers = sortedMembers.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  const handleSort = (field: SortField) => {
+    setSortConfig((prev) => ({
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   const handleExport = () => {
     const headers = ['ID', 'MSSV', 'Name', 'Gender', 'DOB', 'Ban', 'Role', 'Status', 'Phone', 'Email', 'Join Date', 'Lop', 'Chuyen Nganh', 'Khoa', 'Address'];
     const csvContent = [
       headers.join(','),
       ...filteredMembers.map(m => 
-        `${m.id},${m.mssv},"${m.name}",${m.gender},${m.dob},"${m.ban}","${m.role}",${m.status},${m.phone},${m.email},${m.joinDate},"${m.lop}","${m.chuyenNganh}","${m.khoa}","${m.address}"`
+        `${m.id},${m.mssv},"${m.name}",${m.gender},${m.dob},"${m.ban.join('; ')}","${m.role}",${m.status},${m.phone},${m.email},${m.joinDate},"${m.lop}","${m.chuyenNganh}","${m.khoa}","${m.address}"`
       )
     ].join('\n');
 
@@ -163,6 +238,17 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleBanToggle = (dept: string) => {
+    setFormData(prev => {
+      const currentBans = prev.ban;
+      if (currentBans.includes(dept)) {
+        return { ...prev, ban: currentBans.filter(b => b !== dept) };
+      } else {
+        return { ...prev, ban: [...currentBans, dept] };
+      }
+    });
   };
 
   const sanitizeSkills = (skills: MemberSkill[]): MemberSkill[] => {
@@ -220,8 +306,12 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
 
   const handleAddSubmit = async () => {
     setIsSavingMember(true);
+    setLoadError('');
+    setSaveSuccess('');
     const payload = {
       ...formData,
+      dob: formatDate(formData.dob),
+      joinDate: formatDate(formData.joinDate),
       hardSkills: sanitizeSkills(formData.hardSkills),
       softSkills: sanitizeSkills(formData.softSkills)
     };
@@ -229,9 +319,13 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const response = await createMember(payload, authToken);
     if (response.status >= 200 && response.status < 300) {
       await refreshMembers();
-      setIsAddModalOpen(false);
-      setFormData(initialFormState);
-      setSelectedMember(null);
+      setSaveSuccess('Thêm thành viên mới thành công!');
+      setTimeout(() => {
+        setIsAddModalOpen(false);
+        setFormData(initialFormState);
+        setSelectedMember(null);
+        setSaveSuccess('');
+      }, 1500);
     } else {
       setLoadError(response.error || 'Không thể tạo thành viên mới.');
     }
@@ -243,6 +337,8 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     setSelectedMember(member);
     setFormData({
       ...memberData,
+      dob: toDateInputFormat(member.dob),
+      joinDate: toDateInputFormat(member.joinDate),
       hardSkills: member.hardSkills.map(skill => ({ ...skill })),
       softSkills: member.softSkills.map(skill => ({ ...skill }))
     });
@@ -255,8 +351,12 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     }
 
     setIsSavingMember(true);
+    setLoadError('');
+    setSaveSuccess('');
     const payload = {
       ...formData,
+      dob: formatDate(formData.dob),
+      joinDate: formatDate(formData.joinDate),
       hardSkills: sanitizeSkills(formData.hardSkills),
       softSkills: sanitizeSkills(formData.softSkills)
     };
@@ -264,10 +364,14 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const response = await updateMember(selectedMember.id, payload, authToken);
     if (response.status >= 200 && response.status < 300) {
       await refreshMembers(selectedMember.id);
-      setIsEditModalOpen(false);
-      if (response.data) {
-        setSelectedMember(response.data);
-      }
+      setSaveSuccess('Cập nhật thông tin thành viên thành công!');
+      setTimeout(() => {
+        setIsEditModalOpen(false);
+        if (response.data) {
+          setSelectedMember(response.data);
+        }
+        setSaveSuccess('');
+      }, 1500);
     } else {
       setLoadError(response.error || 'Không thể cập nhật thành viên.');
     }
@@ -340,31 +444,49 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
         </div>
       ) : null}
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm transition-all hover:shadow-md">
         {isLoadingMembers ? (
           <div className="p-8 text-center text-secondary">Loading ....</div>
         ) : null}
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16 text-center">{t('members.thStt')}</TableHead>
-              <TableHead>{t('members.thName')}</TableHead>
-              <TableHead>{t('members.thMssv')}</TableHead>
-              <TableHead>{t('members.thDept')}</TableHead>
-              <TableHead>{t('members.thRole')}</TableHead>
-              <TableHead>{t('members.thStatus')}</TableHead>
+              <TableHead className="w-16 text-center cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('id')}>
+                {t('members.thStt')} {sortConfig.field === 'id' && (sortConfig.order === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('name')}>
+                {t('members.thName')} {sortConfig.field === 'name' && (sortConfig.order === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('mssv')}>
+                {t('members.thMssv')} {sortConfig.field === 'mssv' && (sortConfig.order === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('ban')}>
+                {t('members.thDept')} {sortConfig.field === 'ban' && (sortConfig.order === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('role')}>
+                {t('members.thRole')} {sortConfig.field === 'role' && (sortConfig.order === 'asc' ? '↑' : '↓')}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('status')}>
+                {t('members.thStatus')} {sortConfig.field === 'status' && (sortConfig.order === 'asc' ? '↑' : '↓')}
+              </TableHead>
               <TableHead className="text-center w-24">{t('members.thAction')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedMembers.map((member, index) => (
-              <TableRow key={member.id}>
+              <TableRow key={member.id} className="group hover:bg-muted/30 transition-colors">
                 <TableCell className="text-center text-secondary font-medium">
                   {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                 </TableCell>
                 <TableCell className="font-medium text-primary">{member.name}</TableCell>
                 <TableCell className="text-secondary">{member.mssv}</TableCell>
-                <TableCell className="text-secondary">{member.ban}</TableCell>
+                <TableCell className="text-secondary">
+                  <div className="flex flex-wrap gap-1">
+                    {member.ban.map(b => (
+                      <Badge key={b} variant="outline" className="text-[10px] py-0 px-1.5">{b}</Badge>
+                    ))}
+                  </div>
+                </TableCell>
                 <TableCell className="text-secondary">{member.role}</TableCell>
                 <TableCell>
                   <Badge variant={member.status === 'Active' ? 'success' : 'danger'}>
@@ -377,7 +499,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
                     size="icon"
                     onClick={() => setSelectedMember(member)}
                     title={t('members.viewDetail')}
-                    className="text-brand-gold hover:text-gold hover:bg-gold/10"
+                    className="text-brand-gold hover:text-gold hover:bg-gold/10 transition-all transform hover:scale-110"
                   >
                     <Eye size={18} />
                   </Button>
@@ -429,10 +551,10 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
         className="max-w-3xl"
         footer={
           <>
-            <Button variant="outline" onClick={() => setSelectedMember(null)}>
+            <Button variant="outline" onClick={() => setSelectedMember(null)} className="hover:bg-secondary/10 transition-colors">
               {t('members.close')}
             </Button>
-            <Button onClick={() => openEditModal(selectedMember!)}>
+            <Button onClick={() => openEditModal(selectedMember!)} className="transition-transform active:scale-95">
               <Edit size={16} className="mr-2" />
               {t('members.update')}
             </Button>
@@ -441,13 +563,28 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       >
         {selectedMember && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-brand-light p-5 rounded-xl border border-border">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-brand-light p-5 rounded-xl border border-border shadow-inner">
               <InfoItem Icon={Users} label={t('members.lblGender')} value={selectedMember.gender} />
-              <InfoItem Icon={Calendar} label={t('members.lblDob')} value={selectedMember.dob} />
+              <InfoItem Icon={Calendar} label={t('members.lblDob')} value={formatDate(selectedMember.dob)} />
               <InfoItem Icon={Phone} label={t('members.lblPhone')} value={selectedMember.phone} />
               <InfoItem Icon={Mail} label={t('members.lblEmail')} value={selectedMember.email} />
               <InfoItem Icon={MapPin} label={t('members.lblAddress')} value={selectedMember.address} />
               <InfoItem Icon={GraduationCap} label={t('members.lblMajor')} value={selectedMember.chuyenNganh} />
+              <InfoItem Icon={Calendar} label="Ngày tham gia" value={formatDate(selectedMember.joinDate)} />
+              <div className="md:col-span-2">
+                <span className="flex items-center text-xs text-secondary mb-2">
+                  <span className="mr-1.5 opacity-70">
+                    <Briefcase size={16} />
+                  </span>
+                  Ban Chuyên môn
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {selectedMember.ban.map(b => (
+                    <Badge key={b} variant="secondary" className="px-3 py-1">{b}</Badge>
+                  ))}
+                  {selectedMember.ban.length === 0 && <span className="text-sm text-secondary italic">Chưa tham gia ban nào</span>}
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -494,20 +631,39 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
         className="max-w-4xl"
         footer={
           <>
-            <Button variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}>
+            <Button variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }} className="hover:bg-secondary/10 transition-colors">
               Hủy
             </Button>
-            <Button isLoading={isSavingMember} onClick={() => void (isEditModalOpen ? handleEditSubmit() : handleAddSubmit())}>
+            <Button 
+              isLoading={isSavingMember} 
+              onClick={() => void (isEditModalOpen ? handleEditSubmit() : handleAddSubmit())}
+              className={`transition-all ${isSavingMember ? 'cursor-wait' : 'active:scale-95'}`}
+            >
               {isEditModalOpen ? 'Lưu thay đổi' : 'Thêm mới'}
             </Button>
           </>
         }
       >
-        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Thông tin cơ bản */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-gold border-b border-border pb-2">Thông tin cơ bản</h4>
+        <div className="space-y-4">
+          {saveSuccess && (
+            <div className="bg-success-bg text-success-text p-3 rounded-lg text-sm border border-success-border animate-in fade-in slide-in-from-top-2">
+              {saveSuccess}
+            </div>
+          )}
+          {loadError && (
+            <div className="bg-danger-bg text-danger-text p-3 rounded-lg text-sm border border-danger-border animate-in fade-in slide-in-from-top-2">
+              {loadError}
+            </div>
+          )}
+          
+          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Thông tin cơ bản */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gold border-b border-border pb-2 flex items-center">
+                  <Users size={18} className="mr-2" />
+                  Thông tin cơ bản
+                </h4>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Họ và tên *</label>
                 <Input name="name" value={formData.name} onChange={handleFormChange} required />
@@ -538,27 +694,33 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
                 <Input name="phone" value={formData.phone} onChange={handleFormChange} required />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Địa chỉ *</label>
-                <Input name="address" value={formData.address} onChange={handleFormChange} required />
+                <label className="text-sm font-medium">Địa chỉ</label>
+                <Input name="address" value={formData.address} onChange={handleFormChange} />
               </div>
             </div>
 
             {/* Thông tin CLB & Học vấn */}
             <div className="space-y-4">
               <h4 className="font-semibold text-gold border-b border-border pb-2">CLB & Học vấn</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Ban *</label>
-                  <Select name="ban" value={formData.ban} onChange={handleFormChange} required>
-                    <option value="Ban Chu nhiem">Ban Chủ nhiệm</option>
-                    <option value="Ban Truyen thong">Ban Truyền thông</option>
-                    <option value="Ban Cong nghe">Ban Công nghệ</option>
-                  </Select>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Ban * (Checklist)</label>
+                <div className="grid grid-cols-2 gap-2 p-3 border border-border rounded-lg bg-background/50">
+                  {DEPARTMENTS.map(dept => (
+                    <label key={dept} className="flex items-center space-x-2 cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.ban.includes(dept)} 
+                        onChange={() => handleBanToggle(dept)}
+                        className="rounded border-border text-gold focus:ring-gold transition-colors"
+                      />
+                      <span className="text-sm group-hover:text-gold transition-colors">{dept}</span>
+                    </label>
+                  ))}
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Chức vụ *</label>
-                  <Input name="role" value={formData.role} onChange={handleFormChange} required />
-                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Chức vụ *</label>
+                <Input name="role" value={formData.role} onChange={handleFormChange} required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -574,8 +736,8 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Lớp *</label>
-                <Input name="lop" value={formData.lop} onChange={handleFormChange} required />
+                <label className="text-sm font-medium">Lớp</label>
+                <Input name="lop" value={formData.lop} onChange={handleFormChange} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Khoa *</label>
@@ -715,6 +877,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
             </div>
           </div>
         </form>
+        </div>
       </Modal>
     </div>
   );
