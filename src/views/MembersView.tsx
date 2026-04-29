@@ -20,6 +20,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Trash2,
+  FileText,
   type LucideIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +32,7 @@ import { Modal } from '../components/ui/modal';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { createMember, getMembers, updateMember } from '../services/members';
+import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl } from '../services/members';
 import { formatDate, toDateInputFormat } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
 import { FACULTY_MAJOR_MAP, type Member, type MemberSkill, type SkillLevel, DEPARTMENTS } from '../data/members';
@@ -100,9 +102,9 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
 
       setIsLoadingMembers(true);
       setLoadError('');
-      const response = await getMembers(authToken);
+      const response = await getMembers({ pageSize: 1000 }, authToken);
       if (response.status >= 200 && response.status < 300 && response.data) {
-        setMembers(response.data);
+        setMembers(response.data.members);
       } else {
         setLoadError(response.error || 'Không tải được danh sách thành viên từ backend.');
       }
@@ -117,11 +119,11 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       return false;
     }
 
-    const response = await getMembers(authToken);
+    const response = await getMembers({ pageSize: 1000 }, authToken);
     if (response.status >= 200 && response.status < 300 && response.data) {
-      setMembers(response.data);
+      setMembers(response.data.members);
       if (preserveSelectionId) {
-        setSelectedMember(response.data.find((member) => member.id === preserveSelectionId) ?? null);
+        setSelectedMember(response.data.members.find((member) => member.id === preserveSelectionId) ?? null);
       }
       setLoadError('');
       return true;
@@ -177,22 +179,32 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     }));
   };
 
-  const handleExport = () => {
-    const headers = ['ID', 'MSSV', 'Name', 'Gender', 'DOB', 'Ban', 'Role', 'Status', 'Phone', 'Email', 'Join Date', 'Lop', 'Chuyen Nganh', 'Khoa', 'Address'];
-    const csvContent = [
-      headers.join(','),
-      ...filteredMembers.map(m => 
-        `${m.id},${m.mssv},"${m.name}",${m.gender},${m.dob},"${m.ban.join('; ')}","${m.role}",${m.status},${m.phone},${m.email},${m.joinDate},"${m.lop}","${m.chuyenNganh}","${m.khoa}","${m.address}"`
-      )
-    ].join('\n');
+  const handleExport = (format: 'csv' | 'zip') => {
+    const exportUrl = exportMembers({ 
+      format,
+      ban: filterBan === 'All' ? undefined : filterBan,
+      status: filterStatus === 'All' ? undefined : filterStatus
+    }, authToken);
+    
+    window.open(exportUrl, '_blank');
+  };
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', 'members_export.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDeleteMember = async (memberId: number) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa thành viên này?')) {
+      return;
+    }
+
+    setIsSavingMember(true);
+    const response = await deleteMember(memberId, authToken);
+    if (response.status >= 200 && response.status < 300) {
+      await refreshMembers();
+      setSelectedMember(null);
+      setSaveSuccess('Xóa thành viên thành công!');
+      setTimeout(() => setSaveSuccess(''), 2000);
+    } else {
+      setLoadError(response.error || 'Không thể xóa thành viên.');
+    }
+    setIsSavingMember(false);
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -424,11 +436,21 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
               className="h-8 w-8 text-secondary hover:text-brand-blue-hover hover:bg-brand-light"
               onClick={(e) => {
                 e.stopPropagation();
-                setFormData(member);
-                setIsEditModalOpen(true);
+                openEditModal(member);
               }}
             >
               <Edit size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-secondary hover:text-danger-text hover:bg-danger-bg"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteMember(member.id);
+              }}
+            >
+              <Trash2 size={16} />
             </Button>
           </div>
         </TableCell>
@@ -446,9 +468,13 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExport} className="hidden sm:flex items-center gap-2 border-border-highlight">
+          <Button variant="outline" onClick={() => handleExport('csv')} className="hidden sm:flex items-center gap-2 border-border-highlight">
             <Download size={16} />
-            {t('members.exportBtn')}
+            CSV
+          </Button>
+          <Button variant="outline" onClick={() => handleExport('zip')} className="hidden sm:flex items-center gap-2 border-border-highlight">
+            <Download size={16} />
+            ZIP
           </Button>
           <Button onClick={() => { setFormData(initialFormState); setIsAddModalOpen(true); }} className="flex items-center gap-2 shadow-lg shadow-gold/20">
             <Plus size={16} />
@@ -564,6 +590,17 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
         className="max-w-3xl"
         footer={
           <>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                const url = exportMemberProfileUrl(selectedMember!.id);
+                window.open(url, '_blank');
+              }}
+              className="mr-auto"
+            >
+              <FileText size={16} className="mr-2" />
+              Tải hồ sơ (DOCX)
+            </Button>
             <Button variant="outline" onClick={() => setSelectedMember(null)} className="hover:bg-secondary/10 transition-colors">
               {t('members.close')}
             </Button>

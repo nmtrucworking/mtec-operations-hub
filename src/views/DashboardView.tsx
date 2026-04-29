@@ -33,8 +33,8 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       
       const response = await getDashboardOverview(authToken);
 
-      if (response.status === 200 && response.data?.data) {
-        setDashboardData(response.data.data);
+      if (response.status === 200 && response.data) {
+        setDashboardData(response.data);
       } else {
         setError(response.error || 'Không thể truy xuất dữ liệu từ máy chủ.');
       }

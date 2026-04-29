@@ -102,22 +102,6 @@ const normalizeMember = (input: unknown): Member => {
   };
 };
 
-const extractMemberList = (payload: unknown): Member[] => {
-  if (Array.isArray(payload)) {
-    return payload.map(normalizeMember);
-  }
-
-  if (payload && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>;
-    const items = record.items ?? record.data ?? record.members ?? record.results;
-    if (Array.isArray(items)) {
-      return items.map(normalizeMember);
-    }
-  }
-
-  return [];
-};
-
 const normalizeMemberResponse = <T>(response: ApiResponse<unknown>, mapper: (payload: unknown) => T): ApiResponse<T> => {
   if (response.status === 0) {
     return response as ApiResponse<T>;
@@ -129,11 +113,52 @@ const normalizeMemberResponse = <T>(response: ApiResponse<unknown>, mapper: (pay
   };
 };
 
-export const getMembers = async (token?: string): Promise<ApiResponse<Member[]>> => {
-  const response = await apiCall<unknown>('/api/members', { method: 'GET' }, token);
-  return normalizeMemberResponse(response, extractMemberList);
+/**
+ * List Members
+ * GET /api/members
+ */
+export const getMembers = async (
+  params: { search?: string; ban?: string; status?: string; page?: number; pageSize?: number } = {},
+  token?: string
+): Promise<ApiResponse<{ members: Member[]; total: number }>> => {
+  const query = new URLSearchParams();
+  if (params.search) query.append('search', params.search);
+  if (params.ban) query.append('ban', params.ban);
+  if (params.status) query.append('status', params.status);
+  if (params.page) query.append('page', String(params.page));
+  if (params.pageSize) query.append('pageSize', String(params.pageSize));
+
+  const endpoint = `/api/members${query.toString() ? `?${query.toString()}` : ''}`;
+  const response = await apiCall<unknown>(endpoint, { method: 'GET' }, token);
+
+  if (response.status === 0) return response as ApiResponse<any>;
+
+  const data = response.data as any;
+  const items = data.data || (Array.isArray(data) ? data : []);
+  const meta = data.meta || {};
+
+  return {
+    ...response,
+    data: {
+      members: items.map(normalizeMember),
+      total: meta.total || items.length
+    }
+  };
 };
 
+/**
+ * Get Member Details
+ * GET /api/members/{member_id}
+ */
+export const getMemberDetails = async (memberId: number | string, token?: string): Promise<ApiResponse<Member>> => {
+  const response = await apiCall<unknown>(`/api/members/${memberId}`, { method: 'GET' }, token);
+  return normalizeMemberResponse(response, normalizeMember);
+};
+
+/**
+ * Create Member
+ * POST /api/members
+ */
 export const createMember = async (member: Omit<Member, 'id'>, token?: string): Promise<ApiResponse<Member>> => {
   const response = await apiCall<unknown>('/api/members', {
     method: 'POST',
@@ -143,11 +168,50 @@ export const createMember = async (member: Omit<Member, 'id'>, token?: string): 
   return normalizeMemberResponse(response, normalizeMember);
 };
 
-export const updateMember = async (memberId: number, member: Omit<Member, 'id'>, token?: string): Promise<ApiResponse<Member>> => {
+/**
+ * Update Member
+ * PATCH /api/members/{member_id}
+ */
+export const updateMember = async (memberId: number | string, member: Partial<Member>, token?: string): Promise<ApiResponse<Member>> => {
   const response = await apiCall<unknown>(`/api/members/${memberId}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(member)
   }, token);
 
   return normalizeMemberResponse(response, normalizeMember);
+};
+
+/**
+ * Delete Member
+ * DELETE /api/members/{member_id}
+ */
+export const deleteMember = async (memberId: number | string, token?: string): Promise<ApiResponse<any>> => {
+  return apiCall(`/api/members/${memberId}`, { method: 'DELETE' }, token);
+};
+
+/**
+ * Export Members
+ * GET /api/members/export?format={csv|zip}
+ */
+export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; status?: string }, token?: string) => {
+  const query = new URLSearchParams();
+  query.append('format', params.format);
+  if (params.ban) query.append('ban', params.ban);
+  if (params.status) query.append('status', params.status);
+  
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const url = `${API_BASE_URL}/api/members/export?${query.toString()}`;
+  
+  // For file downloads, we typically open in new tab or use a hidden anchor with auth header if possible
+  // Since we use Bearer token, we might need to use fetch and create a blob
+  return url;
+};
+
+/**
+ * Export Member Profile (DOCX)
+ * GET /api/members/{member_id}/profile
+ */
+export const exportMemberProfileUrl = (memberId: number | string) => {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  return `${API_BASE_URL}/api/members/${memberId}/profile`;
 };

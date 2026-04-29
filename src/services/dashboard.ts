@@ -1,12 +1,22 @@
 import { apiCall, type ApiResponse } from './api';
-import type { DashboardApiResponse } from '../types/dashboard';
+import type { DashboardOverviewData } from '../types/dashboard';
 
 /**
- * Lấy dữ liệu tổng quan cho Dashboard từ Backend.
- * @param token - JWT Access Token để xác thực yêu cầu.
+ * Get Dashboard Overview Data
+ * GET /api/dashboard/overview
  */
-export const getDashboardOverview = async (token: string): Promise<ApiResponse<DashboardApiResponse>> => {
-  return apiCall<DashboardApiResponse>('/api/dashboard/overview', {
+export const getDashboardOverview = async (token: string): Promise<ApiResponse<DashboardOverviewData>> => {
+  const response = await apiCall<any>('/api/dashboard/overview', {
     method: 'GET'
   }, token);
+
+  if (response.data) {
+    const data = response.data;
+    return {
+      ...response,
+      data: data.data || data
+    };
+  }
+
+  return response;
 };
