@@ -86,6 +86,7 @@ const App = () => {
         }
 
         setAuthToken(storedSession.token);
+        localStorage.setItem('authToken', storedSession.token);
         const currentUserResponse = await getCurrentUser(storedSession.token);
         const responseBody = currentUserResponse.data as any;
         const actualUserData = responseBody?.success && responseBody?.data ? responseBody.data : responseBody;
@@ -111,6 +112,7 @@ const App = () => {
     setCurrentUser(nextUser);
     if (token) {
       setAuthToken(token);
+      localStorage.setItem('authToken', token);
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ token, user: nextUser }));
     }
   };
@@ -118,6 +120,7 @@ const App = () => {
   const handleLogout = () => {
     setCurrentUser(null);
     setAuthToken('');
+    localStorage.removeItem('authToken');
     localStorage.removeItem(SESSION_STORAGE_KEY);
     setActiveTab('dashboard');
   };

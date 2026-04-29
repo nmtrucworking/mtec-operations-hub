@@ -20,6 +20,30 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
+  const extractLoginPayload = (payload: unknown) => {
+    const record = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+    const nestedData = record.data && typeof record.data === 'object' ? (record.data as Record<string, unknown>) : null;
+
+    if (record.success && nestedData) {
+      return nestedData;
+    }
+
+    if (
+      nestedData &&
+      (
+        'accessToken' in nestedData ||
+        'access_token' in nestedData ||
+        'token' in nestedData ||
+        'user' in nestedData ||
+        'account' in nestedData
+      )
+    ) {
+      return nestedData;
+    }
+
+    return record;
+  };
+
   const normalizeUser = (payload: unknown): UserAccount => {
     const record = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
     const fullName = String(record.fullName ?? record.full_name ?? record.name ?? '').trim();
@@ -59,14 +83,20 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
     setIsLoading(true);
 
     const response = await loginRequest(username.trim(), password);
-    const responseBody = response.data as any; 
+    const responseBody = response.data as any;
 
     if (response.status >= 200 && response.status < 300 && responseBody) {
-      // Xác định chính xác payload thực tế chứa token và thông tin user
-      const actualPayload = responseBody.success && responseBody.data ? responseBody.data : responseBody;
-      
+      const actualPayload = extractLoginPayload(responseBody) as Record<string, unknown>;
       const userPayload = actualPayload.user ?? actualPayload.account ?? actualPayload;
-      const token = String(actualPayload.accessToken ?? actualPayload.access_token ?? actualPayload.token ?? '');
+      const token = String(
+        actualPayload.accessToken ??
+          actualPayload.access_token ??
+          actualPayload.token ??
+          (responseBody as Record<string, unknown>).accessToken ??
+          (responseBody as Record<string, unknown>).access_token ??
+          (responseBody as Record<string, unknown>).token ??
+          ''
+      );
       
       onLogin(normalizeUser(userPayload), token || undefined);
       return;
