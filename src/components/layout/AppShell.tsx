@@ -1,10 +1,11 @@
 import logoSvg from '../../assets/mtec_logo.svg';
 import React, { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, DollarSign, FileArchive, FileText, LayoutDashboard, LogOut, Package, Search, Settings, UserCheck, Users, Globe } from 'lucide-react';
+import { Bell, LayoutDashboard, LogOut, Search, Settings, Users, Globe } from 'lucide-react';
 import { NavItem } from '../shared/Widgets';
 import { useTheme } from '../theme-provider';
 import type { AppTab, UserAccount, UserRole } from '../../types/app';
+import { APP_VERSION, APP_VISIBLE_TABS } from '../../config/appVersion';
 
 interface AppShellProps {
   activeTab: AppTab;
@@ -21,29 +22,19 @@ const navigationItems: Array<{
 }> = [
   { tab: 'dashboard', labelKey: 'appShell.navDashboard', icon: <LayoutDashboard size={20} /> },
   { tab: 'members', labelKey: 'appShell.navMembers', icon: <Users size={20} /> },
-  { tab: 'requests', labelKey: 'appShell.navRequests', icon: <FileArchive size={20} /> },
-  { tab: 'finance', labelKey: 'appShell.navFinance', icon: <DollarSign size={20} /> },
-  { tab: 'discipline', labelKey: 'appShell.navDiscipline', icon: <UserCheck size={20} /> },
-  { tab: 'logistics', labelKey: 'appShell.navLogistics', icon: <Package size={20} /> },
-  { tab: 'generator', labelKey: 'appShell.navGenerator', icon: <FileText size={20} /> },
   { tab: 'settings', labelKey: 'appShell.navSettings', icon: <Settings size={20} /> }
 ];
 
 const checkTabAccess = (tab: AppTab, role: UserRole): boolean => {
+  if (!APP_VISIBLE_TABS.includes(tab)) {
+    return false;
+  }
+
   switch (tab) {
     case 'dashboard':
     case 'members':
-    case 'requests':
     case 'settings':
       return true; // All roles have at least some access (View/Own) to these tabs
-    case 'finance':
-      return ['bcn', 'bvh_finance', 'bvh_hr', 'bvh_logistics', 'bcm'].includes(role);
-    case 'discipline':
-      return ['bcn', 'bvh_discipline', 'bvh_hr', 'bcm', 'member'].includes(role);
-    case 'logistics':
-      return ['bcn', 'bvh_logistics', 'bvh_hr', 'bvh_finance', 'bcm'].includes(role);
-    case 'generator':
-      return ['bcn', 'bvh_hr'].includes(role);
     default:
       return false;
   }
@@ -69,6 +60,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
             <img src={logoSvg} alt="MTEC Logo" className="w-16 h-16 mb-3 object-contain" />
             <h1 className="text-2xl font-bold text-gold tracking-wider">{t('appShell.title')}</h1>
             <p className="text-xs text-secondary mt-1">{t('appShell.subtitle')}</p>
+            <p className="text-[11px] uppercase tracking-[0.25em] text-secondary mt-2">v{APP_VERSION}</p>
           </div>
         </div>
 

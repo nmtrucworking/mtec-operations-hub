@@ -10,6 +10,7 @@ import { MembersView } from './views/MembersView';
 import { RequestsView } from './views/RequestsView';
 import { SettingsView } from './views/SettingsView';
 import { getCurrentUser } from './services/api';
+import { APP_VISIBLE_TABS } from './config/appVersion';
 import { todayViDate, useOperationsData } from './hooks/useOperationsData';
 import type { AppTab, UserAccount, UserRole } from './types/app';
 
@@ -116,6 +117,10 @@ const App = () => {
     void restoreSession();
   }, []);
 
+  const visibleTabSet = new Set(APP_VISIBLE_TABS);
+
+  const normalizedActiveTab: AppTab = visibleTabSet.has(activeTab) ? activeTab : 'dashboard';
+
   useEffect(() => {
     const handleAuthExpired = () => {
       // Gọi hàm đăng xuất để xóa state và đẩy người dùng về màn hình Login
@@ -151,59 +156,11 @@ const App = () => {
       return null;
     }
 
-    switch (activeTab) {
+    switch (normalizedActiveTab) {
       case 'dashboard':
         return <DashboardView authToken={authToken} />;
       case 'members':
         return <MembersView authToken={authToken} />;
-      case 'requests':
-        return (
-          <RequestsView
-            requests={requests}
-            currentUser={currentUser}
-            onSaveRequest={upsertRequest}
-            onReviewRequest={(payload) =>
-              reviewRequest(
-                {
-                  ...payload,
-                  reviewerLabel: currentUser.fullName,
-                  reviewedAt: todayViDate()
-                },
-                currentUser
-              )
-            }
-          />
-        );
-      case 'finance':
-        return (
-          <FinanceView
-            transactions={activeTransactions}
-            pendingTransactions={pendingTransactions}
-            currentUser={currentUser}
-            onSaveTransaction={(payload) => upsertTransaction(payload, currentUser)}
-            onReviewTransaction={(payload) =>
-              reviewTransaction(
-                {
-                  ...payload,
-                  reviewerLabel: currentUser.fullName,
-                  reviewedAt: todayViDate()
-                },
-                currentUser
-              )
-            }
-            onSoftDeleteTransaction={(transactionId) => softDeleteTransaction(transactionId, currentUser)}
-            canReviewTransaction={(tx) => canReviewFinanceTransaction(currentUser, tx)}
-            totalIncome={totalIncome}
-            totalExpense={totalExpense}
-            currentFund={currentFund}
-          />
-        );
-      case 'discipline':
-        return <DisciplineView />;
-      case 'logistics':
-        return <LogisticsView />;
-      case 'generator':
-        return <GeneratorView />;
       case 'settings':
         return <SettingsView currentUser={currentUser!} authToken={authToken} />;
       default:
@@ -227,7 +184,7 @@ const App = () => {
   }
 
   return (
-    <AppShell activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
+    <AppShell activeTab={normalizedActiveTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
       {renderActiveView()}
     </AppShell>
   );
