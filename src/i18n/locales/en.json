@@ -1,4 +1,17 @@
 {
+  "common": {
+    "error": "System Error",
+    "retry": "Retry",
+    "loading": "Loading data...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information"
+  },
   "appShell": {
     "title": "MTEC NTTU",
     "subtitle": "HR Management Portal",

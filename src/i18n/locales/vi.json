@@ -1,4 +1,17 @@
 {
+  "common": {
+    "error": "Lỗi hệ thống",
+    "retry": "Thử lại",
+    "loading": "Đang tải dữ liệu...",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "view": "Xem",
+    "success": "Thành công",
+    "warning": "Cảnh báo",
+    "info": "Thông tin"
+  },
   "appShell": {
     "title": "MTEC NTTU",
     "subtitle": "HR Management Portal",

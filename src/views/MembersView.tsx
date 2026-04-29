@@ -28,6 +28,7 @@ import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Modal } from '../components/ui/modal';
 import { Badge } from '../components/ui/badge';
+import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { createMember, getMembers, updateMember } from '../services/members';
 import type { ApiResponse } from '../services/api';
@@ -378,163 +379,211 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     setIsSavingMember(false);
   };
 
+  const renderTableContent = () => {
+    if (isLoadingMembers) {
+      return Array.from({ length: 5 }).map((_, i) => (
+        <TableRow key={i}>
+          <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+          <TableCell><Skeleton className="h-8 w-24 rounded-md" /></TableCell>
+        </TableRow>
+      ));
+    }
+
+    if (paginatedMembers.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={7} className="h-64 text-center">
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <div className="p-4 bg-brand-light rounded-full text-secondary">
+                <Users size={48} className="opacity-20" />
+              </div>
+              <p className="text-secondary font-medium">{t('members.emptyState')}</p>
+              {searchTerm && (
+                <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')}>
+                  Xóa tìm kiếm
+                </Button>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return paginatedMembers.map((member, index) => (
+      <TableRow 
+        key={member.id} 
+        className="cursor-pointer group"
+        onClick={() => setSelectedMember(member)}
+      >
+        <TableCell className="font-medium text-secondary">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
+        <TableCell className="font-bold text-primary group-hover:text-gold transition-colors">{member.name}</TableCell>
+        <TableCell className="text-secondary">{member.mssv}</TableCell>
+        <TableCell>
+          <div className="flex flex-wrap gap-1">
+            {member.ban.map((b) => (
+              <Badge key={b} variant="secondary" className="text-[10px] py-0 px-1.5 bg-brand-light border-border text-secondary">
+                {b}
+              </Badge>
+            ))}
+          </div>
+        </TableCell>
+        <TableCell className="text-sm">{member.role}</TableCell>
+        <TableCell>
+          <Badge
+            variant={member.status === 'Active' ? 'default' : 'danger'}
+            className={member.status === 'Active' ? 'bg-success-bg text-success-text border-success-border' : ''}
+          >
+            {member.status === 'Active' ? t('members.statusActive') : t('members.statusInactive')}
+          </Badge>
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-secondary hover:text-gold hover:bg-gold/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedMember(member);
+              }}
+            >
+              <Eye size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-secondary hover:text-brand-blue-hover hover:bg-brand-light"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFormData(member);
+                setIsEditModalOpen(true);
+              }}
+            >
+              <Edit size={16} />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    ));
+  };
+
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">{t('members.title')}</h2>
-          <p className="text-secondary mt-1">{t('members.subtitle', { count: filteredMembers.length })}</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('members.title')}</h2>
+          <p className="text-secondary text-sm mt-1">
+            {t('members.subtitle', { count: filteredMembers.length })}
+          </p>
         </div>
-        <div className="flex space-x-3">
-          <Button variant="outline" onClick={handleExport} className="flex items-center">
-            <Download size={16} className="mr-2" />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExport} className="hidden sm:flex items-center gap-2 border-border-highlight">
+            <Download size={16} />
             {t('members.exportBtn')}
           </Button>
-          <Button onClick={() => { setFormData(initialFormState); setIsAddModalOpen(true); }} className="flex items-center">
-            <Plus size={16} className="mr-2" />
+          <Button onClick={() => { setFormData(initialFormState); setIsAddModalOpen(true); }} className="flex items-center gap-2 shadow-lg shadow-gold/20">
+            <Plus size={16} />
             {t('members.addBtn')}
           </Button>
         </div>
       </div>
 
-      <div className="bg-card p-4 rounded-xl border border-border flex flex-col lg:flex-row gap-4 items-center justify-between shadow-sm">
-        <div className="w-full lg:w-1/3">
-          <Input
-            type="text"
-            placeholder={t('members.searchPlaceholder')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            icon={<Search size={18} />}
-          />
-        </div>
-
-        <div className="flex gap-4 w-full lg:w-auto">
-          <div className="w-full lg:w-48">
+      <div className="bg-card border-border/50 shadow-sm overflow-hidden rounded-xl border">
+        <div className="p-4 bg-card/50 border-b border-border/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary h-4 w-4" />
+              <Input
+                placeholder={t('members.searchPlaceholder')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-background border-border focus:border-gold/50 transition-all"
+              />
+            </div>
             <Select
               value={filterBan}
               onChange={(e) => setFilterBan(e.target.value)}
-              icon={<Filter size={16} />}
+              className="bg-background border-border"
             >
               <option value="All">{t('members.filterDeptAll')}</option>
-              <option value="Ban Chu nhiem">Ban Chu nhiem</option>
-              <option value="Ban Cong nghe">Ban Cong nghe</option>
-              <option value="Ban Truyen thong">Ban Truyen thong</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
             </Select>
-          </div>
-          <div className="w-full lg:w-44">
             <Select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as 'All' | Member['status'])}
-              icon={<Filter size={16} />}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="bg-background border-border"
             >
               <option value="All">{t('members.filterStatusAll')}</option>
               <option value="Active">{t('members.statusActive')}</option>
               <option value="Inactive">{t('members.statusInactive')}</option>
             </Select>
+            <div className="flex items-center justify-end sm:col-span-1 lg:col-span-1">
+              <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFilterBan('All'); setFilterStatus('All'); }} className="text-secondary hover:text-primary">
+                <X size={14} className="mr-2" />
+                Xóa bộ lọc
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {loadError ? (
-        <div className="rounded-xl border border-danger-border bg-danger-bg text-danger-text px-4 py-3 text-sm flex items-center justify-between gap-4">
-          <span>{loadError}</span>
-          <Button variant="outline" size="sm" onClick={() => void refreshMembers()} disabled={!authToken}>
-            Tải lại
-          </Button>
-        </div>
-      ) : null}
-
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm transition-all hover:shadow-md">
-        {isLoadingMembers ? (
-          <div className="p-8 text-center text-secondary">Loading ....</div>
-        ) : null}
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-16 text-center cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('id')}>
-                {t('members.thStt')} {sortConfig.field === 'id' && (sortConfig.order === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('name')}>
-                {t('members.thName')} {sortConfig.field === 'name' && (sortConfig.order === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('mssv')}>
-                {t('members.thMssv')} {sortConfig.field === 'mssv' && (sortConfig.order === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('ban')}>
-                {t('members.thDept')} {sortConfig.field === 'ban' && (sortConfig.order === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('role')}>
-                {t('members.thRole')} {sortConfig.field === 'role' && (sortConfig.order === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('status')}>
-                {t('members.thStatus')} {sortConfig.field === 'status' && (sortConfig.order === 'asc' ? '↑' : '↓')}
-              </TableHead>
-              <TableHead className="text-center w-24">{t('members.thAction')}</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-12 cursor-pointer" onClick={() => handleSort('id')}>{t('members.thStt')}</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>{t('members.thName')}</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('mssv')}>{t('members.thMssv')}</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('ban')}>{t('members.thDept')}</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('role')}>{t('members.thRole')}</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>{t('members.thStatus')}</TableHead>
+              <TableHead className="w-24 text-center">{t('members.thAction')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedMembers.map((member, index) => (
-              <TableRow key={member.id} className="group hover:bg-muted/30 transition-colors">
-                <TableCell className="text-center text-secondary font-medium">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
-                </TableCell>
-                <TableCell className="font-medium text-primary">{member.name}</TableCell>
-                <TableCell className="text-secondary">{member.mssv}</TableCell>
-                <TableCell className="text-secondary">
-                  <div className="flex flex-wrap gap-1">
-                    {member.ban.map(b => (
-                      <Badge key={b} variant="outline" className="text-[10px] py-0 px-1.5">{b}</Badge>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell className="text-secondary">{member.role}</TableCell>
-                <TableCell>
-                  <Badge variant={member.status === 'Active' ? 'success' : 'danger'}>
-                    {member.status === 'Active' ? t('members.statusActive') : t('members.statusInactive')}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedMember(member)}
-                    title={t('members.viewDetail')}
-                    className="text-brand-gold hover:text-gold hover:bg-gold/10 transition-all transform hover:scale-110"
-                  >
-                    <Eye size={18} />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!isLoadingMembers && paginatedMembers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-secondary">
-                  {t('members.emptyState')}
-                </TableCell>
-              </TableRow>
-            ) : null}
+            {renderTableContent()}
           </TableBody>
         </Table>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-end px-4 py-3 border-t border-border bg-brand-light">
-            <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          <div className="p-4 border-t border-border/50 flex items-center justify-between bg-card/30">
+            <p className="text-xs text-secondary">
+              Hiển thị <strong>{paginatedMembers.length}</strong> trên <strong>{filteredMembers.length}</strong> thành viên
+            </p>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
               >
                 <ChevronLeft size={16} />
               </Button>
-              <span className="flex items-center text-sm text-secondary px-2">
-                {currentPage} / {totalPages}
-              </span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <Button
+                    key={i}
+                    variant={currentPage === i + 1 ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setCurrentPage(i + 1)}
+                    className="h-8 w-8 p-0 text-xs"
+                  >
+                    {i + 1}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
               >
                 <ChevronRight size={16} />
               </Button>

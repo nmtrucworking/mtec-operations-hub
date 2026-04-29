@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, Bot, Clock, Loader2, PieChart, Sparkles, Users, XCircle, DollarSign, Package, AlertTriangle, ArrowRight } from 'lucide-react';
+import { BarChart3, Bot, Clock, Loader2, PieChart, Sparkles, Users, XCircle, DollarSign, Package, AlertTriangle, ArrowRight, CheckCircle2, Download, Star } from 'lucide-react';
 import { ActivityItem, ProgressBar, StatCard, RequestCard } from '../components/shared/Widgets';
 import { callGeminiAPI } from '../services/gemini';
 import { formatCurrency, type Transaction } from '../data/finance';
@@ -134,16 +134,24 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-full w-full p-8 text-primary">
-        <span>Đang tải dữ liệu tổng quan hệ thống...</span>
+      <div className="flex flex-col justify-center items-center h-full w-full p-8 text-primary space-y-4">
+        <Loader2 className="w-12 h-12 animate-spin text-gold" />
+        <span className="text-lg font-medium animate-pulse">{t('dashboard.loading')}</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-100 text-red-700 rounded-md border border-red-300">
-        Lỗi hệ thống: {error}
+      <div className="p-6 bg-danger-bg text-danger-text rounded-xl border border-danger-border flex flex-col items-center space-y-4 max-w-2xl mx-auto mt-12">
+        <AlertTriangle size={48} />
+        <div className="text-center">
+          <h3 className="text-xl font-bold mb-2">{t('common.error')}</h3>
+          <p>{error}</p>
+        </div>
+        <Button onClick={() => window.location.reload()} variant="outline">
+          {t('common.retry')}
+        </Button>
       </div>
     );
   }
@@ -153,74 +161,74 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-end">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h2 className="text-2xl font-bold">{t('dashboard.title')}</h2>
-          <p className="text-blue-300 mt-1">{t('dashboard.subtitle')}</p>
+          <h2 className="text-2xl lg:text-3xl font-bold tracking-tight">{t('dashboard.title')}</h2>
+          <p className="text-secondary mt-1">{t('dashboard.subtitle')}</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex space-x-3 w-full sm:w-auto">
           <Button
             onClick={handleGenerateInsight}
             disabled={isAiLoading}
             isLoading={isAiLoading}
-            className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-lg shadow-purple-500/20 border-0"
+            className="flex-1 sm:flex-none bg-gradient-to-r from-brand-blue-light to-brand-blue hover:from-brand-blue-hover hover:to-brand-blue text-white shadow-lg border-0"
           >
             {!isAiLoading && <Sparkles size={16} className="mr-2" />}
-            ✨ {t('dashboard.aiInsightBtn')}
+            {t('dashboard.aiInsightBtn')}
           </Button>
         </div>
       </div>
 
       {aiInsight ? (
-        <div className="bg-indigo-900/40 border border-indigo-500/50 rounded-xl p-5 flex items-start space-x-4 animate-in fade-in">
-          <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-300 shrink-0">
+        <div className="bg-card border border-border-highlight rounded-xl p-5 flex items-start space-x-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="p-3 bg-gold/10 rounded-lg text-gold shrink-0">
             <Bot size={24} />
           </div>
-          <div>
-            <h4 className="font-semibold text-indigo-200 mb-1 flex items-center">
-              {t('dashboard.aiInsightTitle')} <Sparkles size={14} className="ml-2 text-indigo-300" />
+          <div className="space-y-1">
+            <h4 className="font-bold text-primary flex items-center">
+              {t('dashboard.aiInsightTitle')} <Sparkles size={14} className="ml-2 text-gold" />
             </h4>
-            <p className="text-sm text-blue-100 leading-relaxed">{aiInsight}</p>
+            <p className="text-sm text-secondary leading-relaxed">{aiInsight}</p>
           </div>
         </div>
       ) : null}
 
       {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <StatCard title={t('dashboard.statTotalMembers')} value={totalMembers.toString()} icon={<Users size={24} />} trend="+12" trendUp />
-        <StatCard title={t('dashboard.statCurrentFund')} value={formatCurrency(dashboardData?.currentFund ?? 0)} icon={<DollarSign size={24} />} color="text-green-400" trend={`${(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0) ? '+' : ''}${formatCurrency((dashboardData?.totalIncome ?? 0) - (dashboardData?.totalExpense ?? 0))}`} trendUp={(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0)} />
-        <StatCard title={t('dashboard.statMaintenance')} value={dashboardData?.maintenanceCount.toString()} icon={<Package size={24} />} color="text-red-400" />
-        <StatCard title={t('dashboard.statPendingReqs')} value={dashboardData?.pendingRequestsCount.toString()} icon={<Clock size={24} />} color="text-orange-400" />
+        <StatCard title={t('dashboard.statCurrentFund')} value={formatCurrency(dashboardData?.currentFund ?? 0)} icon={<DollarSign size={24} />} color="text-success-text" trend={`${(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0) ? '+' : ''}${formatCurrency((dashboardData?.totalIncome ?? 0) - (dashboardData?.totalExpense ?? 0))}`} trendUp={(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0)} />
+        <StatCard title={t('dashboard.statMaintenance')} value={dashboardData?.maintenanceCount.toString()} icon={<Package size={24} />} color="text-danger-text" />
+        <StatCard title={t('dashboard.statPendingReqs')} value={dashboardData?.pendingRequestsCount.toString()} icon={<Clock size={24} />} color="text-warning-text" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: HR & Logistics */}
-        <div className="col-span-1 lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg">{t('dashboard.chartMembersByDept')}</CardTitle>
-              <BarChart3 className="text-secondary" />
+        <div className="col-span-1 lg:col-span-2 space-y-6">
+          <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/50">
+              <CardTitle className="text-lg font-bold">{t('dashboard.chartMembersByDept')}</CardTitle>
+              <BarChart3 className="text-secondary" size={20} />
             </CardHeader>
-            <CardContent className="space-y-4">
-              <ProgressBar label={t('dashboard.deptMedia')} percent={pctMedia} color="bg-blue-400" />
-              <ProgressBar label={t('dashboard.deptTech')} percent={pctTech} color="bg-indigo-400" />
-              <ProgressBar label={t('dashboard.deptOps')} percent={pctOps} color="bg-green-400" />
-              <ProgressBar label={t('dashboard.deptBoard')} percent={pctBoard} color="bg-yellow-400" />
+            <CardContent className="pt-6 space-y-5">
+              <ProgressBar label={t('dashboard.deptMedia')} percent={pctMedia} color="bg-blue-500" />
+              <ProgressBar label={t('dashboard.deptTech')} percent={pctTech} color="bg-indigo-500" />
+              <ProgressBar label={t('dashboard.deptOps')} percent={pctOps} color="bg-success-text" />
+              <ProgressBar label={t('dashboard.deptBoard')} percent={pctBoard} color="bg-gold" />
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <AlertTriangle size={18} className="text-orange-400" />
+          <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/50">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <AlertTriangle size={20} className="text-warning-text" />
                 {t('dashboard.urgentTasks')}
               </CardTitle>
-              <button className="text-sm text-secondary hover:text-gold transition-colors flex items-center">
+              <button className="text-sm text-gold hover:underline transition-colors flex items-center font-medium">
                 {t('dashboard.viewAll')} <ArrowRight size={14} className="ml-1" />
               </button>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="pt-4 space-y-3">
               {dashboardData.urgentRequests.map(req => (
                 <RequestCard 
                   key={req.id}
@@ -230,42 +238,51 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
                   reason={req.type}
                 />
               ))}
-              {dashboardData.pendingRequestsCount === 0 && (
-                <p className="text-sm text-secondary italic text-center py-4">{t('dashboard.noPendingReqs')}</p>
+              {dashboardData.urgentRequests.length === 0 && (
+                <div className="py-8 text-center space-y-2">
+                  <div className="flex justify-center">
+                    <CheckCircle2 size={40} className="text-success-text opacity-20" />
+                  </div>
+                  <p className="text-sm text-secondary italic">{t('dashboard.noPendingReqs')}</p>
+                </div>
               )}
             </CardContent>
           </Card>
         </div>
 
         {/* Right Column: Activity & Quick Actions */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{t('dashboard.quickActions')}</CardTitle>
+        <div className="space-y-6">
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-4 border-b border-border/50">
+              <CardTitle className="text-lg font-bold">{t('dashboard.quickActions')}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => setActiveModal('addMember')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
+                <button onClick={() => setActiveModal('addMember')} className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
+                  <Users size={18} className="text-gold" />
                   {t('dashboard.qaAddMember')}
                 </button>
-                <button onClick={() => setActiveModal('financeTx')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
+                <button onClick={() => setActiveModal('financeTx')} className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
+                  <DollarSign size={18} className="text-gold" />
                   {t('dashboard.qaFinanceTx')}
                 </button>
-                <button onClick={() => setActiveModal('export')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
+                <button onClick={() => setActiveModal('export')} className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
+                  <Download size={18} className="text-gold" />
                   {t('dashboard.qaExport')}
                 </button>
-                <button onClick={() => setActiveModal('roles')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
+                <button onClick={() => setActiveModal('roles')} className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
+                  <Star size={18} className="text-gold" />
                   {t('dashboard.qaRoles')}
                 </button>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-4 border-b border-border/50">
+              <CardTitle className="text-lg font-bold">{t('dashboard.recentActivity')}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="pt-4 space-y-6">
               {dashboardData.recentActivities.map((activity) => (
                 <ActivityItem 
                   key={activity.id}
@@ -275,7 +292,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
                 />
               ))}
               {dashboardData.recentActivities.length === 0 && (
-                <p className="text-sm text-secondary italic text-center py-4">
+                <p className="text-sm text-secondary italic text-center py-8">
                   {t('dashboard.noRecentActivity')}
                 </p>
               )}
