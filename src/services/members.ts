@@ -85,7 +85,7 @@ const normalizeMember = (input: unknown): Member => {
     gender: pickString(record.gender, record.sex),
     dob: pickString(record.dob, record.birthDate, record.birth_date),
     ban: normalizeBan(record.ban ?? record.department),
-    role: pickString(record.role, record.position),
+    role: pickString(record.roleTitle, record.role, record.position),
     status: normalizeStatus(record.status),
     phone: pickString(record.phone, record.phoneNumber, record.phone_number),
     email: pickString(record.email),

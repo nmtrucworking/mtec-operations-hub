@@ -22,6 +22,8 @@ import {
   ChevronRight,
   Trash2,
   FileText,
+  RefreshCw,
+  ArrowUpDown,
   type LucideIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +35,7 @@ import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl } from '../services/members';
-import { formatDate, toDateInputFormat } from '../lib/helpers';
+import { formatDate, toDateInputFormat, downloadFileWithAuth } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
 import { FACULTY_MAJOR_MAP, type Member, type MemberSkill, type SkillLevel, DEPARTMENTS } from '../data/members';
 
@@ -179,14 +181,22 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     }));
   };
 
-  const handleExport = (format: 'csv' | 'zip') => {
+  const handleExport = async (format: 'csv' | 'zip') => {
     const exportUrl = exportMembers({ 
       format,
       ban: filterBan === 'All' ? undefined : filterBan,
       status: filterStatus === 'All' ? undefined : filterStatus
     }, authToken);
     
-    window.open(exportUrl, '_blank');
+    if (authToken) {
+      const filename = `members_export_${new Date().getTime()}.${format === 'csv' ? 'csv' : 'zip'}`;
+      const success = await downloadFileWithAuth(exportUrl, authToken, filename);
+      if (!success) {
+        setLoadError('Không thể tải tệp xuất. Vui lòng kiểm tra lại quyền truy cập.');
+      }
+    } else {
+      window.open(exportUrl, '_blank');
+    }
   };
 
   const handleDeleteMember = async (memberId: number) => {
@@ -285,15 +295,19 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     setIsSavingMember(true);
     setLoadError('');
     setSaveSuccess('');
+    
+    const { role, ban, ...rest } = formData;
     const payload = {
-      ...formData,
-      dob: formatDate(formData.dob),
-      joinDate: formatDate(formData.joinDate),
+      ...rest,
+      roleTitle: role,
+      ban: ban.join(', '), // API expects string according to docs
+      dob: toDateInputFormat(formData.dob),
+      joinDate: toDateInputFormat(formData.joinDate),
       hardSkills: sanitizeSkills(formData.hardSkills),
       softSkills: sanitizeSkills(formData.softSkills)
     };
 
-    const response = await createMember(payload, authToken);
+    const response = await createMember(payload as any, authToken);
     if (response.status >= 200 && response.status < 300) {
       await refreshMembers();
       setSaveSuccess('Thêm thành viên mới thành công!');
@@ -330,15 +344,19 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     setIsSavingMember(true);
     setLoadError('');
     setSaveSuccess('');
+
+    const { role, ban, ...rest } = formData;
     const payload = {
-      ...formData,
-      dob: formatDate(formData.dob),
-      joinDate: formatDate(formData.joinDate),
+      ...rest,
+      roleTitle: role,
+      ban: ban.join(', '), // API expects string according to docs
+      dob: toDateInputFormat(formData.dob),
+      joinDate: toDateInputFormat(formData.joinDate),
       hardSkills: sanitizeSkills(formData.hardSkills),
       softSkills: sanitizeSkills(formData.softSkills)
     };
 
-    const response = await updateMember(selectedMember.id, payload, authToken);
+    const response = await updateMember(selectedMember.id, payload as any, authToken);
     if (response.status >= 200 && response.status < 300) {
       await refreshMembers(selectedMember.id);
       setSaveSuccess('Cập nhật thông tin thành viên thành công!');
@@ -468,6 +486,15 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => void refreshMembers()} 
+            className="flex items-center gap-2 border-border-highlight"
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw size={16} className={isLoadingMembers ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Làm mới</span>
+          </Button>
           <Button variant="outline" onClick={() => handleExport('csv')} className="hidden sm:flex items-center gap-2 border-border-highlight">
             <Download size={16} />
             CSV
@@ -526,12 +553,42 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-12 cursor-pointer" onClick={() => handleSort('id')}>{t('members.thStt')}</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>{t('members.thName')}</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('mssv')}>{t('members.thMssv')}</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('ban')}>{t('members.thDept')}</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('role')}>{t('members.thRole')}</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>{t('members.thStatus')}</TableHead>
+              <TableHead className="w-12 cursor-pointer" onClick={() => handleSort('id')}>
+                <div className="flex items-center gap-1">
+                  {t('members.thStt')}
+                  <ArrowUpDown size={12} className="opacity-50" />
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
+                <div className="flex items-center gap-1">
+                  {t('members.thName')}
+                  <ArrowUpDown size={12} className="opacity-50" />
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('mssv')}>
+                <div className="flex items-center gap-1">
+                  {t('members.thMssv')}
+                  <ArrowUpDown size={12} className="opacity-50" />
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('ban')}>
+                <div className="flex items-center gap-1">
+                  {t('members.thDept')}
+                  <ArrowUpDown size={12} className="opacity-50" />
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('role')}>
+                <div className="flex items-center gap-1">
+                  {t('members.thRole')}
+                  <ArrowUpDown size={12} className="opacity-50" />
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
+                <div className="flex items-center gap-1">
+                  {t('members.thStatus')}
+                  <ArrowUpDown size={12} className="opacity-50" />
+                </div>
+              </TableHead>
               <TableHead className="w-24 text-center">{t('members.thAction')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -592,9 +649,17 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
           <>
             <Button 
               variant="outline" 
-              onClick={() => {
+              onClick={async () => {
                 const url = exportMemberProfileUrl(selectedMember!.id);
-                window.open(url, '_blank');
+                if (authToken) {
+                  const filename = `Ho_so_${selectedMember!.name.replace(/\s+/g, '_')}_${selectedMember!.mssv}.docx`;
+                  const success = await downloadFileWithAuth(url, authToken, filename);
+                  if (!success) {
+                    setLoadError('Không thể tải hồ sơ. Vui lòng thử lại sau.');
+                  }
+                } else {
+                  window.open(url, '_blank');
+                }
               }}
               className="mr-auto"
             >

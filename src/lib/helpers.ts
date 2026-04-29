@@ -71,3 +71,39 @@ export const getInitials = (fullName: string): string => {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 };
+
+/**
+ * Download a file from an authenticated API endpoint
+ * @param url - The full API URL
+ * @param token - The Bearer token
+ * @param filename - The name to save the file as
+ */
+export const downloadFileWithAuth = async (url: string, token: string, filename: string): Promise<boolean> => {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Download failed:', response.statusText);
+      return false;
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+    return true;
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    return false;
+  }
+};
