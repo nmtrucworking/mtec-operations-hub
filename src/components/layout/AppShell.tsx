@@ -1,3 +1,4 @@
+import logoSvg from '../../assets/mtec_logo.svg';
 import React, { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, DollarSign, FileArchive, FileText, LayoutDashboard, LogOut, Package, Search, Settings, UserCheck, Users, Globe } from 'lucide-react';
@@ -64,7 +65,8 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
     <div className="flex h-screen w-full bg-background text-primary font-sans overflow-hidden">
       <aside className="w-64 bg-card flex flex-col shadow-2xl border-r border-border">
         <div className="p-6 flex items-center justify-center border-b border-border">
-          <div className="text-center">
+          <div className="text-center flex flex-col items-center">
+            <img src={logoSvg} alt="MTEC Logo" className="w-16 h-16 mb-3 object-contain" />
             <h1 className="text-2xl font-bold text-gold tracking-wider">{t('appShell.title')}</h1>
             <p className="text-xs text-secondary mt-1">{t('appShell.subtitle')}</p>
           </div>

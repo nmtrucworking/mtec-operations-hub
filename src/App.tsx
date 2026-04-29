@@ -13,6 +13,8 @@ import { getCurrentUser } from './services/api';
 import { todayViDate, useOperationsData } from './hooks/useOperationsData';
 import type { AppTab, UserAccount, UserRole } from './types/app';
 
+import { useTranslation } from 'react-i18next';
+
 const SESSION_STORAGE_KEY = 'mtec-operations-hub.session';
 
 interface StoredSession {
@@ -49,6 +51,7 @@ const normalizeUserAccount = (payload: unknown, fallback?: Partial<UserAccount>)
 };
 
 const App = () => {
+  const { t } = useTranslation(); // Khởi tạo hook Translation
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [authToken, setAuthToken] = useState('');
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
@@ -88,6 +91,11 @@ const App = () => {
         setAuthToken(storedSession.token);
         localStorage.setItem('authToken', storedSession.token);
         const currentUserResponse = await getCurrentUser(storedSession.token);
+        
+        if (currentUserResponse.status === 401 || currentUserResponse.status === 403) {
+          throw new Error('Token expired or invalid'); 
+        }
+        
         const responseBody = currentUserResponse.data as any;
         const actualUserData = responseBody?.success && responseBody?.data ? responseBody.data : responseBody;
 
@@ -99,12 +107,25 @@ const App = () => {
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ token: storedSession.token, user: remoteUser }));
       } catch {
         localStorage.removeItem(SESSION_STORAGE_KEY);
+        localStorage.removeItem('authToken');
       } finally {
         setIsBootstrapping(false);
       }
     };
 
     void restoreSession();
+  }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      // Gọi hàm đăng xuất để xóa state và đẩy người dùng về màn hình Login
+      handleLogout();
+    };
+
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('auth:expired', handleAuthExpired);
+    };
   }, []);
 
   const handleLogin = (user: UserAccount, token?: string) => {
@@ -194,8 +215,8 @@ const App = () => {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background text-primary">
         <div className="text-center space-y-2">
-          <div className="text-lg font-semibold text-gold">Đang khôi phục phiên đăng nhập...</div>
-          <p className="text-sm text-secondary">Vui lòng chờ trong giây lát.</p>
+          <div className="text-lg font-semibold text-gold">{t('auth.restoringSession')}</div>
+          <p className="text-sm text-secondary">{t('auth.pleaseWait')}</p>
         </div>
       </div>
     );

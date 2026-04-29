@@ -54,7 +54,10 @@
     "resendCode": "Resend code",
     "tokenExpired": "Reset token has expired. Please request a new one.",
     "invalidToken": "Invalid reset token",
-    "invalidCode": "Invalid verification code"
+    "invalidCode": "Invalid verification code",
+    "restoringSession": "Restoring session...",
+    "sessionExpired": "Session has expired. Please login again.",
+    "pleaseWait": "Please wait..."
   },
   "dashboard": {
     "title": "System Overview",

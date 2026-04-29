@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { ForgotPasswordView } from './ForgotPasswordView';
 import type { UserAccount, UserRole } from '../types/app';
 
+import logoImg from '../assets/mtec_logo.svg';
 interface LoginViewProps {
   onLogin: (user: UserAccount, token?: string) => void;
 }
@@ -118,8 +119,9 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
       
       <Card className="w-full max-w-md z-10 animate-in fade-in zoom-in duration-500 border-border shadow-2xl p-2">
         <CardHeader className="text-center pb-4">
-          <div className="mx-auto inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-blue border-2 border-gold mb-4 shadow-lg shadow-gold/20">
-            <Lock size={32} className="text-gold" />
+          {/* Logo */}
+          <div className="mx-auto inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-blue border-2 border-gold mb-4 shadow-lg shadow-gold/20 overflow-hidden">
+            <img src={logoImg} alt="MTEC Logo" className="w-full h-full object-cover" />
           </div>
           <CardTitle className="text-3xl font-bold text-gold tracking-wider">{t('login.title')}</CardTitle>
           <CardDescription className="text-sm mt-2">{t('login.subtitle')}</CardDescription>

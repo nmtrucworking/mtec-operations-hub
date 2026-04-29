@@ -48,6 +48,12 @@ export const apiCall = async <T = any>(
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth:expired'));
+        }
+      }
+
       return {
         status: response.status,
         error: data.message || `HTTP ${response.status}`,

@@ -55,7 +55,10 @@
     "resendCode": "Gửi lại mã",
     "tokenExpired": "Liên kết đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu một liên kết mới.",
     "invalidToken": "Liên kết đặt lại mật khẩu không hợp lệ",
-    "invalidCode": "Mã xác minh không hợp lệ"
+    "invalidCode": "Mã xác minh không hợp lệ",
+    "restoringSession": "Đang khôi phục phiên đăng nhập...",
+    "sessionExpired": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+    "pleaseWait": "Vui lòng chờ trong giây lát."
   },
   "dashboard": {
     "title": "Tổng quan Hệ thống",
