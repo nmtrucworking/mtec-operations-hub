@@ -1,3 +1,5 @@
+import { formatCurrency as formatCurrencyHelper } from '../lib/helpers';
+
 export type TxType = 'Thu' | 'Chi';
 export type TransactionStatus = 'Chờ duyệt' | 'Đã duyệt' | 'Từ chối';
 export type FinanceApprovalRole = 'bvh_finance' | 'bcn';
@@ -123,4 +125,4 @@ export const transactionSeedData: Transaction[] = [
   }
 ];
 
-export const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')}đ`;
+export const formatCurrency = formatCurrencyHelper;

@@ -31,6 +31,7 @@ import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { createMember, getMembers, updateMember } from '../services/members';
+import { formatDate, toDateInputFormat } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
 import { FACULTY_MAJOR_MAP, type Member, type MemberSkill, type SkillLevel, DEPARTMENTS } from '../data/members';
 
@@ -42,43 +43,6 @@ interface MembersViewProps {
 
 type SortField = keyof Member | 'stt';
 type SortOrder = 'asc' | 'desc';
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '---';
-  // If it's already in dd/mm/yyyy format, return it
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
-  
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  } catch {
-    return dateStr;
-  }
-};
-
-const toDateInputFormat = (dateStr: string) => {
-  if (!dateStr) return '';
-  // If it's in dd/mm/yyyy format, convert to yyyy-mm-dd
-  const ddmmyyyyMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (ddmmyyyyMatch) {
-    return `${ddmmyyyyMatch[3]}-${ddmmyyyyMatch[2]}-${ddmmyyyyMatch[1]}`;
-  }
-  
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return '';
-  }
-};
 
 export const MembersView = ({ authToken }: MembersViewProps) => {
   const { t } = useTranslation();

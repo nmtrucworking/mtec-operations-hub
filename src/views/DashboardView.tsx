@@ -55,17 +55,18 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const totalMembers = dashboardData?.totalMembers ?? 0;
   
   // Calculate dept stats
-  const countBan = (ban: string) => mockMembers.filter(m => m.ban.includes(ban)).length;
-
   const getDeptCount = (ban: string) => {
-  const dept = dashboardData?.deptDistribution.find((d: any) => d.ban === ban);
+    // Attempt to find by exact match or substring (e.g., 'Media' in 'Ban Truyen thong')
+    const dept = dashboardData?.deptDistribution.find((d: any) => 
+      d.ban === ban || d.ban.toLowerCase().includes(ban.toLowerCase())
+    );
     return dept ? dept.count : 0;
   };
 
-  const pctMedia = totalMembers ? Math.round((getDeptCount('Ban Truyen thong') / totalMembers) * 100) : 0;
-  const pctTech = totalMembers ? Math.round((getDeptCount('Ban Cong nghe') / totalMembers) * 100) : 0;
-  const pctBoard = totalMembers ? Math.round((getDeptCount('Ban Chu nhiem') / totalMembers) * 100) : 0;
-  const pctOps = totalMembers ? Math.round((getDeptCount('Ban Dieu hanh') / totalMembers) * 100) : 0;
+  const pctMedia = totalMembers ? Math.round((getDeptCount('Truyen thong') / totalMembers) * 100) : 0;
+  const pctTech = totalMembers ? Math.round((getDeptCount('Cong nghe') / totalMembers) * 100) : 0;
+  const pctBoard = totalMembers ? Math.round((getDeptCount('Chu nhiem') / totalMembers) * 100) : 0;
+  const pctOps = totalMembers ? Math.round((getDeptCount('Dieu hanh') / totalMembers) * 100) : 0;
   
   const resignRequests = [] as RequestItem[]; // Replace with actual request filtering logic if needed
   const maintenanceCount = assetSeedData.filter((item) => item.status === 'Cần bảo trì').length;

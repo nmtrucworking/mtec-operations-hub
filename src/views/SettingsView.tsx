@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle, Trash2, Plus } from 'lucide-react';
+import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle, Trash2, Plus, Clock } from 'lucide-react';
 import { 
   changePassword, 
   getProfile, 
@@ -12,12 +12,14 @@ import {
   updateUser,
   deleteUser
 } from '../services/api';
+import { VERSION_HISTORY } from '../config/versionHistory';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Modal } from '../components/ui/modal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
+import { cn } from '../lib/utils';
 import type { UserAccount, UserRole } from '../types/app';
 
 interface SettingsViewProps {
@@ -27,7 +29,7 @@ interface SettingsViewProps {
 
 export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'accounts'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'accounts' | 'version'>('profile');
 
   // Generic states
   const [isSaving, setIsSaving] = useState(false);
@@ -276,6 +278,17 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
               {t('admin.tabAccounts')}
             </button>
           )}
+
+          <button
+            onClick={() => setActiveTab('version')}
+            className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'version'
+              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
+              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              }`}
+          >
+            <Clock size={18} className="mr-3" />
+            Lịch sử cập nhật
+          </button>
         </div>
 
         {/* Settings Content */}
@@ -465,6 +478,43 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                     ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+
+          {activeTab === 'version' && (
+            <div className="p-6 space-y-6 animate-in fade-in duration-300 overflow-y-auto max-h-[70vh] custom-scrollbar">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <h3 className="text-lg font-bold">Lịch sử cập nhật hệ thống</h3>
+                <Badge variant="outline" className="border-gold text-gold">v{VERSION_HISTORY[0].version}</Badge>
+              </div>
+
+              <div className="space-y-8">
+                {VERSION_HISTORY.map((entry, idx) => (
+                  <div key={entry.version} className="relative pl-6 border-l-2 border-border pb-2">
+                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gold border-4 border-card" />
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-bold text-primary">Phiên bản {entry.version}</h4>
+                      <span className="text-xs text-secondary">{entry.date}</span>
+                    </div>
+                    <ul className="space-y-2">
+                      {entry.changes.map((change, cIdx) => (
+                        <li key={cIdx} className="flex items-start text-sm">
+                          <span className={cn(
+                            "mt-1 mr-2 w-1.5 h-1.5 rounded-full shrink-0",
+                            change.type === 'feature' ? "bg-success-text" :
+                            change.type === 'fix' ? "bg-danger-text" :
+                            change.type === 'security' ? "bg-warning-text" : "bg-blue-400"
+                          )} />
+                          <span className="text-secondary leading-relaxed">
+                            <strong className="text-primary mr-1 capitalize">{change.type}:</strong>
+                            {change.description}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
