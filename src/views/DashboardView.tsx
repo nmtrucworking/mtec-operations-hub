@@ -55,11 +55,20 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const totalMembers = dashboardData?.totalMembers ?? 0;
   
   // Calculate dept stats
+  const normalizeText = (s: unknown) =>
+    String(s ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
   const getDeptCount = (ban: string) => {
-    // Attempt to find by exact match or substring (e.g., 'Media' in 'Ban Truyen thong')
-    const dept = dashboardData?.deptDistribution.find((d: any) => 
-      d.ban === ban || d.ban.toLowerCase().includes(ban.toLowerCase())
-    );
+    const target = normalizeText(ban);
+    const dept = dashboardData?.deptDistribution.find((d: any) => {
+      const name = normalizeText(d?.ban);
+      return name === target || name.includes(target) || target.includes(name);
+    });
     return dept ? dept.count : 0;
   };
 
