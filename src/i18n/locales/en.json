@@ -22,6 +22,7 @@
     "navDiscipline": "Discipline & Attendance",
     "navLogistics": "Logistics & Assets",
     "navGenerator": "Document Generator",
+    "navLogs": "Activity Logs",
     "navSettings": "System Settings",
     "logout": "Logout",
     "searchPlaceholder": "Search Student ID, Name...",
@@ -194,9 +195,9 @@
     "editBtn": "Edit",
     "approveBtn": "Approve",
     "rejectBtn": "Reject",
-    "reviewNotePlaceholder": "Review note",
-    "noteTitle": "Quick Processing Notes",
-    "noteDesc": "Club leave requests must be approved within 48 hours, prioritize checking reasons and asset handover before closing.",
+    "reviewNotePlaceholder": "Review/Reject note",
+    "noteTitle": "Quick Review Note",
+    "noteDesc": "Departure requests should be reviewed within 48 hours, prioritizing reason check and asset handover confirmation before closing the profile.",
     "modalCreate": "Create New Request",
     "modalUpdate": "Update Request",
     "phDate": "Date",
@@ -355,5 +356,20 @@
     "thAction": "Actions",
     "editBtn": "Edit",
     "resetPwdBtn": "Reset Password"
+  },
+  "logs": {
+    "title": "Activity Logs",
+    "subtitle": "Track all changes and actions performed by members in the system.",
+    "searchPlaceholder": "Search actions, users...",
+    "filterModuleAll": "All modules",
+    "filterActionAll": "All actions",
+    "totalRecords": "records",
+    "colTimestamp": "Timestamp",
+    "colUser": "User",
+    "colAction": "Action",
+    "colModule": "Module",
+    "colDescription": "Description",
+    "colStatus": "Status",
+    "noResults": "No results found."
   }
 }

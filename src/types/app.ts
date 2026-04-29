@@ -6,7 +6,8 @@ export type AppTab =
   | 'discipline'
   | 'logistics'
   | 'generator'
-  | 'settings';
+  | 'settings'
+  | 'logs';
 
 
 export type UserRole = 

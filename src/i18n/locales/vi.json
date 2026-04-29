@@ -22,6 +22,7 @@
     "navDiscipline": "Kỷ luật & Chuyên cần",
     "navLogistics": "Cơ sở vật chất (Hậu cần)",
     "navGenerator": "Document Generator",
+    "navLogs": "Nhật ký hoạt động",
     "navSettings": "Cài đặt Hệ thống",
     "logout": "Đăng xuất",
     "searchPlaceholder": "Tìm kiếm MSSV, Tên thành viên...",
@@ -356,5 +357,20 @@
     "thAction": "Thao tác",
     "editBtn": "Sửa",
     "resetPwdBtn": "Reset Mật khẩu"
+  },
+  "logs": {
+    "title": "Nhật ký hoạt động",
+    "subtitle": "Theo dõi toàn bộ các thay đổi và hành động của thành viên trong hệ thống.",
+    "searchPlaceholder": "Tìm kiếm hành động, người dùng...",
+    "filterModuleAll": "Tất cả module",
+    "filterActionAll": "Tất cả hành động",
+    "totalRecords": "bản ghi",
+    "colTimestamp": "Thời gian",
+    "colUser": "Người thực hiện",
+    "colAction": "Hành động",
+    "colModule": "Module",
+    "colDescription": "Mô tả",
+    "colStatus": "Trạng thái",
+    "noResults": "Không tìm thấy kết quả nào."
   }
 }

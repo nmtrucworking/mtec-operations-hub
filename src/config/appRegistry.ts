@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { BarChart3, Settings, Users, FileText, DollarSign, ShieldCheck, Box, Wand2 } from 'lucide-react';
+import { BarChart3, Settings, Users, FileText, DollarSign, ShieldCheck, Box, Wand2, History } from 'lucide-react';
 import { DashboardView } from '../views/DashboardView';
 import { MembersView } from '../views/MembersView';
 import { SettingsView } from '../views/SettingsView';
@@ -8,6 +8,7 @@ import { FinanceView } from '../views/FinanceView';
 import { DisciplineView } from '../views/DisciplineView';
 import { LogisticsView } from '../views/LogisticsView';
 import { GeneratorView } from '../views/GeneratorView';
+import { LogsView } from '../views/LogsView';
 import { useOperationsData, todayViDate } from '../hooks/useOperationsData';
 import type { UserAccount, UserRole, AppTab } from '../types/app';
 
@@ -21,7 +22,8 @@ export const APP_VISIBLE_TABS: AppTab[] = [
   'discipline', 
   'logistics', 
   'generator', 
-  'settings'
+  'settings',
+  'logs'
 ];
 
 export interface AppRenderContext {
@@ -141,6 +143,14 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     minVersion: '1.0.0',
     allowedRoles: 'all',
     render: () => React.createElement(GeneratorView)
+  },
+  {
+    tab: 'logs',
+    labelKey: 'appShell.navLogs',
+    icon: React.createElement(History, { size: 20 }),
+    minVersion: '1.0.0',
+    allowedRoles: ['bcn', 'bcm'], // Only board and committee members can see logs
+    render: () => React.createElement(LogsView)
   },
   {
     tab: 'settings',
