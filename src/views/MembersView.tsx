@@ -342,7 +342,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
 
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
         {isLoadingMembers ? (
-          <div className="p-8 text-center text-secondary">Đang tải dữ liệu thành viên từ backend...</div>
+          <div className="p-8 text-center text-secondary">Loading ....</div>
         ) : null}
         <Table>
           <TableHeader>

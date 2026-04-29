@@ -132,16 +132,7 @@ const App = () => {
 
     switch (activeTab) {
       case 'dashboard':
-        return (
-          <DashboardView
-            requests={requests}
-            transactions={activeTransactions}
-            pendingRequests={pendingRequests}
-            currentFund={currentFund}
-            totalIncome={totalIncome}
-            totalExpense={totalExpense}
-          />
-        );
+        return <DashboardView authToken={authToken} />;
       case 'members':
         return <MembersView authToken={authToken} />;
       case 'requests':
@@ -195,16 +186,7 @@ const App = () => {
       case 'settings':
         return <SettingsView currentUser={currentUser!} authToken={authToken} />;
       default:
-        return (
-          <DashboardView
-            requests={requests}
-            transactions={activeTransactions}
-            pendingRequests={pendingRequests}
-            currentFund={currentFund}
-            totalIncome={totalIncome}
-            totalExpense={totalExpense}
-          />
-        );
+        return <DashboardView authToken={authToken} />;
     }
   };
 

@@ -11,41 +11,41 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Modal } from '../components/ui/modal';
 import { Input } from '../components/ui/input';
-import { DashboardOverview } from '../types/dashboard';
-import { fetchDashboardOverview } from '../services/dashboard';
+import { DashboardOverviewData, DashboardActivity } from '../types/dashboard';
+import { getDashboardOverview } from '../services/dashboard';
+
+import { apiCall } from '../services/api';
 
 interface DashboardViewProps {
-  requests: RequestItem[];
-  pendingRequests: RequestItem[];
-  transactions: Transaction[];
-  currentFund: number;
-  totalIncome: number;
-  totalExpense: number;
+  authToken: string;
 }
 
-
-export const DashboardView = ({ requests, pendingRequests, transactions, currentFund, totalIncome, totalExpense }: DashboardViewProps) => {
-  const { t } = useTranslation();
-  // auth token used for fetching dashboard overview
-  const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-  const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
-  const [loading, setLoading] = useState(true);
+export const DashboardView = ({ authToken }: DashboardViewProps) => {
+  const [dashboardData, setDashboardData] = useState<DashboardOverviewData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      if (!authToken) {
-        setLoading(false);
-        return;
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await getDashboardOverview(authToken);
+
+      if (response.status === 200 && response.data?.success && response.data.data) {
+        setDashboardData(response.data.data);
+      } else {
+        setError(response.error || 'Không thể truy xuất dữ liệu từ máy chủ.');
       }
-      const response = await fetchDashboardOverview(authToken);
-      if (response?.data) {
-        setDashboardData(response.data);
-      }
-      setLoading(false);
+      
+      setIsLoading(false);
     };
-    loadData();
+    if (authToken) {
+      void fetchDashboardData();
+    }
   }, [authToken]);
+
+  
   const [aiInsight, setAiInsight] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -59,10 +59,10 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
   const pctTech = totalMembers ? Math.round((countBan('Ban Cong nghe') / totalMembers) * 100) : 0;
   const pctBoard = totalMembers ? Math.round((countBan('Ban Chu nhiem') / totalMembers) * 100) : 0;
   const pctOps = 100 - pctMedia - pctTech - pctBoard; // Remaining for Operations/Logistics
-  const resignRequests = requests.filter(r => r.type === 'Rút khỏi CLB' && r.status === 'Chờ duyệt');
+  const resignRequests = [] as RequestItem[]; // Replace with actual request filtering logic if needed
 
   const maintenanceCount = assetSeedData.filter((item) => item.status === 'Cần bảo trì').length;
-
+/*
   // Calculate dynamic activities
   const recentActivities = [
     ...requests.map(req => ({
@@ -78,28 +78,79 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
       timestamp: new Date(tx.date.split('/').reverse().join('-')).getTime()
     }))
   ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
+*/
+
+  // Hàm xử lý chuỗi tiêu đề dựa trên các trạng thái (status) từ cơ sở dữ liệu
+  const formatActivityTitle = (activity: DashboardActivity) => {
+    // Đối chiếu định dạng không dấu từ CSDL: 'Da duyet', 'Tu choi', 'Cho duyet'
+    const statusText = activity.status === 'Da duyet' ? 'Giao dịch' : 'Đang duyệt';
+    const typeText = activity.type === 'Thu' ? 'thu' : 'chi';
+    return `${statusText} ${typeText}: ${activity.title}`;
+  };
+
+  // Hàm phân loại màu sắc/trạng thái UI 
+  const formatActivityType = (activity: DashboardActivity): 'success' | 'warning' | 'info' => {
+    if (activity.status === 'Tu choi') return 'warning';
+    if (activity.type === 'Thu') return 'success';
+    return 'info'; // Áp dụng mặc định cho các giao dịch 'Chi' hoặc đang 'Cho duyet'
+  };
 
   const handleGenerateInsight = async () => {
+    if (!dashboardData) return;
     setIsAiLoading(true);
+    
     const prompt = `Với tư cách là chuyên gia Nhân sự và Quản lý của CLB MTEC. Hãy phân tích ngắn gọn (khoảng 3-4 dòng) về tình hình hiện tại của CLB dựa trên dữ liệu sau:
-    - Tổng thành viên: ${totalMembers}
-    - Đơn rút đang chờ duyệt: ${resignRequests.length}
-    - Đơn yêu cầu khác đang chờ: ${pendingRequests.length - resignRequests.length}
-    - Số dư quỹ: ${formatCurrency(currentFund)} (Tổng thu: ${formatCurrency(totalIncome)}, Tổng chi: ${formatCurrency(totalExpense)})
-    - Thiết bị cần bảo trì: ${maintenanceCount}
-    - Tỷ lệ ban ngành: Truyền thông ${pctMedia}%, Công nghệ ${pctTech}%, Vận hành ${pctOps}%, Ban chủ nhiệm ${pctBoard}%.
+    - Tổng thành viên: ${dashboardData.totalMembers}
+    - Đơn yêu cầu đang chờ duyệt: ${dashboardData.pendingRequestsCount}
+    - Số dư quỹ: ${formatCurrency(dashboardData.currentFund)} (Tổng thu: ${formatCurrency(dashboardData.totalIncome)}, Tổng chi: ${formatCurrency(dashboardData.totalExpense)})
+    - Thiết bị cần bảo trì: ${dashboardData.maintenanceCount}
     Đưa ra nhận xét về sức khỏe tài chính và nhân sự, cùng 1 lời khuyên chiến lược.`;
-    const insight = await callGeminiAPI(prompt);
-    setAiInsight(insight);
-    setIsAiLoading(false);
+
+    try {
+      const response = await apiCall('/api/ai/generate-insight', {
+        method: 'POST',
+        body: JSON.stringify({ prompt })
+      }, authToken);
+
+      const responseBody = response.data as any;
+      if (response.status === 200 && responseBody?.success && responseBody.data?.text) {
+        setAiInsight(responseBody.data.text);
+      } else {
+        setAiInsight('Hệ thống AI không thể xử lý yêu cầu vào lúc này.');
+      }
+    } catch (err) {
+      setAiInsight('Lỗi kết nối đến máy chủ AI.');
+    } finally {
+      setIsAiLoading(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-full w-full p-8 text-primary">
+        <span>Đang tải dữ liệu tổng quan hệ thống...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-100 text-red-700 rounded-md border border-red-300">
+        Lỗi hệ thống: {error}
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return null;
+  }
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-bold">{t('dashboard.title')}</h2>
-          <p className="text-blue-300 mt-1">{t('dashboard.subtitle')}</p>
+          <h2 className="text-2xl font-bold">{('dashboard.title')}</h2>
+          <p className="text-blue-300 mt-1">{('dashboard.subtitle')}</p>
         </div>
         <div className="flex space-x-3">
           <Button
@@ -109,7 +160,7 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
             className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-lg shadow-purple-500/20 border-0"
           >
             {!isAiLoading && <Sparkles size={16} className="mr-2" />}
-            ✨ {t('dashboard.aiInsightBtn')}
+            ✨ {('dashboard.aiInsightBtn')}
           </Button>
         </div>
       </div>
@@ -121,7 +172,7 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
           </div>
           <div>
             <h4 className="font-semibold text-indigo-200 mb-1 flex items-center">
-              {t('dashboard.aiInsightTitle')} <Sparkles size={14} className="ml-2 text-indigo-300" />
+              {('dashboard.aiInsightTitle')} <Sparkles size={14} className="ml-2 text-indigo-300" />
             </h4>
             <p className="text-sm text-blue-100 leading-relaxed">{aiInsight}</p>
           </div>
@@ -130,10 +181,10 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title={t('dashboard.statTotalMembers')} value={totalMembers.toString()} icon={<Users size={24} />} trend="+12" trendUp />
-        <StatCard title={t('dashboard.statCurrentFund')} value={formatCurrency(currentFund)} icon={<DollarSign size={24} />} color="text-green-400" trend={`${totalIncome > totalExpense ? '+' : ''}${formatCurrency(totalIncome - totalExpense)}`} trendUp={totalIncome > totalExpense} />
-        <StatCard title={t('dashboard.statMaintenance')} value={maintenanceCount.toString()} icon={<Package size={24} />} color="text-red-400" />
-        <StatCard title={t('dashboard.statPendingReqs')} value={pendingRequests.length.toString()} icon={<Clock size={24} />} color="text-orange-400" />
+        <StatCard title={('dashboard.statTotalMembers')} value={totalMembers.toString()} icon={<Users size={24} />} trend="+12" trendUp />
+        <StatCard title={('dashboard.statCurrentFund')} value={formatCurrency(dashboardData?.currentFund ?? 0)} icon={<DollarSign size={24} />} color="text-green-400" trend={`${(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0) ? '+' : ''}${formatCurrency((dashboardData?.totalIncome ?? 0) - (dashboardData?.totalExpense ?? 0))}`} trendUp={(dashboardData?.totalIncome ?? 0) > (dashboardData?.totalExpense ?? 0)} />
+        <StatCard title={('dashboard.statMaintenance')} value={dashboardData?.maintenanceCount.toString()} icon={<Package size={24} />} color="text-red-400" />
+        <StatCard title={('dashboard.statPendingReqs')} value={dashboardData?.pendingRequestsCount.toString()} icon={<Clock size={24} />} color="text-orange-400" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -141,14 +192,14 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
         <div className="col-span-1 lg:col-span-2 space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg">{t('dashboard.chartMembersByDept')}</CardTitle>
+              <CardTitle className="text-lg">{('dashboard.chartMembersByDept')}</CardTitle>
               <BarChart3 className="text-secondary" />
             </CardHeader>
             <CardContent className="space-y-4">
-              <ProgressBar label={t('dashboard.deptMedia')} percent={pctMedia} color="bg-blue-400" />
-              <ProgressBar label={t('dashboard.deptTech')} percent={pctTech} color="bg-indigo-400" />
-              <ProgressBar label={t('dashboard.deptOps')} percent={pctOps} color="bg-green-400" />
-              <ProgressBar label={t('dashboard.deptBoard')} percent={pctBoard} color="bg-yellow-400" />
+              <ProgressBar label={('dashboard.deptMedia')} percent={pctMedia} color="bg-blue-400" />
+              <ProgressBar label={('dashboard.deptTech')} percent={pctTech} color="bg-indigo-400" />
+              <ProgressBar label={('dashboard.deptOps')} percent={pctOps} color="bg-green-400" />
+              <ProgressBar label={('dashboard.deptBoard')} percent={pctBoard} color="bg-yellow-400" />
             </CardContent>
           </Card>
 
@@ -156,24 +207,24 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
                 <AlertTriangle size={18} className="text-orange-400" />
-                {t('dashboard.urgentTasks')}
+                {('dashboard.urgentTasks')}
               </CardTitle>
               <button className="text-sm text-secondary hover:text-gold transition-colors flex items-center">
-                {t('dashboard.viewAll')} <ArrowRight size={14} className="ml-1" />
+                {('dashboard.viewAll')} <ArrowRight size={14} className="ml-1" />
               </button>
             </CardHeader>
             <CardContent className="space-y-3">
-              {pendingRequests.slice(0, 3).map(req => (
+              {dashboardData.urgentRequests.map(req => (
                 <RequestCard 
                   key={req.id}
                   name={req.name}
-                  mssv={req.mssv}
-                  date={req.date}
-                  reason={req.reason}
+                  mssv={req.id}
+                  date={new Date(req.date).toLocaleDateString('vi-VN')}
+                  reason={req.type}
                 />
               ))}
-              {pendingRequests.length === 0 && (
-                <p className="text-sm text-secondary italic text-center py-4">{t('dashboard.noPendingReqs')}</p>
+              {dashboardData.pendingRequestsCount === 0 && (
+                <p className="text-sm text-secondary italic text-center py-4">{('dashboard.noPendingReqs')}</p>
               )}
             </CardContent>
           </Card>
@@ -183,21 +234,21 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{t('dashboard.quickActions')}</CardTitle>
+              <CardTitle className="text-lg">{('dashboard.quickActions')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => setActiveModal('addMember')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {t('dashboard.qaAddMember')}
+                  {('dashboard.qaAddMember')}
                 </button>
                 <button onClick={() => setActiveModal('financeTx')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {t('dashboard.qaFinanceTx')}
+                  {('dashboard.qaFinanceTx')}
                 </button>
                 <button onClick={() => setActiveModal('export')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {t('dashboard.qaExport')}
+                  {('dashboard.qaExport')}
                 </button>
                 <button onClick={() => setActiveModal('roles')} className="p-3 bg-background hover:bg-brand-hover border border-border rounded-lg text-sm text-center transition-colors whitespace-pre-line">
-                  {t('dashboard.qaRoles')}
+                  {('dashboard.qaRoles')}
                 </button>
               </div>
             </CardContent>
@@ -205,19 +256,21 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
+              <CardTitle className="text-lg">{('dashboard.recentActivity')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {recentActivities.map((activity, idx) => (
+              {dashboardData.recentActivities.map((activity) => (
                 <ActivityItem 
-                  key={idx}
-                  title={activity.title}
-                  time={activity.time}
-                  type={activity.type as 'success' | 'warning' | 'info'}
+                  key={activity.id}
+                  title={formatActivityTitle(activity)}
+                  time={new Date(activity.createdAt).toLocaleDateString('vi-VN')}
+                  type={formatActivityType(activity)}
                 />
               ))}
-              {recentActivities.length === 0 && (
-                <p className="text-sm text-secondary italic text-center py-4">{t('dashboard.noRecentActivity')}</p>
+              {dashboardData.recentActivities.length === 0 && (
+                <p className="text-sm text-secondary italic text-center py-4">
+                  {('dashboard.noRecentActivity')}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -228,7 +281,7 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
       <Modal 
         isOpen={activeModal === 'addMember'} 
         onClose={() => setActiveModal(null)} 
-        title={t('dashboard.qaAddMember')}
+        title={('dashboard.qaAddMember')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
@@ -255,7 +308,7 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
       <Modal 
         isOpen={activeModal === 'financeTx'} 
         onClose={() => setActiveModal(null)} 
-        title={t('dashboard.qaFinanceTx')}
+        title={('dashboard.qaFinanceTx')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
@@ -285,7 +338,7 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
       <Modal 
         isOpen={activeModal === 'export'} 
         onClose={() => setActiveModal(null)} 
-        title={t('dashboard.qaExport')}
+        title={('dashboard.qaExport')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
@@ -315,7 +368,7 @@ export const DashboardView = ({ requests, pendingRequests, transactions, current
       <Modal 
         isOpen={activeModal === 'roles'} 
         onClose={() => setActiveModal(null)} 
-        title={t('dashboard.qaRoles')}
+        title={('dashboard.qaRoles')}
         footer={
           <>
             <Button variant="outline" onClick={() => setActiveModal(null)}>Hủy</Button>
