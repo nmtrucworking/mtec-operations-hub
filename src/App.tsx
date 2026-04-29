@@ -87,9 +87,13 @@ const App = () => {
 
         setAuthToken(storedSession.token);
         const currentUserResponse = await getCurrentUser(storedSession.token);
-        const remoteUser = currentUserResponse.data
-          ? normalizeUserAccount(currentUserResponse.data, storedSession.user)
+        const responseBody = currentUserResponse.data as any;
+        const actualUserData = responseBody?.success && responseBody?.data ? responseBody.data : responseBody;
+
+        const remoteUser = actualUserData
+          ? normalizeUserAccount(actualUserData, storedSession.user)
           : storedSession.user;
+
         setCurrentUser(remoteUser);
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ token: storedSession.token, user: remoteUser }));
       } catch {

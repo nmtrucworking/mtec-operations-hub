@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarChart3, Bot, Clock, Loader2, PieChart, Sparkles, Users, XCircle, DollarSign, Package, AlertTriangle, ArrowRight } from 'lucide-react';
 import { ActivityItem, ProgressBar, StatCard, RequestCard } from '../components/shared/Widgets';
@@ -11,6 +11,8 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Modal } from '../components/ui/modal';
 import { Input } from '../components/ui/input';
+import { DashboardOverview } from '../types/dashboard';
+import { fetchDashboardOverview } from '../services/dashboard';
 
 interface DashboardViewProps {
   requests: RequestItem[];
@@ -21,8 +23,29 @@ interface DashboardViewProps {
   totalExpense: number;
 }
 
+
 export const DashboardView = ({ requests, pendingRequests, transactions, currentFund, totalIncome, totalExpense }: DashboardViewProps) => {
   const { t } = useTranslation();
+  // auth token used for fetching dashboard overview
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+  const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      if (!authToken) {
+        setLoading(false);
+        return;
+      }
+      const response = await fetchDashboardOverview(authToken);
+      if (response?.data) {
+        setDashboardData(response.data);
+      }
+      setLoading(false);
+    };
+    loadData();
+  }, [authToken]);
   const [aiInsight, setAiInsight] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);

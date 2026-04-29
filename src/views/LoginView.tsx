@@ -59,11 +59,15 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
     setIsLoading(true);
 
     const response = await loginRequest(username.trim(), password);
-    const responseData = response.data as Record<string, unknown> | undefined;
+    const responseBody = response.data as any; 
 
-    if (response.status >= 200 && response.status < 300 && responseData) {
-      const userPayload = responseData.user ?? responseData.account ?? responseData.data ?? responseData;
-      const token = String(responseData.accessToken ?? responseData.access_token ?? responseData.token ?? '');
+    if (response.status >= 200 && response.status < 300 && responseBody) {
+      // Xác định chính xác payload thực tế chứa token và thông tin user
+      const actualPayload = responseBody.success && responseBody.data ? responseBody.data : responseBody;
+      
+      const userPayload = actualPayload.user ?? actualPayload.account ?? actualPayload;
+      const token = String(actualPayload.accessToken ?? actualPayload.access_token ?? actualPayload.token ?? '');
+      
       onLogin(normalizeUser(userPayload), token || undefined);
       return;
     }
