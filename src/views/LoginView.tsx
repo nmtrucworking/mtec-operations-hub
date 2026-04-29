@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Lock, LogIn, Mail } from 'lucide-react';
-import { login as loginRequest } from '../services/api';
+import { login as loginRequest } from '../services/auth';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -21,57 +21,6 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-  const extractLoginPayload = (payload: unknown) => {
-    const record = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
-    const nestedData = record.data && typeof record.data === 'object' ? (record.data as Record<string, unknown>) : null;
-
-    if (record.success && nestedData) {
-      return nestedData;
-    }
-
-    if (
-      nestedData &&
-      (
-        'accessToken' in nestedData ||
-        'access_token' in nestedData ||
-        'token' in nestedData ||
-        'user' in nestedData ||
-        'account' in nestedData
-      )
-    ) {
-      return nestedData;
-    }
-
-    return record;
-  };
-
-  const normalizeUser = (payload: unknown): UserAccount => {
-    const record = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
-    const fullName = String(record.fullName ?? record.full_name ?? record.name ?? '').trim();
-    const usernameValue = String(record.username ?? username).trim();
-    const role = String(record.role ?? 'member') as UserRole;
-    const initials = String(
-      record.avatarInitials ??
-        record.avatar_initials ??
-        (fullName
-          ? fullName
-              .split(/\s+/)
-              .slice(0, 2)
-              .map((part) => part[0]?.toUpperCase() ?? '')
-              .join('')
-          : usernameValue.slice(0, 2).toUpperCase())
-    );
-
-    return {
-      id: String(record.id ?? usernameValue),
-      username: usernameValue,
-      password: String(record.password ?? password),
-      fullName: fullName || usernameValue,
-      role,
-      avatarInitials: initials || usernameValue.slice(0, 2).toUpperCase()
-    };
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -84,22 +33,9 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
     setIsLoading(true);
 
     const response = await loginRequest(username.trim(), password);
-    const responseBody = response.data as any;
 
-    if (response.status >= 200 && response.status < 300 && responseBody) {
-      const actualPayload = extractLoginPayload(responseBody) as Record<string, unknown>;
-      const userPayload = actualPayload.user ?? actualPayload.account ?? actualPayload;
-      const token = String(
-        actualPayload.accessToken ??
-          actualPayload.access_token ??
-          actualPayload.token ??
-          (responseBody as Record<string, unknown>).accessToken ??
-          (responseBody as Record<string, unknown>).access_token ??
-          (responseBody as Record<string, unknown>).token ??
-          ''
-      );
-      
-      onLogin(normalizeUser(userPayload), token || undefined);
+    if (response.status >= 200 && response.status < 300 && response.data) {
+      onLogin(response.data.user, response.data.accessToken);
       return;
     }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { LoginView } from './views/LoginView';
-import { getCurrentUser } from './services/api';
+import { getCurrentUser, normalizeUser } from './services/auth';
 import { APP_VISIBLE_TABS, getVisibleTabDefinitions } from './config/appRegistry';
 import type { AppTab, UserAccount, UserRole } from './types/app';
 
@@ -13,34 +13,6 @@ interface StoredSession {
   token: string;
   user: UserAccount;
 }
-
-const normalizeUserAccount = (payload: unknown, fallback?: Partial<UserAccount>): UserAccount => {
-  const record = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
-  const fullName = String(record.fullName ?? record.full_name ?? record.name ?? fallback?.fullName ?? '').trim();
-  const username = String(record.username ?? fallback?.username ?? '').trim();
-  const role = String(record.role ?? fallback?.role ?? 'member') as UserRole;
-  const initials = String(
-    record.avatarInitials ??
-      record.avatar_initials ??
-      fallback?.avatarInitials ??
-      (fullName
-        ? fullName
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((part) => part[0]?.toUpperCase() ?? '')
-            .join('')
-        : username.slice(0, 2).toUpperCase())
-  );
-
-  return {
-    id: String(record.id ?? fallback?.id ?? username),
-    username,
-    password: typeof record.password === 'string' ? record.password : fallback?.password,
-    fullName: fullName || username,
-    role,
-    avatarInitials: initials || username.slice(0, 2).toUpperCase()
-  };
-};
 
 const App = () => {
   const { t } = useTranslation(); // Khởi tạo hook Translation
@@ -77,8 +49,8 @@ const App = () => {
         const actualUserData = responseBody?.success && responseBody?.data ? responseBody.data : responseBody;
 
         const remoteUser = actualUserData
-          ? normalizeUserAccount(actualUserData, storedSession.user)
-          : storedSession.user;
+          ? normalizeUser(actualUserData, storedSession.user)
+          : storedSession.user as UserAccount;
 
         setCurrentUser(remoteUser);
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ token: storedSession.token, user: remoteUser }));
@@ -110,7 +82,7 @@ const App = () => {
   }, []);
 
   const handleLogin = (user: UserAccount, token?: string) => {
-    const nextUser = normalizeUserAccount(user);
+    const nextUser = normalizeUser(user);
     setCurrentUser(nextUser);
     if (token) {
       setAuthToken(token);

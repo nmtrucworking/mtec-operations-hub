@@ -6,12 +6,14 @@ import {
   getProfile, 
   updateProfile, 
   getNotificationSettings, 
-  updateNotificationSettings,
+  updateNotificationSettings
+} from '../services/auth';
+import {
   getUsers,
   createUser,
   updateUser,
   deleteUser
-} from '../services/api';
+} from '../services/users';
 import { VERSION_HISTORY } from '../config/versionHistory';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -67,8 +69,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
       try {
         // 1. Fetch profile
         const profileRes = await getProfile(authToken);
-        if (profileRes.status === 200 && profileRes.data?.success) {
-          const data = profileRes.data.data;
+        if (profileRes.status === 200 && profileRes.data) {
+          const data = profileRes.data;
           setProfileForm({
             fullName: data.fullName || '',
             email: data.email || '',
@@ -78,15 +80,16 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
         // 2. Fetch notifications
         const notiRes = await getNotificationSettings(authToken);
-        if (notiRes.status === 200 && notiRes.data?.success) {
-          setNotis(notiRes.data.data);
+        if (notiRes.status === 200 && notiRes.data) {
+          const data = notiRes.data.data || notiRes.data;
+          setNotis(data);
         }
 
         // 3. Fetch Accounts if Admin
         if (currentUser.role === 'bcn') {
-          const accRes = await getUsers(authToken);
-          if (accRes.status === 200 && accRes.data?.success) {
-            setAccountsList(accRes.data.data);
+          const accRes = await getUsers({}, authToken);
+          if (accRes.status === 200 && accRes.data) {
+            setAccountsList(accRes.data.users);
           }
         }
       } catch (error) {
@@ -106,7 +109,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
     setErrorMsg('');
     try {
       const response = await updateProfile(profileForm, authToken);
-      if (response.status === 200 && response.data?.success) {
+      if (response.status === 200 && response.data) {
         setSuccessMsg(t('common.success'));
         setTimeout(() => setSuccessMsg(''), 3000);
       } else {
@@ -164,11 +167,11 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   };
 
   const handleSaveAccount = async () => {
-    if (!authToken) return;
+    if (!authToken || !editingAcc) return;
     setIsSaving(true);
     try {
       let response;
-      if (editingAcc?.id) {
+      if (editingAcc.id) {
         // Update
         response = await updateUser(editingAcc.id, editingAcc, authToken);
       } else {
@@ -176,11 +179,11 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         response = await createUser(editingAcc, authToken);
       }
 
-      if (response.status === 200 && response.data?.success) {
+      if (response.status === 200 && response.data) {
         // Refresh list
-        const accRes = await getUsers(authToken);
-        if (accRes.status === 200 && accRes.data?.success) {
-          setAccountsList(accRes.data.data);
+        const accRes = await getUsers({}, authToken);
+        if (accRes.status === 200 && accRes.data) {
+          setAccountsList(accRes.data.users);
         }
         setIsModalOpen(false);
         setSuccessMsg(t('common.success'));

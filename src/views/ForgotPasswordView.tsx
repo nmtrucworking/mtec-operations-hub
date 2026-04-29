@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Lock, Mail, ChevronLeft, CheckCircle } from 'lucide-react';
-import { forgotPassword, verifyResetToken, resetPassword } from '../services/api';
+import { forgotPassword, verifyResetToken, resetPassword } from '../services/auth';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';

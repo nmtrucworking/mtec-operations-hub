@@ -25,4 +25,9 @@ export interface UserAccount {
   fullName: string;
   role: UserRole;
   avatarInitials: string;
+  email?: string;
+  phone?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
