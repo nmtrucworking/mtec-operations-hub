@@ -13,7 +13,8 @@ import { getRequests, reviewRequest as reviewRequestApi } from '../services/requ
 import { getTransactions, getPendingTransactions, reviewTransaction as reviewTransactionApi, deleteTransaction as deleteTransactionApi } from '../services/finance';
 import type { UserAccount, UserRole, AppTab } from '../types/app';
 
-export const APP_VERSION = '1.0.0';
+import { APP_VERSION } from './appVersion';
+export { APP_VERSION };
 
 export const APP_VISIBLE_TABS: AppTab[] = [
   'dashboard', 

@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Filter, Search } from 'lucide-react';
+import { getDisciplineStats, type DisciplineStats } from '../services/discipline';
 
 
 interface DisciplineViewProps {
@@ -27,8 +28,17 @@ const records: DisciplineRecord[] = [
 
 export const DisciplineView = () => {
   const { t } = useTranslation();
+  const [stats, setStats] = useState<DisciplineStats | null>(null);
   const [search, setSearch] = useState('');
   const [disciplineFilter, setDisciplineFilter] = useState<'All' | DisciplineLevel>('All');
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const res = await getDisciplineStats();
+      if (res.data) setStats(res.data);
+    };
+    fetchStats();
+  }, []);
 
   const getDisciplineName = (level: string) => {
     switch (level) {
@@ -66,15 +76,15 @@ export const DisciplineView = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
           <p className="text-sm text-blue-300">{t('discipline.statTotal')}</p>
-          <p className="text-3xl font-bold mt-1">{records.length}</p>
+          <p className="text-3xl font-bold mt-1">{stats?.totalMembers ?? records.length}</p>
         </div>
         <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
           <p className="text-sm text-blue-300">{t('discipline.statWarning')}</p>
-          <p className="text-3xl font-bold mt-1 text-orange-300">{riskCount}</p>
+          <p className="text-3xl font-bold mt-1 text-orange-300">{stats?.warnedCases ?? riskCount}</p>
         </div>
         <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
           <p className="text-sm text-blue-300">{t('discipline.statAvgKpi')}</p>
-          <p className="text-3xl font-bold mt-1 text-green-300">{Math.round(records.reduce((sum, item) => sum + item.kpi, 0) / records.length)}/100</p>
+          <p className="text-3xl font-bold mt-1 text-green-300">{stats?.averageKPI ?? Math.round(records.reduce((sum, item) => sum + item.kpi, 0) / records.length)}/100</p>
         </div>
       </div>
 

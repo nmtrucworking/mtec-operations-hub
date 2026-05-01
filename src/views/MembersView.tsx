@@ -38,6 +38,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl } from '../services/members';
 import { formatDate, toDateInputFormat, downloadFileWithAuth } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
+import { getLogs, type ActivityLog } from '../services/logs';
 import {
   FACULTY_MAJOR_MAP,
   type Member,
@@ -76,6 +77,21 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     field: 'id',
     order: 'asc'
   });
+  const [memberLogs, setMemberLogs] = useState<ActivityLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'history'>('info');
+
+  useEffect(() => {
+    if (selectedMember && activeDetailTab === 'history') {
+      const fetchMemberLogs = async () => {
+        setIsLoadingLogs(true);
+        const res = await getLogs({ search: selectedMember.mssv });
+        if (res.data) setMemberLogs(res.data.logs);
+        setIsLoadingLogs(false);
+      };
+      fetchMemberLogs();
+    }
+  }, [selectedMember, activeDetailTab]);
 
   type MemberFormData = Omit<Member, 'id'>;
 
@@ -639,7 +655,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       {/* Member Detail Modal */}
       <Modal 
         isOpen={!!selectedMember && !isEditModalOpen} 
-        onClose={() => setSelectedMember(null)}
+        onClose={() => { setSelectedMember(null); setActiveDetailTab('info'); }}
         title={t('members.profileTitle')}
         className="max-w-3xl"
         footer={
@@ -663,7 +679,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
               <FileText size={16} className="mr-2" />
               Tải hồ sơ (DOCX)
             </Button>
-            <Button variant="outline" onClick={() => setSelectedMember(null)} className="hover:bg-secondary/10 transition-colors">
+            <Button variant="outline" onClick={() => { setSelectedMember(null); setActiveDetailTab('info'); }} className="hover:bg-secondary/10 transition-colors">
               {t('members.close')}
             </Button>
             <Button onClick={() => openEditModal(selectedMember!)} className="transition-transform active:scale-95">
@@ -675,62 +691,113 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       >
         {selectedMember && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-brand-light p-5 rounded-xl border border-border shadow-inner">
-              <InfoItem Icon={Users} label={t('members.lblGender')} value={selectedMember.gender} />
-              <InfoItem Icon={Calendar} label={t('members.lblDob')} value={formatDate(selectedMember.dob)} />
-              <InfoItem Icon={Phone} label={t('members.lblPhone')} value={selectedMember.phone} />
-              <InfoItem Icon={Mail} label={t('members.lblEmail')} value={selectedMember.email} />
-              <InfoItem Icon={MapPin} label={t('members.lblAddress')} value={selectedMember.address} />
-              <InfoItem Icon={GraduationCap} label={t('members.lblMajor')} value={selectedMember.chuyenNganh} />
-              <InfoItem Icon={Calendar} label="Ngày tham gia" value={formatDate(selectedMember.joinDate)} />
-              <div className="md:col-span-2">
-                <span className="flex items-center text-xs text-secondary mb-2">
-                  <span className="mr-1.5 opacity-70">
-                    <Briefcase size={16} />
-                  </span>
-                  Ban Chuyên môn
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {normalizeBanList(selectedMember.ban).map(b => (
-                    <Badge key={b} variant="secondary" className="px-3 py-1">{b}</Badge>
-                  ))}
-                  {normalizeBanList(selectedMember.ban).length === 0 && <span className="text-sm text-secondary italic">Chưa tham gia ban nào</span>}
-                </div>
-              </div>
+            {/* Tabs */}
+            <div className="flex border-b border-border">
+              <button 
+                onClick={() => setActiveDetailTab('info')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeDetailTab === 'info' ? 'border-gold text-gold' : 'border-transparent text-secondary hover:text-primary'}`}
+              >
+                Thông tin chi tiết
+              </button>
+              <button 
+                onClick={() => setActiveDetailTab('history')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeDetailTab === 'history' ? 'border-gold text-gold' : 'border-transparent text-secondary hover:text-primary'}`}
+              >
+                Lịch sử thay đổi
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-brand-light p-5 rounded-xl border border-border">
-                <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
-                  <Star size={16} className="mr-2" />
-                  {t('members.skills')}
+            {activeDetailTab === 'info' ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-brand-light p-5 rounded-xl border border-border shadow-inner">
+                  <InfoItem Icon={Users} label={t('members.lblGender')} value={selectedMember.gender} />
+                  <InfoItem Icon={Calendar} label={t('members.lblDob')} value={formatDate(selectedMember.dob)} />
+                  <InfoItem Icon={Phone} label={t('members.lblPhone')} value={selectedMember.phone} />
+                  <InfoItem Icon={Mail} label={t('members.lblEmail')} value={selectedMember.email} />
+                  <InfoItem Icon={MapPin} label={t('members.lblAddress')} value={selectedMember.address} />
+                  <InfoItem Icon={GraduationCap} label={t('members.lblMajor')} value={selectedMember.chuyenNganh} />
+                  <InfoItem Icon={Calendar} label="Ngày tham gia" value={formatDate(selectedMember.joinDate)} />
+                  <div className="md:col-span-2">
+                    <span className="flex items-center text-xs text-secondary mb-2">
+                      <span className="mr-1.5 opacity-70">
+                        <Briefcase size={16} />
+                      </span>
+                      Ban Chuyên môn
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {normalizeBanList(selectedMember.ban).map(b => (
+                        <Badge key={b} variant="secondary" className="px-3 py-1">{b}</Badge>
+                      ))}
+                      {normalizeBanList(selectedMember.ban).length === 0 && <span className="text-sm text-secondary italic">Chưa tham gia ban nào</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-brand-light p-5 rounded-xl border border-border">
+                    <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
+                      <Star size={16} className="mr-2" />
+                      {t('members.skills')}
+                    </h5>
+                    <div className="flex flex-wrap gap-2">
+                      {[...selectedMember.hardSkills, ...selectedMember.softSkills].map((skill, idx) => (
+                        <SkillBadge key={`${skill.name}-${idx}`} name={skill.name} level={skill.level} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-brand-light p-5 rounded-xl border border-border space-y-3">
+                    <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center">
+                      <Target size={16} className="mr-2" />
+                      {t('members.goals')}
+                    </h5>
+                    <p className="text-sm text-primary leading-relaxed">{selectedMember.goal || t('members.notUpdated')}</p>
+                    <p className="text-sm text-secondary leading-relaxed flex items-start">
+                      <Compass size={14} className="mr-2 mt-1 shrink-0" />
+                      {selectedMember.orientation || t('members.notUpdated')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-brand-light p-5 rounded-xl border border-border">
+                  <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
+                    <BookOpen size={16} className="mr-2" />
+                    {t('members.experience')}
+                  </h5>
+                  <p className="text-sm text-secondary italic">{selectedMember.experience || t('members.noExperience')}</p>
+                </div>
+              </>
+            ) : (
+              <div className="bg-brand-light p-5 rounded-xl border border-border min-h-[300px]">
+                <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-4">
+                  <RefreshCw size={16} className={`mr-2 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+                  Nhật ký thay đổi
                 </h5>
-                <div className="flex flex-wrap gap-2">
-                  {[...selectedMember.hardSkills, ...selectedMember.softSkills].map((skill, idx) => (
-                    <SkillBadge key={`${skill.name}-${idx}`} name={skill.name} level={skill.level} />
-                  ))}
+                <div className="space-y-3">
+                  {isLoadingLogs ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ) : memberLogs.length > 0 ? (
+                    memberLogs.map((log) => (
+                      <div key={log.id} className="p-3 bg-background/50 rounded-lg border border-border flex flex-col gap-1">
+                        <div className="flex justify-between items-center">
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold">{log.action}</Badge>
+                          <span className="text-[10px] text-secondary">{formatDate(log.timestamp)}</span>
+                        </div>
+                        <p className="text-sm text-primary">{log.details}</p>
+                        <p className="text-[10px] text-secondary italic">Bởi: {log.user}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-10 text-secondary italic text-sm">
+                      Chưa có lịch sử thay đổi nào được ghi lại cho thành viên này.
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="bg-brand-light p-5 rounded-xl border border-border space-y-3">
-                <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center">
-                  <Target size={16} className="mr-2" />
-                  {t('members.goals')}
-                </h5>
-                <p className="text-sm text-primary leading-relaxed">{selectedMember.goal || t('members.notUpdated')}</p>
-                <p className="text-sm text-secondary leading-relaxed flex items-start">
-                  <Compass size={14} className="mr-2 mt-1 shrink-0" />
-                  {selectedMember.orientation || t('members.notUpdated')}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-brand-light p-5 rounded-xl border border-border">
-              <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
-                <BookOpen size={16} className="mr-2" />
-                {t('members.experience')}
-              </h5>
-              <p className="text-sm text-secondary italic">{selectedMember.experience || t('members.noExperience')}</p>
-            </div>
+            )}
           </div>
         )}
       </Modal>

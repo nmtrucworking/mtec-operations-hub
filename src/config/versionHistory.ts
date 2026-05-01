@@ -9,6 +9,17 @@ export interface VersionEntry {
 
 export const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: '1.2.0',
+    date: '2026-05-01',
+    changes: [
+      { type: 'feature', description: 'Triển khai hệ thống Nhật ký hoạt động (Activity Logs) toàn diện.' },
+      { type: 'feature', description: 'Nâng cấp AI Generator: hỗ trợ template văn bản hành chính, trích xuất ngữ cảnh và xuất file DOCX.' },
+      { type: 'feature', description: 'Cập nhật Dashboard Logistics & Discipline với số liệu thống kê thời gian thực.' },
+      { type: 'improvement', description: 'Bổ sung Audit Logs Coverage cho toàn bộ hệ thống (Members, Assets, Finance, Requests).' },
+      { type: 'security', description: 'Cập nhật phân quyền: Role BCM có quyền xem và xuất nhật ký hệ thống.' }
+    ]
+  },
+  {
     version: '1.0.1',
     date: '2026-04-30',
     changes: [

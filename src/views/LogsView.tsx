@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Filter, 
@@ -10,7 +10,8 @@ import {
   ChevronRight,
   Info,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Loader2
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/ui/button';
@@ -18,83 +19,75 @@ import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { mockLogs, ActivityLog, LogAction, LogModule } from '../data/logs';
+import { mockLogs, ActivityLog as MockActivityLog, LogAction, LogModule } from '../data/logs';
 import { formatDate } from '../lib/helpers';
+import { getLogs, exportLogs, type ActivityLog, type LogsQuery } from '../services/logs';
 
 const ITEMS_PER_PAGE = 10;
 
 export const LogsView = () => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterModule, setFilterModule] = useState<LogModule | 'All'>('All');
-  const [filterAction, setFilterAction] = useState<LogAction | 'All'>('All');
+  const [filterModule, setFilterModule] = useState<string | 'All'>('All');
+  const [filterAction, setFilterAction] = useState<string | 'All'>('All');
   const [currentPage, setCurrentPage] = useState(1);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Filter logs
-  const filteredLogs = mockLogs.filter((log) => {
-    const matchSearch = 
-      log.userName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (log.details && log.details.toLowerCase().includes(searchTerm.toLowerCase()));
+  const fetchLogs = async () => {
+    setIsLoading(true);
+    const query: LogsQuery = {
+      page: currentPage,
+      pageSize: ITEMS_PER_PAGE,
+      search: searchTerm || undefined,
+      module: filterModule === 'All' ? undefined : filterModule,
+      action: filterAction === 'All' ? undefined : filterAction
+    };
     
-    const matchModule = filterModule === 'All' || log.module === filterModule;
-    const matchAction = filterAction === 'All' || log.action === filterAction;
-    
-    return matchSearch && matchModule && matchAction;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  const getStatusBadge = (status: 'SUCCESS' | 'FAILURE') => {
-    if (status === 'SUCCESS') {
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
-          <CheckCircle2 size={12} />
-          {t('common.success', 'Thành công')}
-        </Badge>
-      );
+    const res = await getLogs(query);
+    if (res.data) {
+      setLogs(res.data.logs);
+      setTotal(res.data.total);
     }
-    return (
-      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 flex items-center gap-1">
-        <XCircle size={12} />
-        {t('common.failure', 'Thất bại')}
-      </Badge>
-    );
+    setIsLoading(false);
   };
 
-  const getActionColor = (action: LogAction) => {
+  useEffect(() => {
+    fetchLogs();
+  }, [currentPage, filterModule, filterAction]);
+
+  // Handle search with debounce or manual trigger
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCurrentPage(1);
+    fetchLogs();
+  };
+
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+
+  const handleExport = async () => {
+    const res = await exportLogs();
+    if (res.data) {
+      const url = URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `activity_logs_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const getActionColor = (action: string) => {
     switch (action) {
       case 'CREATE': return 'text-blue-600';
       case 'UPDATE': return 'text-amber-600';
       case 'DELETE': return 'text-red-600';
       case 'LOGIN': return 'text-green-600';
-      case 'LOGOUT': return 'text-gray-600';
+      case 'PASSWORD_CHANGE': return 'text-purple-600';
       default: return 'text-slate-600';
     }
-  };
-
-  const handleExport = () => {
-    const headers = ['ID', 'Thời gian', 'Người thực hiện', 'Vai trò', 'Hành động', 'Module', 'Mô tả', 'Chi tiết', 'IP Address', 'Trạng thái'];
-    const csvContent = [
-      headers.join(','),
-      ...filteredLogs.map(log => 
-        `${log.id},"${formatDate(log.timestamp)}","${log.userName}","${log.userRole}","${log.action}","${log.module}","${log.description}","${log.details || ''}","${log.ipAddress}","${log.status}"`
-      )
-    ].join('\n');
-
-    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `activity_logs_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -115,7 +108,7 @@ export const LogsView = () => {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <form onSubmit={handleSearch} className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <Input
@@ -127,36 +120,41 @@ export const LogsView = () => {
         </div>
         <Select
           value={filterModule}
-          onChange={(e) => setFilterModule(e.target.value as any)}
+          onChange={(e) => setFilterModule(e.target.value)}
         >
           <option value="All">{t('logs.filterModuleAll', 'Tất cả module')}</option>
           <option value="MEMBERS">Members</option>
           <option value="FINANCE">Finance</option>
           <option value="LOGISTICS">Logistics</option>
           <option value="REQUESTS">Requests</option>
-          <option value="SETTINGS">Settings</option>
+          <option value="USERS">Users</option>
           <option value="SYSTEM">System</option>
         </Select>
         <Select
           value={filterAction}
-          onChange={(e) => setFilterAction(e.target.value as any)}
+          onChange={(e) => setFilterAction(e.target.value)}
         >
           <option value="All">{t('logs.filterActionAll', 'Tất cả hành động')}</option>
           <option value="CREATE">Create</option>
           <option value="UPDATE">Update</option>
           <option value="DELETE">Delete</option>
           <option value="LOGIN">Login</option>
-          <option value="LOGOUT">Logout</option>
+          <option value="PASSWORD_CHANGE">Password Change</option>
           <option value="EXPORT">Export</option>
         </Select>
         <div className="flex items-center gap-2 text-sm text-slate-500 justify-end">
           <Clock size={16} />
-          <span>{filteredLogs.length} {t('logs.totalRecords', 'bản ghi')}</span>
+          <span>{total} {t('logs.totalRecords', 'bản ghi')}</span>
         </div>
-      </div>
+      </form>
 
       {/* Table */}
-      <div className="rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden min-h-[400px] relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+            <Loader2 className="animate-spin text-blue-600" size={32} />
+          </div>
+        )}
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
@@ -165,12 +163,11 @@ export const LogsView = () => {
               <TableHead className="w-[120px]">{t('logs.colAction', 'Hành động')}</TableHead>
               <TableHead className="w-[120px]">{t('logs.colModule', 'Module')}</TableHead>
               <TableHead>{t('logs.colDescription', 'Mô tả')}</TableHead>
-              <TableHead className="w-[120px]">{t('logs.colStatus', 'Trạng thái')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedLogs.length > 0 ? (
-              paginatedLogs.map((log) => (
+            {logs.length > 0 ? (
+              logs.map((log) => (
                 <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
                   <TableCell className="font-medium text-slate-700">
                     <div className="flex flex-col">
@@ -181,11 +178,10 @@ export const LogsView = () => {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs border border-slate-200">
-                        {log.userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                        {log.user.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-medium text-slate-900">{log.userName}</span>
-                        <span className="text-xs text-slate-500">{log.userRole}</span>
+                        <span className="font-medium text-slate-900">{log.user}</span>
                       </div>
                     </div>
                   </TableCell>
@@ -200,25 +196,19 @@ export const LogsView = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-slate-700">{log.description}</span>
-                      {log.details && (
-                        <span className="text-xs text-slate-400 italic flex items-center gap-1">
-                          <Info size={12} />
-                          {log.details}
-                        </span>
+                    <div className="flex flex-col">
+                      <span className="text-slate-700">{log.details}</span>
+                      {log.resourceId && (
+                        <span className="text-[10px] text-slate-400 uppercase">ID: {log.resourceId}</span>
                       )}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(log.status)}
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-slate-500">
-                  {t('logs.noResults', 'Không tìm thấy kết quả nào.')}
+                <TableCell colSpan={5} className="h-24 text-center text-slate-500">
+                  {isLoading ? t('common.loading', 'Đang tải...') : t('logs.noLogsFound', 'Không tìm thấy nhật ký nào.')}
                 </TableCell>
               </TableRow>
             )}
@@ -228,26 +218,26 @@ export const LogsView = () => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
+        <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
             {t('common.page', 'Trang')} {currentPage} / {totalPages}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isLoading}
+              onClick={() => setCurrentPage(prev => prev - 1)}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={16} className="mr-1" /> {t('common.prev', 'Trước')}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || isLoading}
+              onClick={() => setCurrentPage(prev => prev + 1)}
             >
-              <ChevronRight size={16} />
+              {t('common.next', 'Sau')} <ChevronRight size={16} className="ml-1" />
             </Button>
           </div>
         </div>

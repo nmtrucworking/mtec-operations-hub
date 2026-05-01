@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Boxes, Filter, Pencil, Search, ShieldAlert, X } from 'lucide-react';
 import { assetSeedData, type AssetItem, type AssetStatus } from '../data/logistics';
+import { getAssetStats, getAssetCategories, type AssetStats } from '../services/logistics';
 
 
 interface LogisticsViewProps {
@@ -28,11 +29,24 @@ const defaultAssetForm = (list: AssetItem[]): AssetItem => ({
 export const LogisticsView = () => {
   const { t } = useTranslation();
   const [assets, setAssets] = useState<AssetItem[]>(assetSeedData);
+  const [stats, setStats] = useState<AssetStats | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | AssetStatus>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AssetItem>(defaultAssetForm(assetSeedData));
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const statsRes = await getAssetStats();
+      if (statsRes.data) setStats(statsRes.data);
+
+      const catRes = await getAssetCategories();
+      if (catRes.data) setCategories(catRes.data);
+    };
+    fetchData();
+  }, []);
 
   const getStatusName = (status: string) => {
     switch (status) {
@@ -98,15 +112,15 @@ export const LogisticsView = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
           <p className="text-sm text-blue-300">{t('logistics.statTotal')}</p>
-          <p className="text-3xl font-bold mt-1">{assets.length}</p>
+          <p className="text-3xl font-bold mt-1">{stats?.total ?? assets.length}</p>
         </div>
         <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
           <p className="text-sm text-blue-300">{t('logistics.statBorrowed')}</p>
-          <p className="text-3xl font-bold mt-1 text-orange-300">{borrowedCount}</p>
+          <p className="text-3xl font-bold mt-1 text-orange-300">{stats?.borrowed ?? borrowedCount}</p>
         </div>
         <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
           <p className="text-sm text-blue-300">{t('logistics.statMaintenance')}</p>
-          <p className="text-3xl font-bold mt-1 text-red-300">{maintenanceCount}</p>
+          <p className="text-3xl font-bold mt-1 text-red-300">{stats?.maintenance ?? maintenanceCount}</p>
         </div>
       </div>
 
