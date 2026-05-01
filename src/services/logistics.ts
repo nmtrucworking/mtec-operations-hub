@@ -10,12 +10,12 @@ export interface AssetStats {
  * Get asset statistics
  */
 export const getAssetStats = async (token?: string): Promise<ApiResponse<AssetStats>> => {
-  return apiCall<AssetStats>('/assets/stats', {}, token);
+  return apiCall<AssetStats>('/api/v1/assets/stats', {}, token);
 };
 
 /**
  * Get asset categories
  */
 export const getAssetCategories = async (token?: string): Promise<ApiResponse<string[]>> => {
-  return apiCall<string[]>('/assets/categories', {}, token);
+  return apiCall<string[]>('/api/v1/assets/categories', {}, token);
 };

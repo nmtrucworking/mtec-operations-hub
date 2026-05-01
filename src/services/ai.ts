@@ -29,14 +29,14 @@ export interface AIExportRequest {
  * Get available document templates
  */
 export const getAITemplates = async (token?: string): Promise<ApiResponse<AITemplate[]>> => {
-  return apiCall<AITemplate[]>('/ai/templates', {}, token);
+  return apiCall<AITemplate[]>('/api/v1/ai/templates', {}, token);
 };
 
 /**
  * Process context for AI generation
  */
 export const processAIContext = async (data: AIProcessContextRequest, token?: string): Promise<ApiResponse<AIProcessContextResponse>> => {
-  return apiCall<AIProcessContextResponse>('/ai/process-context', {
+  return apiCall<AIProcessContextResponse>('/api/v1/ai/process-context', {
     method: 'POST',
     body: JSON.stringify(data)
   }, token);
@@ -46,7 +46,7 @@ export const processAIContext = async (data: AIProcessContextRequest, token?: st
  * Export AI generated content to DOCX
  */
 export const exportAIDocument = async (data: AIExportRequest, token?: string): Promise<ApiResponse<{ downloadUrl: string }>> => {
-  return apiCall<{ downloadUrl: string }>('/ai/export-document', {
+  return apiCall<{ downloadUrl: string }>('/api/v1/ai/export-document', {
     method: 'POST',
     body: JSON.stringify(data)
   }, token);

@@ -3,7 +3,7 @@
  * This module provides a centralized way to make API calls to the backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
 
 interface RequestOptions extends RequestInit {
   headers?: HeadersInit;
@@ -13,11 +13,12 @@ export interface ApiResponse<T> {
   data?: T;
   status: number;
   error?: string;
+  success?: boolean;
 }
 
 /**
  * Make an authenticated API request
- * @param endpoint - API endpoint (e.g., '/auth/login', '/members')
+ * @param endpoint - API endpoint (e.g., '/api/v1/auth/login', '/api/v1/members')
  * @param options - Fetch options (method, body, headers, etc.)
  * @param token - Optional auth token (will be added to Authorization header)
  */
@@ -27,7 +28,8 @@ export const apiCall = async <T = any>(
   token?: string
 ): Promise<ApiResponse<T>> => {
   try {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${API_BASE_URL}${cleanEndpoint}`;
     const headers = new Headers(options.headers || {});
 
     // Add Authorization header if token is provided

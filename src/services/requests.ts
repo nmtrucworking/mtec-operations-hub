@@ -31,7 +31,7 @@ const normalizeRequest = (input: any): RequestItem => {
 
 /**
  * List Requests
- * GET /requests
+ * GET /api/v1/requests
  */
 export const getRequests = async (
   params: { 
@@ -50,7 +50,7 @@ export const getRequests = async (
   if (params.page) query.append('page', String(params.page));
   if (params.pageSize) query.append('pageSize', String(params.pageSize));
 
-  const endpoint = `/requests${query.toString() ? `?${query.toString()}` : ''}`;
+  const endpoint = `/api/v1/requests${query.toString() ? `?${query.toString()}` : ''}`;
   const response = await apiCall<any>(endpoint, { method: 'GET' }, token);
 
   if (response.data) {
@@ -72,10 +72,10 @@ export const getRequests = async (
 
 /**
  * Get Request Details
- * GET /requests/{request_id}
+ * GET /api/v1/requests/{request_id}
  */
 export const getRequestDetails = async (id: string, token?: string): Promise<ApiResponse<RequestItem>> => {
-  const response = await apiCall<any>(`/requests/${id}`, { method: 'GET' }, token);
+  const response = await apiCall<any>(`/api/v1/requests/${id}`, { method: 'GET' }, token);
   
   if (response.data) {
     const data = response.data;
@@ -90,7 +90,7 @@ export const getRequestDetails = async (id: string, token?: string): Promise<Api
 
 /**
  * Create Request
- * POST /requests
+ * POST /api/v1/requests
  */
 export const createRequest = async (data: Partial<RequestItem>, token?: string): Promise<ApiResponse<RequestItem>> => {
   const payload = {
@@ -102,7 +102,7 @@ export const createRequest = async (data: Partial<RequestItem>, token?: string):
     financeDraftCategory: data.financeDraft?.category
   };
   
-  const response = await apiCall<any>('/requests', {
+  const response = await apiCall<any>('/api/v1/requests', {
     method: 'POST',
     body: JSON.stringify(payload)
   }, token);
@@ -120,7 +120,7 @@ export const createRequest = async (data: Partial<RequestItem>, token?: string):
 
 /**
  * Update Request
- * PATCH /requests/{request_id}
+ * PATCH /api/v1/requests/{request_id}
  */
 export const updateRequest = async (id: string, data: Partial<RequestItem>, token?: string): Promise<ApiResponse<RequestItem>> => {
   const payload = {
@@ -132,7 +132,7 @@ export const updateRequest = async (id: string, data: Partial<RequestItem>, toke
     financeDraftCategory: data.financeDraft?.category
   };
 
-  const response = await apiCall<any>(`/requests/${id}`, {
+  const response = await apiCall<any>(`/api/v1/requests/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload)
   }, token);
@@ -150,10 +150,10 @@ export const updateRequest = async (id: string, data: Partial<RequestItem>, toke
 
 /**
  * Review Request
- * POST /requests/{request_id}/review
+ * POST /api/v1/requests/{request_id}/review
  */
 export const reviewRequest = async (id: string, status: 'Da duyet' | 'Tu choi', reviewNote?: string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/requests/${id}/review`, {
+  return apiCall(`/api/v1/requests/${id}/review`, {
     method: 'POST',
     body: JSON.stringify({ status, reviewNote })
   }, token);
@@ -161,8 +161,8 @@ export const reviewRequest = async (id: string, status: 'Da duyet' | 'Tu choi', 
 
 /**
  * Delete Request
- * DELETE /requests/{request_id}
+ * DELETE /api/v1/requests/{request_id}
  */
 export const deleteRequest = async (id: string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/requests/${id}`, { method: 'DELETE' }, token);
+  return apiCall(`/api/v1/requests/${id}`, { method: 'DELETE' }, token);
 };

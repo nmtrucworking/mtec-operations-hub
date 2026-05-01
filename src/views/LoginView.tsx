@@ -13,8 +13,11 @@ interface LoginViewProps {
   onLogin: (user: UserAccount, token?: string) => void;
 }
 
+import { useToast } from '../components/ui/toast';
+
 export const LoginView = ({ onLogin }: LoginViewProps) => {
   const { t } = useTranslation();
+  const { error: toastError } = useToast();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +42,9 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
       return;
     }
 
-    setError(response.error || t('login.errorInvalid'));
+    const errorMsg = response.error || t('login.errorInvalid');
+    setError(errorMsg);
+    toastError(errorMsg);
     setIsLoading(false);
   };
 

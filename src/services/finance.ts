@@ -32,7 +32,7 @@ const normalizeTransaction = (input: any): Transaction => {
 
 /**
  * List Transactions
- * GET /transactions
+ * GET /api/v1/transactions
  */
 export const getTransactions = async (
   params: { 
@@ -57,7 +57,7 @@ export const getTransactions = async (
   if (params.page) query.append('page', String(params.page));
   if (params.pageSize) query.append('pageSize', String(params.pageSize));
 
-  const endpoint = `/transactions${query.toString() ? `?${query.toString()}` : ''}`;
+  const endpoint = `/api/v1/transactions${query.toString() ? `?${query.toString()}` : ''}`;
   const response = await apiCall<any>(endpoint, { method: 'GET' }, token);
 
   if (response.data) {
@@ -79,10 +79,10 @@ export const getTransactions = async (
 
 /**
  * Get Pending Transactions
- * GET /transactions/pending
+ * GET /api/v1/transactions/pending
  */
 export const getPendingTransactions = async (token?: string): Promise<ApiResponse<Transaction[]>> => {
-  const response = await apiCall<any>('/transactions/pending', { method: 'GET' }, token);
+  const response = await apiCall<any>('/api/v1/transactions/pending', { method: 'GET' }, token);
   
   if (response.data) {
     const data = response.data;
@@ -98,10 +98,10 @@ export const getPendingTransactions = async (token?: string): Promise<ApiRespons
 
 /**
  * Get Transaction Details
- * GET /transactions/{transaction_id}
+ * GET /api/v1/transactions/{transaction_id}
  */
 export const getTransactionDetails = async (id: string, token?: string): Promise<ApiResponse<Transaction>> => {
-  const response = await apiCall<any>(`/transactions/${id}`, { method: 'GET' }, token);
+  const response = await apiCall<any>(`/api/v1/transactions/${id}`, { method: 'GET' }, token);
   
   if (response.data) {
     const data = response.data;
@@ -116,7 +116,7 @@ export const getTransactionDetails = async (id: string, token?: string): Promise
 
 /**
  * Create Transaction
- * POST /transactions
+ * POST /api/v1/transactions
  */
 export const createTransaction = async (data: Partial<Transaction>, token?: string): Promise<ApiResponse<Transaction>> => {
   const payload = {
@@ -125,7 +125,7 @@ export const createTransaction = async (data: Partial<Transaction>, token?: stri
     linkedRequestType: data.linkedRequest?.requestType
   };
   
-  const response = await apiCall<any>('/transactions', {
+  const response = await apiCall<any>('/api/v1/transactions', {
     method: 'POST',
     body: JSON.stringify(payload)
   }, token);
@@ -143,7 +143,7 @@ export const createTransaction = async (data: Partial<Transaction>, token?: stri
 
 /**
  * Update Transaction
- * PATCH /transactions/{transaction_id}
+ * PATCH /api/v1/transactions/{transaction_id}
  */
 export const updateTransaction = async (id: string, data: Partial<Transaction>, token?: string): Promise<ApiResponse<Transaction>> => {
   const payload = {
@@ -152,7 +152,7 @@ export const updateTransaction = async (id: string, data: Partial<Transaction>, 
     linkedRequestType: data.linkedRequest?.requestType
   };
 
-  const response = await apiCall<any>(`/transactions/${id}`, {
+  const response = await apiCall<any>(`/api/v1/transactions/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload)
   }, token);
@@ -170,10 +170,10 @@ export const updateTransaction = async (id: string, data: Partial<Transaction>, 
 
 /**
  * Review/Approve Transaction
- * POST /transactions/{transaction_id}/review
+ * POST /api/v1/transactions/{transaction_id}/review
  */
 export const reviewTransaction = async (id: string, status: 'Da duyet' | 'Tu choi', approvalNote?: string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/transactions/${id}/review`, {
+  return apiCall(`/api/v1/transactions/${id}/review`, {
     method: 'POST',
     body: JSON.stringify({ status, approvalNote })
   }, token);
@@ -181,8 +181,8 @@ export const reviewTransaction = async (id: string, status: 'Da duyet' | 'Tu cho
 
 /**
  * Soft Delete Transaction
- * DELETE /transactions/{transaction_id}
+ * DELETE /api/v1/transactions/{transaction_id}
  */
 export const deleteTransaction = async (id: string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/transactions/${id}`, { method: 'DELETE' }, token);
+  return apiCall(`/api/v1/transactions/${id}`, { method: 'DELETE' }, token);
 };

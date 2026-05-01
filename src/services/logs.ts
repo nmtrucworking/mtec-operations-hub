@@ -37,7 +37,7 @@ export const getLogs = async (query: LogsQuery = {}, token?: string): Promise<Ap
   if (query.pageSize) params.append('pageSize', query.pageSize.toString());
 
   const queryString = params.toString();
-  return apiCall<LogsResponse>(`/logs${queryString ? `?${queryString}` : ''}`, {}, token);
+  return apiCall<LogsResponse>(`/api/v1/logs${queryString ? `?${queryString}` : ''}`, {}, token);
 };
 
 /**
@@ -47,8 +47,8 @@ export const exportLogs = async (token?: string): Promise<ApiResponse<Blob>> => 
   // We use fetch directly for Blob responses usually, or handle it in apiCall
   // For simplicity here, we assume apiCall can handle it or we use a separate logic
   try {
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-    const response = await fetch(`${API_BASE}/logs/export`, {
+    const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+    const response = await fetch(`${API_BASE}/api/v1/logs/export`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
     

@@ -4,7 +4,7 @@ import type { UserAccount } from '../types/app';
 
 /**
  * List Users
- * GET /users
+ * GET /api/v1/users
  */
 export const getUsers = async (
   params: { search?: string; role?: string; page?: number; pageSize?: number } = {},
@@ -16,7 +16,7 @@ export const getUsers = async (
   if (params.page) query.append('page', String(params.page));
   if (params.pageSize) query.append('pageSize', String(params.pageSize));
 
-  const endpoint = `/users${query.toString() ? `?${query.toString()}` : ''}`;
+  const endpoint = `/api/v1/users${query.toString() ? `?${query.toString()}` : ''}`;
   const response = await apiCall(endpoint, { method: 'GET' }, token);
 
   if (response.data) {
@@ -38,10 +38,10 @@ export const getUsers = async (
 
 /**
  * Create User
- * POST /users
+ * POST /api/v1/users
  */
 export const createUser = async (userData: Partial<UserAccount>, token?: string): Promise<ApiResponse<UserAccount>> => {
-  const response = await apiCall('/users', {
+  const response = await apiCall('/api/v1/users', {
     method: 'POST',
     body: JSON.stringify(userData)
   }, token);
@@ -59,10 +59,10 @@ export const createUser = async (userData: Partial<UserAccount>, token?: string)
 
 /**
  * Get User Details
- * GET /users/{user_id}
+ * GET /api/v1/users/{user_id}
  */
 export const getUserDetails = async (userId: string, token?: string): Promise<ApiResponse<UserAccount>> => {
-  const response = await apiCall(`/users/${userId}`, { method: 'GET' }, token);
+  const response = await apiCall(`/api/v1/users/${userId}`, { method: 'GET' }, token);
 
   if (response.data) {
     const data = response.data as any;
@@ -77,10 +77,10 @@ export const getUserDetails = async (userId: string, token?: string): Promise<Ap
 
 /**
  * Update User
- * PATCH /users/{user_id}
+ * PATCH /api/v1/users/{user_id}
  */
 export const updateUser = async (userId: string, userData: Partial<UserAccount>, token?: string): Promise<ApiResponse<UserAccount>> => {
-  const response = await apiCall(`/users/${userId}`, {
+  const response = await apiCall(`/api/v1/users/${userId}`, {
     method: 'PATCH',
     body: JSON.stringify(userData)
   }, token);
@@ -98,10 +98,10 @@ export const updateUser = async (userId: string, userData: Partial<UserAccount>,
 
 /**
  * Update User Status
- * PATCH /users/{user_id}/status
+ * PATCH /api/v1/users/{user_id}/status
  */
 export const updateUserStatus = async (userId: string, isActive: boolean, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/users/${userId}/status`, {
+  return apiCall(`/api/v1/users/${userId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ isActive })
   }, token);
@@ -109,10 +109,10 @@ export const updateUserStatus = async (userId: string, isActive: boolean, token?
 
 /**
  * Reset User Password
- * POST /users/{user_id}/reset-password
+ * POST /api/v1/users/{user_id}/reset-password
  */
 export const resetUserPassword = async (userId: string, newPassword: string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/users/${userId}/reset-password`, {
+  return apiCall(`/api/v1/users/${userId}/reset-password`, {
     method: 'POST',
     body: JSON.stringify({ newPassword })
   }, token);
@@ -120,8 +120,8 @@ export const resetUserPassword = async (userId: string, newPassword: string, tok
 
 /**
  * Delete User
- * DELETE /users/{user_id}
+ * DELETE /api/v1/users/{user_id}
  */
 export const deleteUser = async (userId: string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/users/${userId}`, { method: 'DELETE' }, token);
+  return apiCall(`/api/v1/users/${userId}`, { method: 'DELETE' }, token);
 };

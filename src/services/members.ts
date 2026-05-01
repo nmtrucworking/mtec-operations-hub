@@ -105,7 +105,7 @@ const normalizeMemberResponse = <T>(response: ApiResponse<unknown>, mapper: (pay
 
 /**
  * List Members
- * GET /members
+ * GET /api/v1/members
  */
 export const getMembers = async (
   params: { search?: string; ban?: string; status?: string; page?: number; pageSize?: number } = {},
@@ -118,7 +118,7 @@ export const getMembers = async (
   if (params.page) query.append('page', String(params.page));
   if (params.pageSize) query.append('pageSize', String(params.pageSize));
 
-  const endpoint = `/members${query.toString() ? `?${query.toString()}` : ''}`;
+  const endpoint = `/api/v1/members${query.toString() ? `?${query.toString()}` : ''}`;
   const response = await apiCall<unknown>(endpoint, { method: 'GET' }, token);
 
   if (response.status === 0) return response as ApiResponse<any>;
@@ -138,19 +138,19 @@ export const getMembers = async (
 
 /**
  * Get Member Details
- * GET /members/{member_id}
+ * GET /api/v1/members/{member_id}
  */
 export const getMemberDetails = async (memberId: number | string, token?: string): Promise<ApiResponse<Member>> => {
-  const response = await apiCall<unknown>(`/members/${memberId}`, { method: 'GET' }, token);
+  const response = await apiCall<unknown>(`/api/v1/members/${memberId}`, { method: 'GET' }, token);
   return normalizeMemberResponse(response, normalizeMember);
 };
 
 /**
  * Create Member
- * POST /members
+ * POST /api/v1/members
  */
 export const createMember = async (member: Omit<Member, 'id'>, token?: string): Promise<ApiResponse<Member>> => {
-  const response = await apiCall<unknown>('/members', {
+  const response = await apiCall<unknown>('/api/v1/members', {
     method: 'POST',
     body: JSON.stringify(member)
   }, token);
@@ -160,10 +160,10 @@ export const createMember = async (member: Omit<Member, 'id'>, token?: string): 
 
 /**
  * Update Member
- * PATCH /members/{member_id}
+ * PATCH /api/v1/members/{member_id}
  */
 export const updateMember = async (memberId: number | string, member: Partial<Member>, token?: string): Promise<ApiResponse<Member>> => {
-  const response = await apiCall<unknown>(`/members/${memberId}`, {
+  const response = await apiCall<unknown>(`/api/v1/members/${memberId}`, {
     method: 'PATCH',
     body: JSON.stringify(member)
   }, token);
@@ -173,15 +173,15 @@ export const updateMember = async (memberId: number | string, member: Partial<Me
 
 /**
  * Delete Member
- * DELETE /members/{member_id}
+ * DELETE /api/v1/members/{member_id}
  */
 export const deleteMember = async (memberId: number | string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall(`/members/${memberId}`, { method: 'DELETE' }, token);
+  return apiCall(`/api/v1/members/${memberId}`, { method: 'DELETE' }, token);
 };
 
 /**
  * Export Members
- * GET /members/export?format={csv|zip}
+ * GET /api/v1/members/export?format={csv|zip}
  */
 export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; status?: string }, token?: string) => {
   const query = new URLSearchParams();
@@ -189,8 +189,8 @@ export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; sta
   if (params.ban) query.append('ban', params.ban);
   if (params.status) query.append('status', params.status);
   
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-  const url = `${API_BASE_URL}/members/export?${query.toString()}`;
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+  const url = `${API_BASE_URL}/api/v1/members/export?${query.toString()}`;
   
   // For file downloads, we typically open in new tab or use a hidden anchor with auth header if possible
   // Since we use Bearer token, we might need to use fetch and create a blob
@@ -199,9 +199,9 @@ export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; sta
 
 /**
  * Export Member Profile (DOCX)
- * GET /members/{member_id}/profile
+ * GET /api/v1/members/{member_id}/profile
  */
 export const exportMemberProfileUrl = (memberId: number | string) => {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-  return `${API_BASE_URL}/members/${memberId}/profile`;
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+  return `${API_BASE_URL}/api/v1/members/${memberId}/profile`;
 };

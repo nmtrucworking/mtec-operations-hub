@@ -59,47 +59,72 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   return (
     <ToastContext.Provider value={{ toast: addToast, success, error, warning, info }}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
-        {toasts.map((t) => (
-          <ToastItem key={t.id} {...t} onRemove={() => removeToast(t.id)} />
-        ))}
-      </div>
+      {toasts.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] pointer-events-auto" />
+          <div className="flex flex-col gap-4 w-full max-w-md pointer-events-none z-10">
+            {toasts.map((t) => (
+              <ToastItem key={t.id} {...t} onRemove={() => removeToast(t.id)} />
+            ))}
+          </div>
+        </div>
+      )}
     </ToastContext.Provider>
   );
 };
 
 const ToastItem = ({ type, title, message, onRemove }: Toast & { onRemove: () => void }) => {
   const icons = {
-    success: <CheckCircle2 className="h-5 w-5 text-success-text" />,
-    error: <AlertCircle className="h-5 w-5 text-danger-text" />,
-    warning: <AlertTriangle className="h-5 w-5 text-warning-text" />,
-    info: <Info className="h-5 w-5 text-brand-blue" />,
+    success: <CheckCircle2 className="h-6 w-6 text-success-text" />,
+    error: <AlertCircle className="h-6 w-6 text-danger-text" />,
+    warning: <AlertTriangle className="h-6 w-6 text-warning-text" />,
+    info: <Info className="h-6 w-6 text-brand-blue" />,
   };
 
   const bgColors = {
-    success: 'bg-success-bg border-success-border',
-    error: 'bg-danger-bg border-danger-border',
-    warning: 'bg-warning-bg border-warning-border',
-    info: 'bg-brand-light border-border',
+    success: 'bg-card border-success-border/50',
+    error: 'bg-card border-danger-border/50',
+    warning: 'bg-card border-warning-border/50',
+    info: 'bg-card border-brand-blue/30',
   };
 
   return (
     <div
       className={cn(
-        'pointer-events-auto flex w-full items-start gap-3 rounded-lg border p-4 shadow-lg animate-in slide-in-from-right-full duration-300',
+        'pointer-events-auto flex w-full flex-col items-center text-center gap-3 rounded-2xl border p-6 shadow-2xl animate-in zoom-in-95 fade-in duration-300 relative bg-card',
         bgColors[type]
       )}
     >
-      <div className="flex-shrink-0">{icons[type]}</div>
-      <div className="flex-1 space-y-1">
-        {title && <h5 className="text-sm font-bold leading-none tracking-tight text-primary">{title}</h5>}
-        <p className="text-sm text-secondary leading-relaxed">{message}</p>
+      <div className="flex flex-col items-center gap-4">
+        <div className={cn(
+          "p-3 rounded-full",
+          type === 'success' && "bg-success-bg",
+          type === 'error' && "bg-danger-bg",
+          type === 'warning' && "bg-warning-bg",
+          type === 'info' && "bg-brand-light",
+        )}>
+          {icons[type]}
+        </div>
+        <div className="space-y-2">
+          {title && <h5 className="text-lg font-bold leading-none tracking-tight text-primary">{title}</h5>}
+          <p className="text-sm text-secondary leading-relaxed font-medium">{message}</p>
+        </div>
       </div>
+      
+      <div className="mt-4 w-full">
+        <button
+          onClick={onRemove}
+          className="w-full py-2 px-4 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-primary font-semibold text-sm transition-all active:scale-95"
+        >
+          Đóng
+        </button>
+      </div>
+
       <button
         onClick={onRemove}
-        className="flex-shrink-0 rounded-md p-1 text-secondary opacity-50 hover:opacity-100 transition-opacity"
+        className="absolute top-4 right-4 rounded-lg p-1 text-secondary opacity-50 hover:opacity-100 transition-opacity"
       >
-        <X size={14} />
+        <X size={18} />
       </button>
     </div>
   );

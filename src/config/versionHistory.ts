@@ -9,6 +9,17 @@ export interface VersionEntry {
 
 export const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: '1.2.1',
+    date: '2026-05-01',
+    changes: [
+      { type: 'improvement', description: 'Bảo trì & Nâng cấp Hệ thống: Cập nhật hệ thống API v1, đồng bộ cấu hình Pop-up Toast toàn hệ thống.' },
+      { type: 'improvement', description: 'Chuyển đổi toàn bộ API sang cấu trúc /api/v1 để đảm bảo tính ổn định.' },
+      { type: 'improvement', description: 'Cập nhật hệ thống Thông báo (Toast) sang dạng Pop-up trung tâm có backdrop.' },
+      { type: 'feature', description: 'Thêm nút Đăng xuất tại màn hình khôi phục phiên làm việc.' },
+      { type: 'improvement', description: 'Đồng bộ hóa cấu hình môi trường và tài liệu triển khai API.' }
+    ]
+  },
+  {
     version: '1.2.0',
     date: '2026-05-01',
     changes: [

@@ -10,5 +10,5 @@ export interface DisciplineStats {
  * Get discipline statistics
  */
 export const getDisciplineStats = async (token?: string): Promise<ApiResponse<DisciplineStats>> => {
-  return apiCall<DisciplineStats>('/discipline-records/stats', {}, token);
+  return apiCall<DisciplineStats>('/api/v1/discipline-records/stats', {}, token);
 };
