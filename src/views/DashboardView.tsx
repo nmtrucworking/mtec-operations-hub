@@ -14,8 +14,7 @@ import { Input } from '../components/ui/input';
 import { DashboardOverviewData, DashboardActivity } from '../types/dashboard';
 import { getDashboardOverview } from '../services/dashboard';
 import { getMembers } from '../services/members';
-
-import { apiCall } from '../services/api';
+import { generateAIInsight } from '../services/ai';
 
 interface DashboardViewProps {
   authToken: string;
@@ -133,14 +132,10 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
     Đưa ra nhận xét về sức khỏe tài chính và nhân sự, cùng 1 lời khuyên chiến lược.`;
 
     try {
-      const response = await apiCall('/api/ai/generate-insight', {
-        method: 'POST',
-        body: JSON.stringify({ prompt })
-      }, authToken);
+      const response = await generateAIInsight({ prompt }, authToken);
 
-      const responseBody = response.data as any;
-      if (response.status === 200 && responseBody?.success && responseBody.data?.text) {
-        setAiInsight(responseBody.data.text);
+      if (response.status === 200 && response.data?.text) {
+        setAiInsight(response.data.text);
       } else {
         setAiInsight('Hệ thống AI không thể xử lý yêu cầu vào lúc này.');
       }

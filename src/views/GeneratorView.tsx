@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileArchive, Loader2, Sparkles, UploadCloud, Wand2, Link, FileText, Check } from 'lucide-react';
-import { getAITemplates, processAIContext, exportAIDocument, type AITemplate, type AIProcessContextResponse } from '../services/ai';
+import { 
+  getAITemplates, 
+  processAIContext, 
+  exportAIDocument, 
+  generateAIDraft,
+  type AITemplate, 
+  type AIProcessContextResponse 
+} from '../services/ai';
 
 export const GeneratorView = () => {
   const { t } = useTranslation();
@@ -45,15 +52,21 @@ export const GeneratorView = () => {
     if (!prompt.trim()) return;
 
     setIsGenerating(true);
-    // Simulate AI generation through backend (though we don't have a direct generate endpoint in the report, 
-    // it's usually part of the process or a separate one. The report mentions process-context)
-    
-    // For the sake of this task, we'll simulate the backend generating the draft
-    setTimeout(() => {
-      const templateName = templates.find(t => t.id === selectedTemplate)?.name || 'văn bản';
-      setAiDraft(`[DỰ THẢO ${templateName}]\nDựa trên ngữ cảnh: ${context?.summary || 'không có'}\nYêu cầu: ${prompt}\n\nNội dung: CLB MTEC thông báo về việc triển khai hoạt động mới...`);
+    try {
+      const res = await generateAIDraft({
+        prompt,
+        contextId: context?.contextId,
+        templateId: selectedTemplate
+      });
+
+      if (res.data) {
+        setAiDraft(res.data.text);
+      }
+    } catch (error) {
+      console.error('AI Generation failed:', error);
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   const handleExport = async () => {

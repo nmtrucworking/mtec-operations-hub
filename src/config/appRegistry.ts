@@ -9,8 +9,8 @@ import { DisciplineView } from '../views/DisciplineView';
 import { LogisticsView } from '../views/LogisticsView';
 import { GeneratorView } from '../views/GeneratorView';
 import { LogsView } from '../views/LogsView';
-import { getRequests, reviewRequest as reviewRequestApi } from '../services/requests';
-import { getTransactions, getPendingTransactions, reviewTransaction as reviewTransactionApi, deleteTransaction as deleteTransactionApi } from '../services/finance';
+import { getRequests, reviewRequest as reviewRequestApi, createRequest, updateRequest } from '../services/requests';
+import { getTransactions, getPendingTransactions, reviewTransaction as reviewTransactionApi, deleteTransaction as deleteTransactionApi, createTransaction, updateTransaction } from '../services/finance';
 import type { UserAccount, UserRole, AppTab } from '../types/app';
 
 import { APP_VERSION } from './appVersion';
@@ -55,9 +55,18 @@ const RequestsWrapper = ({ authToken, currentUser }: { authToken: string; curren
     requests,
     currentUser,
     onSaveRequest: async (payload) => {
-      // Logic for saving/creating request via API would go here
-      // For now we just refresh after a mock delay or success
-      return "REQ-NEW"; 
+      let response;
+      if (payload.id) {
+        response = await updateRequest(payload.id, payload, authToken);
+      } else {
+        response = await createRequest(payload, authToken);
+      }
+      
+      if (response.status >= 200 && response.status < 300) {
+        fetchRequests();
+        return response.data?.id || "SUCCESS";
+      }
+      return ""; 
     },
     onReviewRequest: async (payload) => {
       const apiStatus = payload.status === 'Đã duyệt' ? 'Da duyet' : 'Tu choi';
@@ -107,8 +116,18 @@ const FinanceWrapper = ({ authToken, currentUser }: { authToken: string; current
     pendingTransactions,
     currentUser,
     onSaveTransaction: async (payload) => {
-      // Logic for saving/creating transaction via API
-      return "TX-NEW";
+      let response;
+      if (payload.id) {
+        response = await updateTransaction(payload.id, payload, authToken);
+      } else {
+        response = await createTransaction(payload, authToken);
+      }
+      
+      if (response.status >= 200 && response.status < 300) {
+        fetchData();
+        return response.data?.id || "SUCCESS";
+      }
+      return "";
     },
     onReviewTransaction: async (payload) => {
       const apiStatus = payload.status === 'Đã duyệt' ? 'Da duyet' : 'Tu choi';

@@ -32,6 +32,9 @@ export const apiCall = async <T = any>(
     const url = `${API_BASE_URL}${cleanEndpoint}`;
     const headers = new Headers(options.headers || {});
 
+    headers.set('Accept', 'application/json');
+    headers.set('X-Requested-With', 'XMLHttpRequest');
+
     // Add Authorization header if token is provided
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
