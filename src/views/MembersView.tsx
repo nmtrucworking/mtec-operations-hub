@@ -36,7 +36,7 @@ import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl } from '../services/members';
-import { formatDate, toDateInputFormat, downloadFileWithAuth } from '../lib/helpers';
+import { formatDate, toDateInputFormat, downloadFileWithAuth, copyToClipboard } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
 import { getLogs, type ActivityLog } from '../services/logs';
 import {
@@ -50,6 +50,7 @@ import {
   formatBanList,
   normalizeBanList
 } from '../data/members';
+import { Copy, Check } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -85,13 +86,13 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     if (selectedMember && activeDetailTab === 'history') {
       const fetchMemberLogs = async () => {
         setIsLoadingLogs(true);
-        const res = await getLogs({ search: selectedMember.mssv });
+        const res = await getLogs({ search: selectedMember.mssv }, authToken);
         if (res.data) setMemberLogs(res.data.logs);
         setIsLoadingLogs(false);
       };
       fetchMemberLogs();
     }
-  }, [selectedMember, activeDetailTab]);
+  }, [selectedMember, activeDetailTab, authToken]);
 
   type MemberFormData = Omit<Member, 'id'>;
 
@@ -239,10 +240,22 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     setIsSavingMember(false);
   };
 
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = async (text: string, field: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+      toast.success(`Đã sao chép ${field}`);
+    }
+  };
+
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (name === 'khoa') {
-      const firstMajor = FACULTY_MAJOR_MAP[value]?.[0] || '';
+      const majors = FACULTY_MAJOR_MAP[value] || [];
+      const firstMajor = majors[0] || (value === 'Khác' ? '' : '');
       setFormData(prev => ({ ...prev, khoa: value, chuyenNganh: firstMajor }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -314,6 +327,25 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   };
 
   const handleAddSubmit = async () => {
+    if (!authToken) {
+      toast.error('Lỗi: Thiếu token xác thực. Vui lòng đăng nhập lại.');
+      return;
+    }
+
+    // Validation
+    const requiredFields: (keyof MemberFormData)[] = ['mssv', 'name', 'dob', 'phone', 'email', 'joinDate', 'role', 'experience', 'goal', 'orientation'];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+    
+    if (missingFields.length > 0) {
+      toast.error(`Vui lòng nhập đầy đủ các thông tin bắt buộc: ${missingFields.join(', ')}`);
+      return;
+    }
+
+    if (formData.ban.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một Ban chuyên môn.');
+      return;
+    }
+
     setIsSavingMember(true);
     
     const { role, ban, ...rest } = formData;
@@ -327,17 +359,22 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       softSkills: sanitizeSkills(formData.softSkills)
     };
 
-    const response = await createMember(payload as any, authToken);
-    if (response.status >= 200 && response.status < 300) {
-      await refreshMembers();
-      toast.success('Thêm thành viên mới thành công!');
-      setIsAddModalOpen(false);
-      setFormData(initialFormState);
-      setSelectedMember(null);
-    } else {
-      toast.error(response.error || 'Không thể tạo thành viên mới.');
+    try {
+      const response = await createMember(payload as any, authToken);
+      if (response.status >= 200 && response.status < 300) {
+        await refreshMembers();
+        toast.success('Thêm thành viên mới thành công!');
+        setIsAddModalOpen(false);
+        setFormData(initialFormState);
+        setSelectedMember(null);
+      } else {
+        toast.error(response.error || 'Không thể tạo thành viên mới.');
+      }
+    } catch (error) {
+      toast.error('Đã xảy ra lỗi khi kết nối với máy chủ.');
+    } finally {
+      setIsSavingMember(false);
     }
-    setIsSavingMember(false);
   };
 
   const openEditModal = (member: Member) => {
@@ -355,7 +392,22 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   };
 
   const handleEditSubmit = async () => {
-    if (!selectedMember) {
+    if (!selectedMember || !authToken) {
+      toast.error('Lỗi: Thiếu dữ liệu hoặc token xác thực.');
+      return;
+    }
+
+    // Validation
+    const requiredFields: (keyof MemberFormData)[] = ['mssv', 'name', 'dob', 'phone', 'email', 'joinDate', 'role', 'experience', 'goal', 'orientation'];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+    
+    if (missingFields.length > 0) {
+      toast.error(`Vui lòng nhập đầy đủ các thông tin bắt buộc: ${missingFields.join(', ')}`);
+      return;
+    }
+
+    if (formData.ban.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một Ban chuyên môn.');
       return;
     }
 
@@ -372,18 +424,23 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       softSkills: sanitizeSkills(formData.softSkills)
     };
 
-    const response = await updateMember(selectedMember.id, payload as any, authToken);
-    if (response.status >= 200 && response.status < 300) {
-      await refreshMembers(selectedMember.id);
-      toast.success('Cập nhật thông tin thành viên thành công!');
-      setIsEditModalOpen(false);
-      if (response.data) {
-        setSelectedMember(response.data);
+    try {
+      const response = await updateMember(selectedMember.id, payload as any, authToken);
+      if (response.status >= 200 && response.status < 300) {
+        await refreshMembers(selectedMember.id);
+        toast.success('Cập nhật thông tin thành viên thành công!');
+        setIsEditModalOpen(false);
+        if (response.data) {
+          setSelectedMember(response.data);
+        }
+      } else {
+        toast.error(response.error || 'Không thể cập nhật thành viên.');
       }
-    } else {
-      toast.error(response.error || 'Không thể cập nhật thành viên.');
+    } catch (error) {
+      toast.error('Đã xảy ra lỗi khi kết nối với máy chủ.');
+    } finally {
+      setIsSavingMember(false);
     }
-    setIsSavingMember(false);
   };
 
   const renderTableContent = () => {
@@ -656,7 +713,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       <Modal 
         isOpen={!!selectedMember && !isEditModalOpen} 
         onClose={() => { setSelectedMember(null); setActiveDetailTab('info'); }}
-        title={t('members.profileTitle')}
+        title={selectedMember ? `${t('members.profileTitle')}: ${selectedMember.name}` : t('members.profileTitle')}
         className="max-w-3xl"
         footer={
           <>
@@ -680,92 +737,160 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
               Tải hồ sơ (DOCX)
             </Button>
             <Button variant="outline" onClick={() => { setSelectedMember(null); setActiveDetailTab('info'); }} className="hover:bg-secondary/10 transition-colors">
-              {t('members.close')}
+              Đóng
             </Button>
-            <Button onClick={() => openEditModal(selectedMember!)} className="transition-transform active:scale-95">
+            <Button variant="default" onClick={() => selectedMember && openEditModal(selectedMember)} className="transition-transform active:scale-95">
               <Edit size={16} className="mr-2" />
-              {t('members.update')}
+              Chỉnh sửa
             </Button>
           </>
         }
       >
         {selectedMember && (
-          <div className="space-y-4">
-            {/* Tabs */}
+          <div className="space-y-6">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              <div className="w-24 h-24 rounded-2xl bg-gold/10 border-2 border-gold/20 flex items-center justify-center text-gold text-3xl font-bold shrink-0">
+                {selectedMember.name.split(' ').pop()?.[0]}
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-2xl font-bold text-primary">{selectedMember.name}</h3>
+                  <Badge 
+                    variant={selectedMember.status === 'Active' ? 'default' : 'outline'}
+                    className={selectedMember.status === 'Active' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-secondary/10 text-secondary border-secondary/20'}
+                  >
+                    {selectedMember.status === 'Active' ? 'Đang hoạt động' : 'Đã nghỉ'}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-secondary text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Briefcase size={14} />
+                    {selectedMember.role}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Users size={14} />
+                    {formatBanList(selectedMember.ban)}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <MapPin size={14} />
+                    {selectedMember.address}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex border-b border-border">
               <button 
                 onClick={() => setActiveDetailTab('info')}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeDetailTab === 'info' ? 'border-gold text-gold' : 'border-transparent text-secondary hover:text-primary'}`}
+                className={`px-4 py-2 text-sm font-medium transition-colors relative ${activeDetailTab === 'info' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
                 Thông tin chi tiết
+                {activeDetailTab === 'info' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
               <button 
                 onClick={() => setActiveDetailTab('history')}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeDetailTab === 'history' ? 'border-gold text-gold' : 'border-transparent text-secondary hover:text-primary'}`}
+                className={`px-4 py-2 text-sm font-medium transition-colors relative ${activeDetailTab === 'history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
                 Lịch sử thay đổi
+                {activeDetailTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
             </div>
 
             {activeDetailTab === 'info' ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-brand-light p-5 rounded-xl border border-border shadow-inner">
-                  <InfoItem Icon={Users} label={t('members.lblGender')} value={selectedMember.gender} />
-                  <InfoItem Icon={Calendar} label={t('members.lblDob')} value={formatDate(selectedMember.dob)} />
-                  <InfoItem Icon={Phone} label={t('members.lblPhone')} value={selectedMember.phone} />
-                  <InfoItem Icon={Mail} label={t('members.lblEmail')} value={selectedMember.email} />
-                  <InfoItem Icon={MapPin} label={t('members.lblAddress')} value={selectedMember.address} />
-                  <InfoItem Icon={GraduationCap} label={t('members.lblMajor')} value={selectedMember.chuyenNganh} />
-                  <InfoItem Icon={Calendar} label="Ngày tham gia" value={formatDate(selectedMember.joinDate)} />
-                  <div className="md:col-span-2">
-                    <span className="flex items-center text-xs text-secondary mb-2">
-                      <span className="mr-1.5 opacity-70">
-                        <Briefcase size={16} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className="space-y-6">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary/70">Thông tin cá nhân</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <InfoItem Icon={Calendar} label="Ngày sinh" value={formatDate(selectedMember.dob)} />
+                    <InfoItem Icon={Users} label="Giới tính" value={selectedMember.gender} />
+                    <div className="flex flex-col group relative">
+                      <span className="flex items-center text-xs text-secondary mb-1">
+                        <Mail size={16} className="mr-1.5 opacity-70" />
+                        Email
                       </span>
-                      Ban Chuyên môn
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {normalizeBanList(selectedMember.ban).map(b => (
-                        <Badge key={b} variant="secondary" className="px-3 py-1">{b}</Badge>
-                      ))}
-                      {normalizeBanList(selectedMember.ban).length === 0 && <span className="text-sm text-secondary italic">Chưa tham gia ban nào</span>}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-primary truncate">{selectedMember.email}</span>
+                        <button 
+                          onClick={() => handleCopy(selectedMember.email, 'Email')}
+                          className="p-1 hover:bg-secondary/10 rounded transition-colors text-secondary hover:text-gold"
+                        >
+                          {copiedField === 'Email' ? <Check size={14} /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col group relative">
+                      <span className="flex items-center text-xs text-secondary mb-1">
+                        <Phone size={16} className="mr-1.5 opacity-70" />
+                        Số điện thoại
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-primary">{selectedMember.phone}</span>
+                        <button 
+                          onClick={() => handleCopy(selectedMember.phone, 'Số điện thoại')}
+                          className="p-1 hover:bg-secondary/10 rounded transition-colors text-secondary hover:text-gold"
+                        >
+                          {copiedField === 'Số điện thoại' ? <Check size={14} /> : <Copy size={14} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-brand-light p-5 rounded-xl border border-border">
-                    <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
-                      <Star size={16} className="mr-2" />
-                      {t('members.skills')}
-                    </h5>
-                    <div className="flex flex-wrap gap-2">
-                      {[...selectedMember.hardSkills, ...selectedMember.softSkills].map((skill, idx) => (
-                        <SkillBadge key={`${skill.name}-${idx}`} name={skill.name} level={skill.level} />
-                      ))}
+                <div className="space-y-6">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary/70">Học vấn & CLB</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <InfoItem Icon={BookOpen} label="MSSV" value={selectedMember.mssv} />
+                    <InfoItem Icon={GraduationCap} label="Lớp" value={selectedMember.lop} />
+                    <div className="col-span-2">
+                      <InfoItem Icon={Compass} label="Khoa" value={selectedMember.khoa} />
                     </div>
-                  </div>
-                  <div className="bg-brand-light p-5 rounded-xl border border-border space-y-3">
-                    <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center">
-                      <Target size={16} className="mr-2" />
-                      {t('members.goals')}
-                    </h5>
-                    <p className="text-sm text-primary leading-relaxed">{selectedMember.goal || t('members.notUpdated')}</p>
-                    <p className="text-sm text-secondary leading-relaxed flex items-start">
-                      <Compass size={14} className="mr-2 mt-1 shrink-0" />
-                      {selectedMember.orientation || t('members.notUpdated')}
-                    </p>
+                    <div className="col-span-2">
+                      <InfoItem Icon={Target} label="Chuyên ngành" value={selectedMember.chuyenNganh} />
+                    </div>
+                    <InfoItem Icon={Calendar} label="Ngày gia nhập" value={formatDate(selectedMember.joinDate)} />
                   </div>
                 </div>
 
-                <div className="bg-brand-light p-5 rounded-xl border border-border">
-                  <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-3">
-                    <BookOpen size={16} className="mr-2" />
-                    {t('members.experience')}
-                  </h5>
-                  <p className="text-sm text-secondary italic">{selectedMember.experience || t('members.noExperience')}</p>
+                <div className="md:col-span-2 space-y-6">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary/70">Kỹ năng & Kinh nghiệm</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <p className="text-xs font-medium text-secondary">Kỹ năng chuyên môn</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedMember.hardSkills.map((skill, i) => (
+                          <Badge key={i} variant="outline" className="bg-gold/5 border-gold/20 text-gold-dark py-1">
+                            {skill.name} • {skill.level}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-xs font-medium text-secondary">Kỹ năng mềm</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedMember.softSkills.map((skill, i) => (
+                          <Badge key={i} variant="outline" className="bg-blue-500/5 border-blue-500/20 text-blue-600 py-1">
+                            {skill.name} • {skill.level}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-secondary flex items-center gap-1.5">
+                        <Star size={14} className="text-gold" /> Kinh nghiệm
+                      </p>
+                      <p className="text-sm text-primary leading-relaxed bg-secondary/5 p-3 rounded-lg border border-border/50">{selectedMember.experience}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-secondary flex items-center gap-1.5">
+                        <Target size={14} className="text-gold" /> Định hướng
+                      </p>
+                      <p className="text-sm text-primary leading-relaxed bg-secondary/5 p-3 rounded-lg border border-border/50">{selectedMember.orientation}</p>
+                    </div>
+                  </div>
                 </div>
-              </>
+              </div>
             ) : (
               <div className="bg-brand-light p-5 rounded-xl border border-border min-h-[300px]">
                 <h5 className="text-sm font-bold text-gold uppercase tracking-wider flex items-center mb-4">
@@ -919,11 +1044,21 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Chuyên ngành *</label>
-                <Select name="chuyenNganh" value={formData.chuyenNganh} onChange={handleFormChange} required>
-                  {FACULTY_MAJOR_MAP[formData.khoa]?.map(major => (
-                    <option key={major} value={major}>{major}</option>
-                  ))}
-                </Select>
+                {formData.khoa === 'Khác' ? (
+                  <Input 
+                    name="chuyenNganh" 
+                    value={formData.chuyenNganh} 
+                    onChange={handleFormChange} 
+                    placeholder="Nhập chuyên ngành..."
+                    required 
+                  />
+                ) : (
+                  <Select name="chuyenNganh" value={formData.chuyenNganh} onChange={handleFormChange} required>
+                    {FACULTY_MAJOR_MAP[formData.khoa]?.map(major => (
+                      <option key={major} value={major}>{major}</option>
+                    ))}
+                  </Select>
+                )}
               </div>
             </div>
           </div>

@@ -107,3 +107,17 @@ export const downloadFileWithAuth = async (url: string, token: string, filename:
     return false;
   }
 };
+
+/**
+ * Copy text to clipboard and return success status
+ */
+export const copyToClipboard = async (text: string): Promise<boolean> => {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+    return false;
+  }
+};

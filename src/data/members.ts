@@ -1,7 +1,7 @@
 export type SkillLevel = 'Tốt' | 'Trung bình' | 'Cơ bản';
 
 export const FACULTY_MAJOR_MAP: Record<string, string[]> = {
-  'Công nghệ Thông tin': ['Khoa học Dữ liệu', 'Kỹ thuật Phần mềm', 'An toàn Thông tin', 'Mạng Máy tính', 'Trí tuệ Nhân tạo'],
+  'Công nghệ Thông tin': ['Kỹ thuật Phần mềm', 'An toàn Thông tin', 'Mạng Máy tính', 'Trí tuệ Nhân tạo', 'Khoa học Dữ liệu', 'Hệ thống Thông tin'],
   'Truyền thông Sáng tạo': ['Truyền thông Đa phương tiện', 'Quan hệ Công chúng', 'Thiết kế Đồ hoạ'],
   'Kinh tế - Quản trị': ['Quản trị Kinh doanh', 'Marketing', 'Tài chính - Ngân hàng'],
   'Ngoại ngữ': ['Ngôn ngữ Anh', 'Ngôn ngữ Trung', 'Ngôn ngữ Nhật'],
@@ -14,7 +14,7 @@ export interface MemberSkill {
   level: SkillLevel;
 }
 
-export const DEPARTMENTS = ['Ban Chu nhiem', 'Ban Cong nghe', 'Ban Truyen thong'];
+export const DEPARTMENTS = ['Ban Chủ nhiệm', 'Ban Vận hành', 'Ban Công nghệ', 'Ban Truyền thông'];
 
 const compareText = (left: string, right: string) => left.localeCompare(right, 'vi', { sensitivity: 'base' });
 
