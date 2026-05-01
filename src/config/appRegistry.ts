@@ -67,7 +67,9 @@ const RequestsWrapper = ({ authToken, currentUser }: { authToken: string; curren
         fetchRequests();
         return response.data?.id || "SUCCESS";
       }
-      return ""; 
+      const apiDetail = (response.data as any)?.detail;
+      const errorText = response.error || (typeof apiDetail === 'string' ? apiDetail : '') || 'Không thể lưu yêu cầu.';
+      throw new Error(errorText);
     },
     onReviewRequest: async (payload) => {
       const apiStatus = payload.status === 'Đã duyệt' ? 'Da duyet' : 'Tu choi';

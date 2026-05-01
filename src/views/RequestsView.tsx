@@ -120,7 +120,7 @@ export const RequestsView = ({ requests, currentUser, onSaveRequest, onReviewReq
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.mssv.trim() || !form.name.trim() || !form.reason.trim()) {
       setFormError(t('requests.validationRequired'));
       return;
@@ -135,17 +135,21 @@ export const RequestsView = ({ requests, currentUser, onSaveRequest, onReviewReq
 
     setFormError('');
 
-    onSaveRequest({
-      id: editingId ?? undefined,
-      mssv: form.mssv,
-      name: form.name,
-      type: form.type,
-      date: form.date,
-      reason: form.reason,
-      financeDraft: form.financeDraft
-    });
-
-    setIsModalOpen(false);
+    try {
+      await onSaveRequest({
+        id: editingId ?? undefined,
+        mssv: form.mssv,
+        name: form.name,
+        type: form.type,
+        date: form.date,
+        reason: form.reason,
+        financeDraft: form.financeDraft
+      });
+      setIsModalOpen(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể lưu yêu cầu.';
+      setFormError(message);
+    }
   };
 
   const handleApprove = (item: RequestItem) => {

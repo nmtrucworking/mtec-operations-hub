@@ -1,9 +1,46 @@
 import { apiCall, type ApiResponse } from './api';
 import type { RequestItem, RequestType, RequestStatus } from '../data/requests';
 
-/**
- * Normalize request data from API
- */
+const toIsoDate = (value: unknown): string => {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const m = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return text;
+};
+
+const toDisplayDate = (value: unknown): string => {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) return text;
+  const m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return text;
+};
+
+const normalizeStatus = (value: unknown): RequestStatus => {
+  const raw = String(value ?? '').trim();
+  const compact = raw
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (compact.includes('cho') && compact.includes('duyet')) return 'Chờ duyệt';
+  if (compact.includes('da') && compact.includes('duyet')) return 'Đã duyệt';
+  if (compact.includes('tu') && compact.includes('choi')) return 'Từ chối';
+  return 'Chờ duyệt';
+};
+
+const statusToBackend = (value: unknown): string | undefined => {
+  const status = String(value ?? '').trim();
+  if (!status) return undefined;
+  if (status === 'Chờ duyệt') return 'Cho duyet';
+  if (status === 'Đã duyệt') return 'Da duyet';
+  if (status === 'Từ chối') return 'Tu choi';
+  return status;
+};
+
 const normalizeRequest = (input: any): RequestItem => {
   const record = (input && typeof input === 'object' ? input : {}) as Record<string, any>;
   
@@ -12,11 +49,11 @@ const normalizeRequest = (input: any): RequestItem => {
     mssv: record.mssv || '',
     name: record.name || '',
     type: (record.type as RequestType) || 'Bảo lưu sinh hoạt',
-    date: record.date || '',
+    date: toDisplayDate(record.date),
     reason: record.reason || '',
-    status: (record.status as RequestStatus) || 'Chờ duyệt',
+    status: normalizeStatus(record.status),
     reviewer: record.reviewer,
-    reviewedAt: record.reviewedAt,
+    reviewedAt: record.reviewedAt ? toDisplayDate(record.reviewedAt) : undefined,
     reviewNote: record.reviewNote,
     linkedTransactionId: record.linkedTransactionId,
     financeDraft: record.financeDraftEnabled ? {
@@ -46,7 +83,8 @@ export const getRequests = async (
   const query = new URLSearchParams();
   if (params.search) query.append('search', params.search);
   if (params.type) query.append('type', params.type);
-  if (params.status) query.append('status', params.status);
+  const backendStatus = statusToBackend(params.status);
+  if (backendStatus) query.append('status', backendStatus);
   if (params.page) query.append('page', String(params.page));
   if (params.pageSize) query.append('pageSize', String(params.pageSize));
 
@@ -94,7 +132,11 @@ export const getRequestDetails = async (id: string, token?: string): Promise<Api
  */
 export const createRequest = async (data: Partial<RequestItem>, token?: string): Promise<ApiResponse<RequestItem>> => {
   const payload = {
-    ...data,
+    mssv: data.mssv,
+    name: data.name,
+    type: data.type,
+    date: toIsoDate(data.date),
+    reason: data.reason,
     financeDraftEnabled: data.financeDraft?.enabled,
     financeDraftTitle: data.financeDraft?.title,
     financeDraftAmount: data.financeDraft?.amount,
@@ -124,7 +166,7 @@ export const createRequest = async (data: Partial<RequestItem>, token?: string):
  */
 export const updateRequest = async (id: string, data: Partial<RequestItem>, token?: string): Promise<ApiResponse<RequestItem>> => {
   const payload = {
-    ...data,
+    reason: data.reason,
     financeDraftEnabled: data.financeDraft?.enabled,
     financeDraftTitle: data.financeDraft?.title,
     financeDraftAmount: data.financeDraft?.amount,

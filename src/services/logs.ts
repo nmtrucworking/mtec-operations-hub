@@ -4,8 +4,8 @@ export interface ActivityLog {
   id: string;
   timestamp: string;
   user: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'PASSWORD_CHANGE' | 'EXPORT';
-  module: 'MEMBERS' | 'USERS' | 'ASSETS' | 'FINANCE' | 'REQUESTS' | 'SYSTEM';
+  action: string;
+  module: string;
   resourceId?: string;
   details: string;
   snapshotBefore?: any;
@@ -25,6 +25,60 @@ export interface LogsResponse {
   total: number;
 }
 
+type BackendApiResponse<T> = {
+  success?: boolean;
+  data?: T;
+  meta?: { total?: number };
+  message?: string;
+};
+
+type BackendAuditLog = {
+  id?: string;
+  actorName?: string;
+  action?: string;
+  module?: string;
+  resourceId?: string;
+  createdAt?: string;
+};
+
+const toText = (value: unknown): string => {
+  if (value == null) return '';
+  return String(value);
+};
+
+const buildDetails = (log: BackendAuditLog): string => {
+  const action = toText(log.action).trim();
+  const module = toText(log.module).trim();
+  const resourceId = toText(log.resourceId).trim();
+  if (action && module && resourceId) return `${action} ${module} (${resourceId})`;
+  if (action && module) return `${action} ${module}`;
+  if (action) return action;
+  return 'SYSTEM';
+};
+
+const normalizeLog = (raw: any): ActivityLog => {
+  const log: BackendAuditLog = {
+    id: raw?.id,
+    actorName: raw?.actorName ?? raw?.user ?? raw?.userName,
+    action: raw?.action,
+    module: raw?.module ?? raw?.resourceType ?? raw?.resource_type,
+    resourceId: raw?.resourceId ?? raw?.resource_id,
+    createdAt: raw?.createdAt ?? raw?.timestamp ?? raw?.created_at,
+  };
+
+  return {
+    id: toText(log.id) || (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+    timestamp: toText(log.createdAt),
+    user: toText(log.actorName) || 'System',
+    action: toText(log.action) || 'SYSTEM',
+    module: toText(log.module) || 'SYSTEM',
+    resourceId: toText(log.resourceId) || undefined,
+    details: toText(raw?.details ?? raw?.description) || buildDetails(log),
+    snapshotBefore: raw?.snapshotBefore ?? raw?.beforeSnapshot,
+    snapshotAfter: raw?.snapshotAfter ?? raw?.afterSnapshot,
+  };
+};
+
 /**
  * Get list of activity logs
  */
@@ -37,7 +91,24 @@ export const getLogs = async (query: LogsQuery = {}, token?: string): Promise<Ap
   if (query.pageSize) params.append('pageSize', query.pageSize.toString());
 
   const queryString = params.toString();
-  return apiCall<LogsResponse>(`/api/v1/logs${queryString ? `?${queryString}` : ''}`, {}, token);
+  const res = await apiCall<unknown>(`/api/v1/logs${queryString ? `?${queryString}` : ''}`, {}, token);
+  if (res.status === 0 || res.error) {
+    return { ...res, data: undefined } as ApiResponse<LogsResponse>;
+  }
+  if (!res.data) return { ...res, data: { logs: [], total: 0 } };
+
+  const body = res.data as BackendApiResponse<unknown> | unknown;
+  const data = (body as any)?.data ?? body;
+  const metaTotal = (body as any)?.meta?.total;
+
+  const items = Array.isArray(data) ? data : [];
+  const logs = items.map(normalizeLog);
+  const total = typeof metaTotal === 'number' ? metaTotal : logs.length;
+
+  return {
+    ...res,
+    data: { logs, total },
+  };
 };
 
 /**
