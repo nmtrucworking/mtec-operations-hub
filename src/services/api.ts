@@ -3,7 +3,13 @@
  * This module provides a centralized way to make API calls to the backend
  */
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+/**
+ * Get a clean base URL without /api/v1 suffix
+ */
+export const getBaseUrl = () => API_BASE_URL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+
 
 interface RequestOptions extends RequestInit {
   headers?: HeadersInit;
@@ -25,29 +31,35 @@ export interface ApiResponse<T> {
 export const apiCall = async <T = any>(
   endpoint: string,
   options: RequestOptions = {},
-  token?: string
+  token?: string,
+  skipFallback = false
 ): Promise<ApiResponse<T>> => {
   try {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     
-    // Logic to handle potential double prefixing if VITE_API_BASE_URL already contains /api/v1
+    // Logic to handle potential double prefixing
     let finalEndpoint = cleanEndpoint;
-    if (API_BASE_URL.endsWith('/api/v1') && cleanEndpoint.startsWith('/api/v1/')) {
-      finalEndpoint = cleanEndpoint.substring(7); // Remove '/api/v1' from endpoint
+    const baseHasV1 = API_BASE_URL.includes('/api/v1');
+    const endpointHasV1 = cleanEndpoint.startsWith('/api/v1/');
+    
+    if (baseHasV1 && endpointHasV1) {
+      // If both have /api/v1, remove it from endpoint to avoid double-prefixing
+      finalEndpoint = cleanEndpoint.substring(7); 
     }
     
     const url = `${API_BASE_URL}${finalEndpoint}`;
+    
+    if (import.meta.env.DEV) {
+      console.log(`[API Request] ${options.method || 'GET'} ${url}`);
+    }
+
     const headers = new Headers(options.headers || {});
-
     headers.set('Accept', 'application/json');
-    // headers.set('X-Requested-With', 'XMLHttpRequest'); // Removed as it can cause CORS issues with some backends
 
-    // Add Authorization header if token is provided
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    // Set default Content-Type for JSON
     if (!headers.has('Content-Type') && options.body) {
       headers.set('Content-Type', 'application/json');
     }
@@ -56,6 +68,19 @@ export const apiCall = async <T = any>(
       ...options,
       headers
     });
+
+    // Automatic fallback for 404: if /api/v1/ fails, try /api/
+    if (response.status === 404 && !skipFallback && endpointHasV1) {
+      const fallbackEndpoint = cleanEndpoint.replace('/api/v1/', '/api/');
+      if (import.meta.env.DEV) {
+        console.warn(`[API 404] Falling back from ${cleanEndpoint} to ${fallbackEndpoint}`);
+      }
+      return apiCall(fallbackEndpoint, options, token, true);
+    }
+
+    if (response.status === 404 && import.meta.env.DEV) {
+      console.error(`[API 404 Error] ${options.method || 'GET'} ${url}`);
+    }
 
     const data = await response.json().catch(() => ({}));
 

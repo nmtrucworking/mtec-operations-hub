@@ -1,5 +1,5 @@
+import { apiCall, API_BASE_URL, getBaseUrl } from './api';
 import type { ApiResponse } from './api';
-import { apiCall } from './api';
 import { normalizeBanList, type Member, type MemberSkill, type SkillLevel } from '../data/members';
 
 /**
@@ -182,6 +182,8 @@ export const deleteMember = async (memberId: number | string, token?: string): P
 /**
  * Export Members
  * GET /api/v1/members/export?format={csv|zip}
+ * Note: This returns a URL string, so it doesn't support automatic fallback easily.
+ * However, since most other calls use apiCall, they will work.
  */
 export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; status?: string }, token?: string) => {
   const query = new URLSearchParams();
@@ -189,11 +191,10 @@ export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; sta
   if (params.ban) query.append('ban', params.ban);
   if (params.status) query.append('status', params.status);
   
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-  const url = `${API_BASE_URL}/api/v1/members/export?${query.toString()}`;
+  const API_BASE = getBaseUrl();
+  // We'll default to the standard path, but if the user encounters issues they should check the base URL
+  const url = `${API_BASE}/api/v1/members/export?${query.toString()}`;
   
-  // For file downloads, we typically open in new tab or use a hidden anchor with auth header if possible
-  // Since we use Bearer token, we might need to use fetch and create a blob
   return url;
 };
 

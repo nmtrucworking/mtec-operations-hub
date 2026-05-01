@@ -1,4 +1,4 @@
-import { apiCall, ApiResponse } from './api';
+import { apiCall, ApiResponse, getBaseUrl } from './api';
 
 export interface ActivityLog {
   id: string;
@@ -47,10 +47,19 @@ export const exportLogs = async (token?: string): Promise<ApiResponse<Blob>> => 
   // We use fetch directly for Blob responses usually, or handle it in apiCall
   // For simplicity here, we assume apiCall can handle it or we use a separate logic
   try {
-    const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-    const response = await fetch(`${API_BASE}/api/v1/logs/export`, {
+    const API_BASE = getBaseUrl();
+    // Try v1 first, then fallback to non-v1
+    let url = `${API_BASE}/api/v1/logs/export`;
+    let response = await fetch(url, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
+    
+    if (response.status === 404) {
+      url = `${API_BASE}/api/logs/export`;
+      response = await fetch(url, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+    }
     
     if (!response.ok) throw new Error('Export failed');
     
