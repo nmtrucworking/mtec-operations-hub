@@ -25,7 +25,11 @@ import { getLogs, exportLogs, type ActivityLog, type LogsQuery } from '../servic
 
 const ITEMS_PER_PAGE = 10;
 
-export const LogsView = () => {
+interface LogsViewProps {
+  authToken?: string;
+}
+
+export const LogsView = ({ authToken }: LogsViewProps) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterModule, setFilterModule] = useState<string | 'All'>('All');
@@ -45,7 +49,7 @@ export const LogsView = () => {
       action: filterAction === 'All' ? undefined : filterAction
     };
     
-    const res = await getLogs(query);
+    const res = await getLogs(query, authToken);
     if (res.data) {
       setLogs(res.data.logs);
       setTotal(res.data.total);
@@ -55,7 +59,7 @@ export const LogsView = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [currentPage, filterModule, filterAction]);
+  }, [currentPage, filterModule, filterAction, authToken]);
 
   // Handle search with debounce or manual trigger
   const handleSearch = (e: React.FormEvent) => {
@@ -67,7 +71,7 @@ export const LogsView = () => {
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   const handleExport = async () => {
-    const res = await exportLogs();
+    const res = await exportLogs(authToken);
     if (res.data) {
       const url = URL.createObjectURL(res.data);
       const link = document.createElement('a');

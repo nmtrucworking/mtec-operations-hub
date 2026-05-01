@@ -74,15 +74,18 @@ const App = () => {
 
   useEffect(() => {
     const handleAuthExpired = () => {
-      // Gọi hàm đăng xuất để xóa state và đẩy người dùng về màn hình Login
-      handleLogout();
+      // Chỉ logout nếu thực sự đang có user (tránh logout lặp lại khi bootstrap)
+      if (currentUser) {
+        console.warn('Auth token expired. Logging out...');
+        handleLogout();
+      }
     };
 
     window.addEventListener('auth:expired', handleAuthExpired);
     return () => {
       window.removeEventListener('auth:expired', handleAuthExpired);
     };
-  }, []);
+  }, [currentUser]);
 
   const handleLogin = (user: UserAccount, token?: string) => {
     const nextUser = normalizeUser(user);

@@ -206,7 +206,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(ShieldCheck, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: 'all',
-    render: () => React.createElement(DisciplineView)
+    render: ({ authToken }) => React.createElement(DisciplineView, { authToken })
   },
   {
     tab: 'logistics',
@@ -214,7 +214,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(Box, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: 'all',
-    render: () => React.createElement(LogisticsView)
+    render: ({ authToken }) => React.createElement(LogisticsView, { authToken })
   },
   {
     tab: 'generator',
@@ -222,7 +222,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(Wand2, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: 'all',
-    render: () => React.createElement(GeneratorView)
+    render: ({ authToken }) => React.createElement(GeneratorView, { authToken })
   },
   {
     tab: 'logs',
@@ -230,7 +230,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(History, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: ['bcn', 'bcm'], // Only board and committee members can see logs
-    render: () => React.createElement(LogsView)
+    render: ({ authToken }) => React.createElement(LogsView, { authToken })
   },
   {
     tab: 'settings',

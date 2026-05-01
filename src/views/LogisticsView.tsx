@@ -6,7 +6,7 @@ import { getAssetStats, getAssetCategories, type AssetStats } from '../services/
 
 
 interface LogisticsViewProps {
-  
+  authToken?: string;
 }
 
 const nextAssetId = (list: AssetItem[]) => {
@@ -26,7 +26,7 @@ const defaultAssetForm = (list: AssetItem[]): AssetItem => ({
   category: ''
 });
 
-export const LogisticsView = () => {
+export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
   const { t } = useTranslation();
   const [assets, setAssets] = useState<AssetItem[]>(assetSeedData);
   const [stats, setStats] = useState<AssetStats | null>(null);
@@ -39,14 +39,14 @@ export const LogisticsView = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const statsRes = await getAssetStats();
+      const statsRes = await getAssetStats(authToken);
       if (statsRes.data) setStats(statsRes.data);
 
-      const catRes = await getAssetCategories();
+      const catRes = await getAssetCategories(authToken);
       if (catRes.data) setCategories(catRes.data);
     };
     fetchData();
-  }, []);
+  }, [authToken]);
 
   const getStatusName = (status: string) => {
     switch (status) {

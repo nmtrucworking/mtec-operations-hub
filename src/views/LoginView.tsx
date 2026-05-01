@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Lock, LogIn, Mail } from 'lucide-react';
+import { Lock, LogIn, Mail, Languages, Sun, Moon } from 'lucide-react';
 import { login as loginRequest } from '../services/auth';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { ForgotPasswordView } from './ForgotPasswordView';
+import { useTheme } from '../components/theme-provider';
 import type { UserAccount, UserRole } from '../types/app';
 
 import logoImg from '../assets/mtec_logo.svg';
@@ -16,7 +17,8 @@ interface LoginViewProps {
 import { useToast } from '../components/ui/toast';
 
 export const LoginView = ({ onLogin }: LoginViewProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { theme, setTheme } = useTheme();
   const { error: toastError } = useToast();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -58,14 +60,36 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
       
-      <Card className="w-full max-w-md z-10 animate-in fade-in zoom-in duration-500 border-border shadow-2xl p-2">
+      {/* Top Controls */}
+      <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
+        {/* Language Toggle */}
+        <button
+          onClick={() => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi')}
+          className="p-2 rounded-full bg-card border border-border text-primary hover:text-gold hover:border-gold transition-all shadow-sm flex items-center gap-2 px-3"
+          title={t('common.changeLanguage')}
+        >
+          <Languages size={18} />
+          <span className="text-xs font-bold uppercase">{i18n.language}</span>
+        </button>
+
+        {/* Theme Toggle */}
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="p-2 rounded-full bg-card border border-border text-primary hover:text-gold hover:border-gold transition-all shadow-sm"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+      </div>
+
+      <Card className="w-full max-w-md z-10 animate-in fade-in zoom-in duration-500 border-border shadow-2xl p-2 bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center pb-4">
           {/* Logo */}
-          <div className="mx-auto inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-blue border-2 border-gold mb-4 shadow-lg shadow-gold/20 overflow-hidden">
-            <img src={logoImg} alt="MTEC Logo" className="w-full h-full object-cover" />
+          <div className="mx-auto flex items-center justify-center w-24 h-24 mb-4 drop-shadow-[0_0_15px_rgba(255,215,0,0.3)] hover:scale-110 transition-transform duration-300">
+            <img src={logoImg} alt="MTEC Logo" className="w-full h-full object-contain filter brightness-110 contrast-110" />
           </div>
-          <CardTitle className="text-3xl font-bold text-gold tracking-wider">{t('login.title')}</CardTitle>
-          <CardDescription className="text-sm mt-2">{t('login.subtitle')}</CardDescription>
+          <CardTitle className="text-3xl font-bold text-gold tracking-wider drop-shadow-sm">{t('login.title')}</CardTitle>
+          <CardDescription className="text-sm mt-2 text-secondary">{t('login.subtitle')}</CardDescription>
         </CardHeader>
 
         <CardContent>

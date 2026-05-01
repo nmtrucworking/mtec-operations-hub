@@ -10,7 +10,11 @@ import {
   type AIProcessContextResponse 
 } from '../services/ai';
 
-export const GeneratorView = () => {
+interface GeneratorViewProps {
+  authToken?: string;
+}
+
+export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
   const { t } = useTranslation();
   const [templates, setTemplates] = useState<AITemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -23,14 +27,14 @@ export const GeneratorView = () => {
 
   useEffect(() => {
     const fetchTemplates = async () => {
-      const res = await getAITemplates();
+      const res = await getAITemplates(authToken);
       if (res.data) {
         setTemplates(res.data);
         if (res.data.length > 0) setSelectedTemplate(res.data[0].id);
       }
     };
     fetchTemplates();
-  }, []);
+  }, [authToken]);
 
   const handleProcessContext = async (source: 'upload' | 'link') => {
     setIsProcessingContext(true);
@@ -40,7 +44,7 @@ export const GeneratorView = () => {
     // For now we simulate with mock data from the backend call
     const res = await processAIContext({ 
       text: source === 'upload' ? "Dữ liệu từ file upload..." : "Dữ liệu từ link Google Sheets..." 
-    });
+    }, authToken);
     
     if (res.data) {
       setContext(res.data);
@@ -57,7 +61,7 @@ export const GeneratorView = () => {
         prompt,
         contextId: context?.contextId,
         templateId: selectedTemplate
-      });
+      }, authToken);
 
       if (res.data) {
         setAiDraft(res.data.text);
@@ -76,7 +80,7 @@ export const GeneratorView = () => {
       content: aiDraft,
       templateId: selectedTemplate,
       title: `Document_${new Date().getTime()}`
-    });
+    }, authToken);
 
     if (res.data?.downloadUrl) {
       window.open(res.data.downloadUrl, '_blank');

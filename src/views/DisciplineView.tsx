@@ -5,7 +5,7 @@ import { getDisciplineStats, type DisciplineStats } from '../services/discipline
 
 
 interface DisciplineViewProps {
-  
+  authToken?: string;
 }
 
 type DisciplineLevel = 'Không' | 'Nhắc nhở' | 'Cảnh cáo Lần 1';
@@ -26,7 +26,7 @@ const records: DisciplineRecord[] = [
   { mssv: '2400003987', name: 'Nguyễn Minh Trúc', absents: 0, discipline: 'Không', kpi: 98, committee: 'Ban Chủ nhiệm' }
 ];
 
-export const DisciplineView = () => {
+export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
   const { t } = useTranslation();
   const [stats, setStats] = useState<DisciplineStats | null>(null);
   const [search, setSearch] = useState('');
@@ -34,11 +34,11 @@ export const DisciplineView = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const res = await getDisciplineStats();
+      const res = await getDisciplineStats(authToken);
       if (res.data) setStats(res.data);
     };
     fetchStats();
-  }, []);
+  }, [authToken]);
 
   const getDisciplineName = (level: string) => {
     switch (level) {
