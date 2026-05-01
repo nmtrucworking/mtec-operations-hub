@@ -69,7 +69,7 @@ const normalizeMember = (input: unknown): Member => {
   const record = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
 
   return {
-    id: Number(record.id ?? record.memberId ?? record.member_id ?? Date.now()),
+    id: pickString(record.id, record.memberId, record.member_id) || String(Date.now()),
     mssv: pickString(record.mssv, record.studentId, record.student_id),
     name: pickString(record.name, record.fullName, record.full_name),
     gender: pickString(record.gender, record.sex),

@@ -141,7 +141,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     void loadMembers();
   }, [authToken]);
 
-  const refreshMembers = async (preserveSelectionId?: number) => {
+  const refreshMembers = async (preserveSelectionId?: string) => {
     if (!authToken) {
       return false;
     }
@@ -149,7 +149,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     const response = await getMembers({ pageSize: 1000 }, authToken);
     if (response.status >= 200 && response.status < 300 && response.data) {
       setMembers(response.data.members);
-      if (preserveSelectionId) {
+      if (preserveSelectionId != null) {
         setSelectedMember(response.data.members.find((member) => member.id === preserveSelectionId) ?? null);
       }
       // success - nothing to show here, callers may display toast
@@ -223,7 +223,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     }
   };
 
-  const handleDeleteMember = async (memberId: number) => {
+  const handleDeleteMember = async (memberId: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa thành viên này?')) {
       return;
     }

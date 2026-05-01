@@ -72,7 +72,7 @@ export const banListMatches = (value: unknown, target: string): boolean => {
 export const compareBanLists = (left: unknown, right: unknown): number => formatBanList(left).localeCompare(formatBanList(right), 'vi', { sensitivity: 'base' });
 
 export interface Member {
-  id: number;
+  id: string;
   mssv: string;
   name: string;
   gender: string;
@@ -96,7 +96,7 @@ export interface Member {
 
 export const mockMembers: Member[] = [
   {
-    id: 1,
+    id: '1',
     mssv: '2400003987',
     name: 'Nguyen Minh Truc',
     gender: 'Nam',
@@ -124,7 +124,7 @@ export const mockMembers: Member[] = [
     orientation: 'Tro thanh Data Scientist trong 3 nam toi.'
   },
   {
-    id: 2,
+    id: '2',
     mssv: '2500018535',
     name: 'Nguyen Thi Ngoc Ngan',
     gender: 'Nu',
@@ -146,7 +146,7 @@ export const mockMembers: Member[] = [
     orientation: 'Dinh huong Social Media Manager.'
   },
   {
-    id: 3,
+    id: '3',
     mssv: '2500017768',
     name: 'Hoang Thi Ut Linh',
     gender: 'Nu',
@@ -168,7 +168,7 @@ export const mockMembers: Member[] = [
     orientation: 'Tro thanh Fullstack Developer.'
   },
   {
-    id: 4,
+    id: '4',
     mssv: '2500021001',
     name: 'Le Quoc Huy',
     gender: 'Nam',
@@ -196,7 +196,7 @@ export const mockMembers: Member[] = [
     orientation: 'Data Analyst trong 2 nam toi.'
   },
   {
-    id: 5,
+    id: '5',
     mssv: '2500021002',
     name: 'Tran Bao Ngoc',
     gender: 'Nu',
@@ -224,7 +224,7 @@ export const mockMembers: Member[] = [
     orientation: 'Content Creator toan thoi gian.'
   },
   {
-    id: 6,
+    id: '6',
     mssv: '2500021003',
     name: 'Pham Duc Anh',
     gender: 'Nam',
@@ -252,7 +252,7 @@ export const mockMembers: Member[] = [
     orientation: 'Operations Executive.'
   },
   {
-    id: 7,
+    id: '7',
     mssv: '2500021004',
     name: 'Vo Gia Han',
     gender: 'Nu',
@@ -280,7 +280,7 @@ export const mockMembers: Member[] = [
     orientation: 'Chuyen vien truyen thong doanh nghiep.'
   },
   {
-    id: 8,
+    id: '8',
     mssv: '2500021005',
     name: 'Nguyen Tien Dat',
     gender: 'Nam',
@@ -308,7 +308,7 @@ export const mockMembers: Member[] = [
     orientation: 'Frontend Developer.'
   },
   {
-    id: 9,
+    id: '9',
     mssv: '2500021006',
     name: 'Bui Thao My',
     gender: 'Nu',
@@ -336,7 +336,7 @@ export const mockMembers: Member[] = [
     orientation: 'Chuyen vien tai chinh van hanh.'
   },
   {
-    id: 10,
+    id: '10',
     mssv: '2500021007',
     name: 'Do Minh Quan',
     gender: 'Nam',
@@ -364,7 +364,7 @@ export const mockMembers: Member[] = [
     orientation: 'Security Engineer.'
   },
   {
-    id: 11,
+    id: '11',
     mssv: '2500021008',
     name: 'Dang Nhat Le',
     gender: 'Nam',
@@ -392,7 +392,7 @@ export const mockMembers: Member[] = [
     orientation: 'Graphic Designer.'
   },
   {
-    id: 12,
+    id: '12',
     mssv: '2500021009',
     name: 'Le Phuong Anh',
     gender: 'Nu',
@@ -420,7 +420,7 @@ export const mockMembers: Member[] = [
     orientation: 'Marketing Operations.'
   },
   {
-    id: 13,
+    id: '13',
     mssv: '2500021010',
     name: 'Huynh Gia Bao',
     gender: 'Nam',
@@ -448,7 +448,7 @@ export const mockMembers: Member[] = [
     orientation: 'Network Administrator.'
   },
   {
-    id: 14,
+    id: '14',
     mssv: '2500021011',
     name: 'Nguyen Ha Vy',
     gender: 'Nu',
@@ -476,7 +476,7 @@ export const mockMembers: Member[] = [
     orientation: 'Content Localization Specialist.'
   },
   {
-    id: 15,
+    id: '15',
     mssv: '2500021012',
     name: 'Trinh Duc Tai',
     gender: 'Nam',
@@ -504,7 +504,7 @@ export const mockMembers: Member[] = [
     orientation: 'Project Coordinator.'
   },
   {
-    id: 16,
+    id: '16',
     mssv: '2500021013',
     name: 'Tran Thi Y Nhi',
     gender: 'Nu',
@@ -532,7 +532,7 @@ export const mockMembers: Member[] = [
     orientation: 'AI Engineer.'
   },
   {
-    id: 17,
+    id: '17',
     mssv: '2500021014',
     name: 'Pham Minh Chau',
     gender: 'Nu',
@@ -560,7 +560,7 @@ export const mockMembers: Member[] = [
     orientation: 'Communications Specialist.'
   },
   {
-    id: 18,
+    id: '18',
     mssv: '2500021015',
     name: 'Nguyen Hoang Son',
     gender: 'Nam',
@@ -588,7 +588,7 @@ export const mockMembers: Member[] = [
     orientation: 'Software Engineer.'
   },
   {
-    id: 19,
+    id: '19',
     mssv: '2500021016',
     name: 'Doan Thi Kim Ngan',
     gender: 'Nu',
@@ -616,7 +616,7 @@ export const mockMembers: Member[] = [
     orientation: 'Marketing Analyst.'
   },
   {
-    id: 20,
+    id: '20',
     mssv: '2500021017',
     name: 'Lam Quynh Nhu',
     gender: 'Nu',
@@ -644,7 +644,7 @@ export const mockMembers: Member[] = [
     orientation: 'Event Communication.'
   },
   {
-    id: 21,
+    id: '21',
     mssv: '2500021018',
     name: 'Le Thanh Cong',
     gender: 'Nam',
@@ -672,7 +672,7 @@ export const mockMembers: Member[] = [
     orientation: 'Business Intelligence Analyst.'
   },
   {
-    id: 22,
+    id: '22',
     mssv: '2500021019',
     name: 'Tran Mai Anh',
     gender: 'Nu',
@@ -700,7 +700,7 @@ export const mockMembers: Member[] = [
     orientation: 'Finance Operations.'
   },
   {
-    id: 23,
+    id: '23',
     mssv: '2500021020',
     name: 'Phan Anh Khoa',
     gender: 'Nam',
