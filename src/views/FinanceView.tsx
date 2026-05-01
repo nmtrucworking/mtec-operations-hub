@@ -42,7 +42,7 @@ const nextTransactionId = (list: Transaction[]) => {
 
 const defaultTxForm = (list: Transaction[]): Transaction => ({
   id: nextTransactionId(list),
-  date: '27/04/2026',
+  date: new Date().toLocaleDateString('vi-VN'),
   title: '',
   type: 'Thu',
   amount: 0,

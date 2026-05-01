@@ -11,6 +11,7 @@ import { GeneratorView } from '../views/GeneratorView';
 import { LogsView } from '../views/LogsView';
 import { getRequests, reviewRequest as reviewRequestApi, createRequest, updateRequest } from '../services/requests';
 import { getTransactions, getPendingTransactions, reviewTransaction as reviewTransactionApi, deleteTransaction as deleteTransactionApi, createTransaction, updateTransaction } from '../services/finance';
+import { getDashboardOverview } from '../services/dashboard';
 import type { UserAccount, UserRole, AppTab } from '../types/app';
 
 import { APP_VERSION } from './appVersion';
@@ -83,17 +84,20 @@ const RequestsWrapper = ({ authToken, currentUser }: { authToken: string; curren
 const FinanceWrapper = ({ authToken, currentUser }: { authToken: string; currentUser: UserAccount }) => {
   const [transactions, setTransactions] = React.useState<any[]>([]);
   const [pendingTransactions, setPendingTransactions] = React.useState<any[]>([]);
+  const [dashboardStats, setDashboardStats] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
-    const [txRes, pendingRes] = await Promise.all([
+    const [txRes, pendingRes, dashboardRes] = await Promise.all([
       getTransactions({}, authToken),
-      getPendingTransactions(authToken)
+      getPendingTransactions(authToken),
+      getDashboardOverview(authToken)
     ]);
     
     if (txRes.data) setTransactions(txRes.data.transactions);
     if (pendingRes.data) setPendingTransactions(pendingRes.data);
+    if (dashboardRes.data) setDashboardStats(dashboardRes.data);
     setIsLoading(false);
   }, [authToken]);
 
@@ -101,15 +105,15 @@ const FinanceWrapper = ({ authToken, currentUser }: { authToken: string; current
     fetchData();
   }, [fetchData]);
 
-  const totalIncome = transactions
+  const totalIncome = dashboardStats?.totalIncome ?? transactions
     .filter((item) => item.type === 'Thu' && item.status === 'Đã duyệt')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  const totalExpense = transactions
+  const totalExpense = dashboardStats?.totalExpense ?? transactions
     .filter((item) => item.type === 'Chi' && item.status === 'Đã duyệt')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  const currentFund = totalIncome - totalExpense + 3200000;
+  const currentFund = dashboardStats?.currentFund ?? (totalIncome - totalExpense);
 
   return React.createElement(FinanceView, {
     transactions,

@@ -56,8 +56,11 @@ export const apiCall = async <T = any>(
     const headers = new Headers(options.headers || {});
     headers.set('Accept', 'application/json');
 
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    // Use provided token or fallback to localStorage
+    const effectiveToken = token || (typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null);
+
+    if (effectiveToken) {
+      headers.set('Authorization', `Bearer ${effectiveToken}`);
     }
 
     if (!headers.has('Content-Type') && options.body) {

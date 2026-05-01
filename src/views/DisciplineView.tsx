@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Filter, Search } from 'lucide-react';
-import { getDisciplineStats, type DisciplineStats } from '../services/discipline';
+import { AlertTriangle, Filter, Search, Loader2 } from 'lucide-react';
+import { getDisciplineStats, getDisciplineRecords, type DisciplineStats, type DisciplineRecord as ApiDisciplineRecord } from '../services/discipline';
 
 
 interface DisciplineViewProps {
@@ -10,35 +10,31 @@ interface DisciplineViewProps {
 
 type DisciplineLevel = 'Không' | 'Nhắc nhở' | 'Cảnh cáo Lần 1';
 
-interface DisciplineRecord {
-  mssv: string;
-  name: string;
-  absents: number;
-  discipline: DisciplineLevel;
-  kpi: number;
-  committee: string;
-}
-
-const records: DisciplineRecord[] = [
-  { mssv: '2500018535', name: 'Nguyễn Thị Ngọc Ngân', absents: 0, discipline: 'Không', kpi: 95, committee: 'Truyền thông' },
-  { mssv: '2400008936', name: 'Trần Quỳnh Như', absents: 2, discipline: 'Cảnh cáo Lần 1', kpi: 50, committee: 'Công nghệ' },
-  { mssv: '2500017768', name: 'Hoàng Thị Út Linh', absents: 1, discipline: 'Nhắc nhở', kpi: 72, committee: 'Công nghệ' },
-  { mssv: '2400003987', name: 'Nguyễn Minh Trúc', absents: 0, discipline: 'Không', kpi: 98, committee: 'Ban Chủ nhiệm' }
-];
-
 export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
   const { t } = useTranslation();
   const [stats, setStats] = useState<DisciplineStats | null>(null);
+  const [records, setRecords] = useState<ApiDisciplineRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [disciplineFilter, setDisciplineFilter] = useState<'All' | DisciplineLevel>('All');
 
   useEffect(() => {
-    const fetchStats = async () => {
-      const res = await getDisciplineStats(authToken);
-      if (res.data) setStats(res.data);
+    const fetchData = async () => {
+      setIsLoading(true);
+      const [statsRes, recordsRes] = await Promise.all([
+        getDisciplineStats(authToken),
+        getDisciplineRecords({ 
+          search: search || undefined, 
+          disciplineLevel: disciplineFilter === 'All' ? undefined : disciplineFilter 
+        }, authToken)
+      ]);
+
+      if (statsRes.data) setStats(statsRes.data);
+      if (recordsRes.data) setRecords(recordsRes.data.records);
+      setIsLoading(false);
     };
-    fetchStats();
-  }, [authToken]);
+    fetchData();
+  }, [authToken, search, disciplineFilter]);
 
   const getDisciplineName = (level: string) => {
     switch (level) {
@@ -49,17 +45,7 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
     }
   };
 
-  const filtered = useMemo(
-    () =>
-      records.filter((item) => {
-        const matchSearch = item.name.toLowerCase().includes(search.toLowerCase()) || item.mssv.includes(search);
-        const matchDiscipline = disciplineFilter === 'All' || item.discipline === disciplineFilter;
-        return matchSearch && matchDiscipline;
-      }),
-    [disciplineFilter, search]
-  );
-
-  const riskCount = records.filter((item) => item.discipline !== 'Không').length;
+  const riskCount = stats?.warnedCases ?? records.filter((item) => item.disciplineLevel !== 'Không').length;
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -126,15 +112,32 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
               <th className="p-4 font-semibold">{t('discipline.thKpi')}</th>
             </tr>
           </thead>
-          <tbody className="text-sm divide-y divide-[#2a4d85]">
-            {filtered.map((item) => (
+          <tbody className="text-sm divide-y divide-[#2a4d85] relative">
+            {isLoading && (
+              <tr>
+                <td colSpan={6} className="p-8 text-center">
+                  <div className="flex items-center justify-center gap-2 text-blue-300">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span>{t('common.loading', 'Đang tải...')}</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+            {!isLoading && records.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-blue-300">
+                  {t('common.noData', 'Không có dữ liệu')}
+                </td>
+              </tr>
+            )}
+            {!isLoading && records.map((item) => (
               <tr key={item.mssv} className="hover:bg-[#2a4d85]/30 transition-colors">
                 <td className="p-4">{item.mssv}</td>
                 <td className="p-4 font-medium">{item.name}</td>
                 <td className="p-4">{item.committee}</td>
                 <td className={`p-4 ${item.absents > 0 ? 'text-orange-300 font-semibold' : ''}`}>{item.absents}</td>
                 <td className="p-4">
-                  <span className={item.discipline === 'Không' ? 'text-gray-300' : 'text-orange-300 font-semibold'}>{getDisciplineName(item.discipline)}</span>
+                  <span className={item.disciplineLevel === 'Không' ? 'text-gray-300' : 'text-orange-300 font-semibold'}>{getDisciplineName(item.disciplineLevel)}</span>
                 </td>
                 <td className={`p-4 font-semibold ${item.kpi >= 85 ? 'text-green-400' : item.kpi >= 65 ? 'text-yellow-300' : 'text-red-400'}`}>{item.kpi}/100</td>
               </tr>

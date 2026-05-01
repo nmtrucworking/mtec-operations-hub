@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Boxes, Filter, Pencil, Search, ShieldAlert, X } from 'lucide-react';
-import { assetSeedData, type AssetItem, type AssetStatus } from '../data/logistics';
-import { getAssetStats, getAssetCategories, type AssetStats } from '../services/logistics';
+import { Boxes, Filter, Pencil, Search, ShieldAlert, X, Loader2 } from 'lucide-react';
+import { type AssetItem, type AssetStatus } from '../data/logistics';
+import { getAssetStats, getAssetCategories, getAssets, type AssetStats } from '../services/logistics';
 
 
 interface LogisticsViewProps {
@@ -28,25 +28,36 @@ const defaultAssetForm = (list: AssetItem[]): AssetItem => ({
 
 export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
   const { t } = useTranslation();
-  const [assets, setAssets] = useState<AssetItem[]>(assetSeedData);
+  const [assets, setAssets] = useState<AssetItem[]>([]);
   const [stats, setStats] = useState<AssetStats | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | AssetStatus>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<AssetItem>(defaultAssetForm(assetSeedData));
+  const [form, setForm] = useState<AssetItem>(defaultAssetForm([]));
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    const [statsRes, catRes, assetsRes] = await Promise.all([
+      getAssetStats(authToken),
+      getAssetCategories(authToken),
+      getAssets({ 
+        search: search || undefined, 
+        status: statusFilter === 'All' ? undefined : statusFilter 
+      }, authToken)
+    ]);
+
+    if (statsRes.data) setStats(statsRes.data);
+    if (catRes.data) setCategories(catRes.data);
+    if (assetsRes.data) setAssets(assetsRes.data.assets);
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      const statsRes = await getAssetStats(authToken);
-      if (statsRes.data) setStats(statsRes.data);
-
-      const catRes = await getAssetCategories(authToken);
-      if (catRes.data) setCategories(catRes.data);
-    };
     fetchData();
-  }, [authToken]);
+  }, [authToken, search, statusFilter]);
 
   const getStatusName = (status: string) => {
     switch (status) {
@@ -58,18 +69,8 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
     }
   };
 
-  const filteredAssets = useMemo(
-    () =>
-      assets.filter((item) => {
-        const matchSearch = item.name.toLowerCase().includes(search.toLowerCase()) || item.id.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === 'All' || item.status === statusFilter;
-        return matchSearch && matchStatus;
-      }),
-    [assets, search, statusFilter]
-  );
-
-  const borrowedCount = assets.filter((item) => item.status === 'Đang mượn').length;
-  const maintenanceCount = assets.filter((item) => item.status === 'Cần bảo trì').length;
+  const borrowedCount = stats?.borrowed ?? assets.filter((item) => item.status === 'Đang mượn').length;
+  const maintenanceCount = stats?.maintenance ?? assets.filter((item) => item.status === 'Cần bảo trì').length;
 
   const openCreateModal = () => {
     setEditingId(null);
@@ -164,8 +165,25 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
               <th className="p-4 font-semibold">{t('logistics.thAction')}</th>
             </tr>
           </thead>
-          <tbody className="text-sm divide-y divide-[#2a4d85]">
-            {filteredAssets.map((item) => (
+          <tbody className="text-sm divide-y divide-[#2a4d85] relative">
+            {isLoading && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center">
+                  <div className="flex items-center justify-center gap-2 text-blue-300">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span>{t('common.loading', 'Đang tải...')}</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+            {!isLoading && assets.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center text-blue-300">
+                  {t('common.noData', 'Không có dữ liệu')}
+                </td>
+              </tr>
+            )}
+            {!isLoading && assets.map((item) => (
               <tr key={item.id} className="hover:bg-[#2a4d85]/30 transition-colors">
                 <td className="p-4 font-medium text-[#ffc20e]">{item.id}</td>
                 <td className="p-4 font-medium">{item.name}</td>

@@ -38,9 +38,17 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchLogs = async () => {
+    if (!authToken) {
+      setError(t('auth.invalidToken', 'Token không hợp lệ hoặc đã hết hạn'));
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
+    
     const query: LogsQuery = {
       page: currentPage,
       pageSize: ITEMS_PER_PAGE,
@@ -53,6 +61,8 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
     if (res.data) {
       setLogs(res.data.logs);
       setTotal(res.data.total);
+    } else if (res.error) {
+      setError(res.error);
     }
     setIsLoading(false);
   };
@@ -159,7 +169,22 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
             <Loader2 className="animate-spin text-blue-600" size={32} />
           </div>
         )}
-        <Table>
+        
+        {error && (
+          <div className="p-8 text-center flex flex-col items-center justify-center gap-4">
+            <XCircle className="text-red-500 w-12 h-12" />
+            <div className="space-y-1">
+              <p className="font-semibold text-slate-900">{t('common.error', 'Đã xảy ra lỗi')}</p>
+              <p className="text-sm text-slate-500">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchLogs}>
+              {t('common.retry', 'Thử lại')}
+            </Button>
+          </div>
+        )}
+
+        {!error && (
+          <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableHead className="w-[180px]">{t('logs.colTimestamp', 'Thời gian')}</TableHead>
@@ -217,7 +242,8 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
               </TableRow>
             )}
           </TableBody>
-        </Table>
+          </Table>
+        )}
       </div>
 
       {/* Pagination */}
