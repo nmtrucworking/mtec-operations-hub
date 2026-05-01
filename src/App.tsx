@@ -114,52 +114,48 @@ const App = () => {
     return matchedTab ? matchedTab.render({ authToken, currentUser }) : null;
   };
 
-  if (isBootstrapping) {
-    return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-primary relative overflow-hidden">
-        {/* Background decorations */}
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="z-10 text-center space-y-6 max-w-sm px-6">
-          <div className="relative mx-auto w-20 h-20">
-            <div className="absolute inset-0 border-4 border-gold/20 rounded-full animate-pulse" />
-            <div className="absolute inset-0 border-t-4 border-gold rounded-full animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-gold animate-pulse" />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-gold tracking-tight">{t('auth.restoringSession')}</h2>
-            <p className="text-secondary text-sm">{t('auth.pleaseWait')}</p>
-          </div>
-
-          <div className="pt-4">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleLogout}
-              className="border-gold/30 text-gold hover:bg-gold/10 transition-all duration-300 group"
-            >
-              <LogOut size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" />
-              {t('login.logoutButton') || 'Đăng xuất'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return <LoginView onLogin={handleLogin} />;
-  }
-
   return (
     <ToastProvider>
-      <AppShell activeTab={normalizedActiveTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
-        {renderActiveView()}
-      </AppShell>
+      {isBootstrapping ? (
+        <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-primary relative overflow-hidden">
+          {/* Background decorations */}
+          <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="z-10 text-center space-y-6 max-w-sm px-6">
+            <div className="relative mx-auto w-20 h-20">
+              <div className="absolute inset-0 border-4 border-gold/20 rounded-full animate-pulse" />
+              <div className="absolute inset-0 border-t-4 border-gold rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-gold animate-pulse" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-gold tracking-tight">{t('auth.restoringSession')}</h2>
+              <p className="text-secondary text-sm">{t('auth.pleaseWait')}</p>
+            </div>
+
+            <div className="pt-4">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleLogout}
+                className="border-gold/30 text-gold hover:bg-gold/10 transition-all duration-300 group"
+              >
+                <LogOut size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" />
+                {t('login.logoutButton') || 'Đăng xuất'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : !currentUser ? (
+        <LoginView onLogin={handleLogin} />
+      ) : (
+        <AppShell activeTab={normalizedActiveTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
+          {renderActiveView()}
+        </AppShell>
+      )}
     </ToastProvider>
   );
 };
