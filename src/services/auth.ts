@@ -47,10 +47,22 @@ export const login = async (username: string, password: string): Promise<ApiResp
   refreshToken: string;
   user: UserAccount;
 }>> => {
-  const response = await apiCall('/api/v1/auth/login', {
+  // First try the versioned endpoint
+  let response = await apiCall('/api/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password })
   });
+
+  // Fallback to non-versioned endpoint if 404 (some environments might not have migrated yet)
+  if (response.status === 404) {
+    const fallbackResponse = await apiCall('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    if (fallbackResponse.status !== 404) {
+      response = fallbackResponse;
+    }
+  }
 
   if (response.data) {
     const data = response.data as any;
@@ -87,8 +99,15 @@ export const logout = async (refreshToken?: string, token?: string): Promise<Api
  * GET /api/v1/auth/me
  */
 export const getCurrentUser = async (token: string): Promise<ApiResponse<UserAccount>> => {
-  const response = await apiCall('/api/v1/auth/me', { method: 'GET' }, token);
+  let response = await apiCall('/api/v1/auth/me', { method: 'GET' }, token);
   
+  if (response.status === 404) {
+    const fallbackResponse = await apiCall('/api/auth/me', { method: 'GET' }, token);
+    if (fallbackResponse.status !== 404) {
+      response = fallbackResponse;
+    }
+  }
+
   if (response.data) {
     const data = response.data as any;
     const userPayload = data.data || data;
