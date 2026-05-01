@@ -10,7 +10,17 @@
     "view": "Xem",
     "success": "Thành công",
     "warning": "Cảnh báo",
-    "info": "Thông tin"
+    "info": "Thông tin",
+    "changeLanguage": "Đổi ngôn ngữ",
+    "switchToLight": "Chuyển sang Light Mode",
+    "switchToDark": "Chuyển sang Dark Mode",
+    "lightMode": "Light",
+    "darkMode": "Dark",
+    "export": "Xuất dữ liệu",
+    "page": "Trang",
+    "prev": "Trước",
+    "next": "Sau",
+    "noData": "Không có dữ liệu"
   },
   "appShell": {
     "title": "MTEC NTTU",

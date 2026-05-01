@@ -10,7 +10,17 @@
     "view": "View",
     "success": "Success",
     "warning": "Warning",
-    "info": "Information"
+    "info": "Information",
+    "changeLanguage": "Change language",
+    "switchToLight": "Switch to Light Mode",
+    "switchToDark": "Switch to Dark Mode",
+    "lightMode": "Light",
+    "darkMode": "Dark",
+    "export": "Export",
+    "page": "Page",
+    "prev": "Previous",
+    "next": "Next",
+    "noData": "No data"
   },
   "appShell": {
     "title": "MTEC NTTU",

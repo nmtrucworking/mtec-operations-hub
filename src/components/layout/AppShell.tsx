@@ -1,7 +1,7 @@
 import logoSvg from '../../assets/mtec_logo.svg';
 import React, { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, LogOut, Search, Globe, Menu, X } from 'lucide-react';
+import { Bell, LogOut, Search, Globe, Menu, X, Sun, Moon } from 'lucide-react';
 import { NavItem } from '../shared/Widgets';
 import { useTheme } from '../theme-provider';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -30,6 +30,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const currentLang = (i18n.resolvedLanguage || i18n.language || 'vi').split('-')[0];
 
   React.useEffect(() => {
     if (isDesktop && isMobileMenuOpen) {
@@ -38,7 +39,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
   }, [isDesktop, isMobileMenuOpen]);
 
   const toggleLanguage = () => {
-    i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
+    i18n.changeLanguage(currentLang === 'vi' ? 'en' : 'vi');
   };
 
   const toggleTheme = () => {
@@ -147,12 +148,23 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
           </div>
 
           <div className="flex items-center space-x-2 lg:space-x-4">
-            <button onClick={toggleTheme} className="flex items-center p-2 text-secondary hover:text-primary transition-colors bg-card rounded-lg border border-border">
-              {theme === 'dark' ? <span className="text-xs lg:text-sm font-medium">Light</span> : <span className="text-xs lg:text-sm font-medium">Dark</span>}
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-2 p-2 text-secondary hover:text-primary transition-colors bg-card rounded-lg border border-border"
+              title={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              <span className="text-xs lg:text-sm font-medium">
+                {theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
+              </span>
             </button>
-            <button onClick={toggleLanguage} className="flex items-center p-2 text-secondary hover:text-primary transition-colors bg-card rounded-lg border border-border">
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center p-2 text-secondary hover:text-primary transition-colors bg-card rounded-lg border border-border"
+              title={t('common.changeLanguage')}
+            >
               <Globe size={18} className="lg:mr-2" />
-              <span className="text-xs lg:text-sm font-medium uppercase">{i18n.language || 'vi'}</span>
+              <span className="text-xs lg:text-sm font-medium uppercase">{currentLang}</span>
             </button>
             <button className="relative p-2 text-secondary hover:text-primary transition-colors hidden sm:block">
               <Bell size={20} />

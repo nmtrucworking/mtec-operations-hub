@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 import { X, CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -10,6 +10,7 @@ interface Toast {
   title?: string;
   message: string;
   duration?: number;
+  leaving?: boolean;
 }
 
 interface ToastContextType {
@@ -32,23 +33,45 @@ export const useToast = () => {
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timersRef = useRef<Record<string, number>>({});
 
   const removeToast = useCallback((id: string) => {
+    const timer = timersRef.current[id];
+    if (timer) {
+      window.clearTimeout(timer);
+      delete timersRef.current[id];
+    }
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const dismissToast = useCallback(
+    (id: string) => {
+      const timer = timersRef.current[id];
+      if (timer) {
+        window.clearTimeout(timer);
+        delete timersRef.current[id];
+      }
+
+      setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+      window.setTimeout(() => {
+        removeToast(id);
+      }, 220);
+    },
+    [removeToast]
+  );
+
   const addToast = useCallback(
-    ({ type, title, message, duration = 5000 }: Omit<Toast, 'id'>) => {
+    ({ type, title, message, duration = 6000 }: Omit<Toast, 'id'>) => {
       const id = Math.random().toString(36).substring(2, 9);
-      setToasts((prev) => [...prev, { id, type, title, message, duration }]);
+      setToasts((prev) => [...prev, { id, type, title, message, duration, leaving: false }]);
 
       if (duration !== Infinity) {
-        setTimeout(() => {
-          removeToast(id);
+        timersRef.current[id] = window.setTimeout(() => {
+          dismissToast(id);
         }, duration);
       }
     },
-    [removeToast]
+    [dismissToast]
   );
 
   const success = useCallback((message: string, title?: string) => addToast({ type: 'success', message, title }), [addToast]);
@@ -60,20 +83,17 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     <ToastContext.Provider value={{ toast: addToast, success, error, warning, info }}>
       {children}
       {toasts.length > 0 && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] pointer-events-auto" />
-          <div className="flex flex-col gap-4 w-full max-w-md pointer-events-none z-10">
+        <div className="fixed top-4 right-4 z-[100] flex flex-col gap-3 w-[calc(100vw-2rem)] max-w-sm pointer-events-none">
             {toasts.map((t) => (
-              <ToastItem key={t.id} {...t} onRemove={() => removeToast(t.id)} />
+              <ToastItem key={t.id} {...t} onRemove={() => dismissToast(t.id)} />
             ))}
-          </div>
         </div>
       )}
     </ToastContext.Provider>
   );
 };
 
-const ToastItem = ({ type, title, message, onRemove }: Toast & { onRemove: () => void }) => {
+const ToastItem = ({ type, title, message, leaving, onRemove }: Toast & { onRemove: () => void }) => {
   const icons = {
     success: <CheckCircle2 className="h-6 w-6 text-success-text" />,
     error: <AlertCircle className="h-6 w-6 text-danger-text" />,
@@ -91,41 +111,39 @@ const ToastItem = ({ type, title, message, onRemove }: Toast & { onRemove: () =>
   return (
     <div
       className={cn(
-        'pointer-events-auto flex w-full flex-col items-center text-center gap-3 rounded-2xl border p-6 shadow-2xl animate-in zoom-in-95 fade-in duration-300 relative bg-card',
+        'pointer-events-auto w-full rounded-2xl border shadow-xl bg-card',
+        leaving
+          ? 'animate-out slide-out-to-right-2 fade-out duration-200'
+          : 'animate-in slide-in-from-right-2 fade-in duration-300',
         bgColors[type]
       )}
     >
-      <div className="flex flex-col items-center gap-4">
-        <div className={cn(
-          "p-3 rounded-full",
-          type === 'success' && "bg-success-bg",
-          type === 'error' && "bg-danger-bg",
-          type === 'warning' && "bg-warning-bg",
-          type === 'info' && "bg-brand-light",
-        )}>
+      <div className="flex items-start gap-3 p-4">
+        <div
+          className={cn(
+            'p-2 rounded-xl shrink-0',
+            type === 'success' && 'bg-success-bg',
+            type === 'error' && 'bg-danger-bg',
+            type === 'warning' && 'bg-warning-bg',
+            type === 'info' && 'bg-brand-light'
+          )}
+        >
           {icons[type]}
         </div>
-        <div className="space-y-2">
-          {title && <h5 className="text-lg font-bold leading-none tracking-tight text-primary">{title}</h5>}
-          <p className="text-sm text-secondary leading-relaxed font-medium">{message}</p>
+
+        <div className="min-w-0 flex-1">
+          {title && <h5 className="text-sm font-semibold leading-5 text-primary truncate">{title}</h5>}
+          <p className={cn('text-sm text-secondary leading-5 break-words', title ? 'mt-1' : '')}>{message}</p>
         </div>
-      </div>
-      
-      <div className="mt-4 w-full">
+
         <button
           onClick={onRemove}
-          className="w-full py-2 px-4 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-primary font-semibold text-sm transition-all active:scale-95"
+          className="shrink-0 rounded-lg p-1.5 text-secondary/70 hover:text-secondary hover:bg-secondary/10 transition-colors"
+          aria-label="Đóng thông báo"
         >
-          Đóng
+          <X size={18} />
         </button>
       </div>
-
-      <button
-        onClick={onRemove}
-        className="absolute top-4 right-4 rounded-lg p-1 text-secondary opacity-50 hover:opacity-100 transition-opacity"
-      >
-        <X size={18} />
-      </button>
     </div>
   );
 };

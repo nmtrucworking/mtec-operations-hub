@@ -14,6 +14,18 @@ i18n
       en: { translation: enTranslation }
     },
     fallbackLng: 'vi',
+    supportedLngs: ['vi', 'en'],
+    nonExplicitSupportedLngs: true,
+    load: 'languageOnly',
+    detection: {
+      order: ['localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage'],
+      lookupLocalStorage: 'mtec-ui-language'
+    },
+    returnNull: false,
+    react: {
+      useSuspense: false
+    },
     interpolation: {
       escapeValue: false
     }

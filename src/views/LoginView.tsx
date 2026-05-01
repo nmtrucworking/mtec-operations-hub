@@ -20,6 +20,7 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { error: toastError } = useToast();
+  const currentLang = (i18n.resolvedLanguage || i18n.language || 'vi').split('-')[0];
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -64,19 +65,19 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
       <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
         {/* Language Toggle */}
         <button
-          onClick={() => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi')}
+          onClick={() => i18n.changeLanguage(currentLang === 'vi' ? 'en' : 'vi')}
           className="p-2 rounded-full bg-card border border-border text-primary hover:text-gold hover:border-gold transition-all shadow-sm flex items-center gap-2 px-3"
           title={t('common.changeLanguage')}
         >
           <Languages size={18} />
-          <span className="text-xs font-bold uppercase">{i18n.language}</span>
+          <span className="text-xs font-bold uppercase">{currentLang}</span>
         </button>
 
         {/* Theme Toggle */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="p-2 rounded-full bg-card border border-border text-primary hover:text-gold hover:border-gold transition-all shadow-sm"
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          title={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>

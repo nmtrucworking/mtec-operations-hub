@@ -95,12 +95,12 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'CREATE': return 'text-blue-600';
-      case 'UPDATE': return 'text-amber-600';
-      case 'DELETE': return 'text-red-600';
-      case 'LOGIN': return 'text-green-600';
-      case 'PASSWORD_CHANGE': return 'text-purple-600';
-      default: return 'text-slate-600';
+      case 'CREATE': return 'text-success-text';
+      case 'UPDATE': return 'text-warning-text';
+      case 'DELETE': return 'text-danger-text';
+      case 'LOGIN': return 'text-success-text';
+      case 'PASSWORD_CHANGE': return 'text-warning-text';
+      default: return 'text-secondary';
     }
   };
 
@@ -108,23 +108,23 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h2 className="text-2xl font-bold tracking-tight text-primary">
             {t('logs.title', 'Nhật ký hoạt động')}
           </h2>
-          <p className="text-slate-500">
+          <p className="text-secondary">
             {t('logs.subtitle', 'Theo dõi toàn bộ các thay đổi và hành động của thành viên trong hệ thống.')}
           </p>
         </div>
         <Button variant="outline" onClick={handleExport} className="flex items-center gap-2">
           <Download size={16} />
-          {t('common.export', 'Xuất dữ liệu')}
+          {t('common.export')}
         </Button>
       </div>
 
       {/* Filters */}
       <form onSubmit={handleSearch} className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" size={18} />
           <Input
             placeholder={t('logs.searchPlaceholder', 'Tìm kiếm hành động, người dùng...')}
             className="pl-10"
@@ -156,36 +156,36 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
           <option value="PASSWORD_CHANGE">Password Change</option>
           <option value="EXPORT">Export</option>
         </Select>
-        <div className="flex items-center gap-2 text-sm text-slate-500 justify-end">
+        <div className="flex items-center gap-2 text-sm text-secondary justify-end">
           <Clock size={16} />
           <span>{total} {t('logs.totalRecords', 'bản ghi')}</span>
         </div>
       </form>
 
       {/* Table */}
-      <div className="rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden min-h-[400px] relative">
+      <div className="rounded-md border border-border bg-card shadow-sm overflow-hidden min-h-[400px] relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <Loader2 className="animate-spin text-blue-600" size={32} />
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+            <Loader2 className="animate-spin text-gold" size={32} />
           </div>
         )}
         
         {error && (
           <div className="p-8 text-center flex flex-col items-center justify-center gap-4">
-            <XCircle className="text-red-500 w-12 h-12" />
+            <XCircle className="text-danger-text w-12 h-12" />
             <div className="space-y-1">
-              <p className="font-semibold text-slate-900">{t('common.error', 'Đã xảy ra lỗi')}</p>
-              <p className="text-sm text-slate-500">{error}</p>
+              <p className="font-semibold text-primary">{t('common.error')}</p>
+              <p className="text-sm text-secondary">{error}</p>
             </div>
             <Button variant="outline" size="sm" onClick={fetchLogs}>
-              {t('common.retry', 'Thử lại')}
+              {t('common.retry')}
             </Button>
           </div>
         )}
 
         {!error && (
           <Table>
-          <TableHeader className="bg-slate-50">
+          <TableHeader className="bg-background/40">
             <TableRow>
               <TableHead className="w-[180px]">{t('logs.colTimestamp', 'Thời gian')}</TableHead>
               <TableHead className="w-[200px]">{t('logs.colUser', 'Người thực hiện')}</TableHead>
@@ -197,20 +197,20 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
           <TableBody>
             {logs.length > 0 ? (
               logs.map((log) => (
-                <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                  <TableCell className="font-medium text-slate-700">
+                <TableRow key={log.id} className="hover:bg-background/40 transition-colors">
+                  <TableCell className="font-medium text-secondary">
                     <div className="flex flex-col">
                       <span>{formatDate(log.timestamp).split(' ')[0]}</span>
-                      <span className="text-xs text-slate-400">{formatDate(log.timestamp).split(' ')[1]}</span>
+                      <span className="text-xs text-secondary/70">{formatDate(log.timestamp).split(' ')[1]}</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs border border-slate-200">
+                      <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center text-secondary font-bold text-xs border border-border">
                         {log.user.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-medium text-slate-900">{log.user}</span>
+                        <span className="font-medium text-primary">{log.user}</span>
                       </div>
                     </div>
                   </TableCell>
@@ -226,9 +226,9 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-slate-700">{log.details}</span>
+                      <span className="text-secondary">{log.details}</span>
                       {log.resourceId && (
-                        <span className="text-[10px] text-slate-400 uppercase">ID: {log.resourceId}</span>
+                        <span className="text-[10px] text-secondary/70 uppercase">ID: {log.resourceId}</span>
                       )}
                     </div>
                   </TableCell>
@@ -236,7 +236,7 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-slate-500">
+                <TableCell colSpan={5} className="h-24 text-center text-secondary">
                   {isLoading ? t('common.loading', 'Đang tải...') : t('logs.noLogsFound', 'Không tìm thấy nhật ký nào.')}
                 </TableCell>
               </TableRow>
@@ -249,8 +249,8 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            {t('common.page', 'Trang')} {currentPage} / {totalPages}
+          <p className="text-sm text-secondary">
+            {t('common.page')} {currentPage} / {totalPages}
           </p>
           <div className="flex gap-2">
             <Button
@@ -259,7 +259,7 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
               disabled={currentPage === 1 || isLoading}
               onClick={() => setCurrentPage(prev => prev - 1)}
             >
-              <ChevronLeft size={16} className="mr-1" /> {t('common.prev', 'Trước')}
+              <ChevronLeft size={16} className="mr-1" /> {t('common.prev')}
             </Button>
             <Button
               variant="outline"
@@ -267,7 +267,7 @@ export const LogsView = ({ authToken }: LogsViewProps) => {
               disabled={currentPage === totalPages || isLoading}
               onClick={() => setCurrentPage(prev => prev + 1)}
             >
-              {t('common.next', 'Sau')} <ChevronRight size={16} className="ml-1" />
+              {t('common.next')} <ChevronRight size={16} className="ml-1" />
             </Button>
           </div>
         </div>
