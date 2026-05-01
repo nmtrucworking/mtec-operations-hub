@@ -40,14 +40,14 @@ export const normalizeUser = (payload: unknown, fallback?: Partial<UserAccount>)
 
 /**
  * Login API call
- * POST /api/auth/login
+ * POST /auth/login
  */
 export const login = async (username: string, password: string): Promise<ApiResponse<{
   accessToken: string;
   refreshToken: string;
   user: UserAccount;
 }>> => {
-  const response = await apiCall('/api/auth/login', {
+  const response = await apiCall('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password })
   });
@@ -73,10 +73,10 @@ export const login = async (username: string, password: string): Promise<ApiResp
 
 /**
  * Logout API call
- * POST /api/auth/logout
+ * POST /auth/logout
  */
 export const logout = async (refreshToken?: string, token?: string): Promise<ApiResponse<{ message: string }>> => {
-  return apiCall('/api/auth/logout', {
+  return apiCall('/auth/logout', {
     method: 'POST',
     body: JSON.stringify({ refreshToken })
   }, token);
@@ -84,10 +84,10 @@ export const logout = async (refreshToken?: string, token?: string): Promise<Api
 
 /**
  * Get current user info
- * GET /api/auth/me
+ * GET /auth/me
  */
 export const getCurrentUser = async (token: string): Promise<ApiResponse<UserAccount>> => {
-  const response = await apiCall('/api/auth/me', { method: 'GET' }, token);
+  const response = await apiCall('/auth/me', { method: 'GET' }, token);
   
   if (response.data) {
     const data = response.data as any;
@@ -103,18 +103,18 @@ export const getCurrentUser = async (token: string): Promise<ApiResponse<UserAcc
 
 /**
  * Refresh token API call
- * POST /api/auth/refresh
+ * POST /auth/refresh
  */
 export const refreshToken = async (token: string): Promise<ApiResponse<{ accessToken: string; refreshToken: string }>> => {
-  return apiCall('/api/auth/refresh', { method: 'POST' }, token);
+  return apiCall('/auth/refresh', { method: 'POST' }, token);
 };
 
 /**
  * Forgot password
- * POST /api/auth/forgot-password
+ * POST /auth/forgot-password
  */
 export const forgotPassword = async (emailOrUsername: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/auth/forgot-password', {
+  return apiCall('/auth/forgot-password', {
     method: 'POST',
     body: JSON.stringify({ email: emailOrUsername, username: emailOrUsername })
   });
@@ -122,10 +122,10 @@ export const forgotPassword = async (emailOrUsername: string): Promise<ApiRespon
 
 /**
  * Reset password
- * POST /api/auth/reset-password
+ * POST /auth/reset-password
  */
 export const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/auth/reset-password', {
+  return apiCall('/auth/reset-password', {
     method: 'POST',
     body: JSON.stringify({ token, newPassword, password: newPassword })
   });
@@ -133,10 +133,10 @@ export const resetPassword = async (token: string, newPassword: string): Promise
 
 /**
  * Verify reset token
- * POST /api/auth/verify-reset-token
+ * POST /auth/verify-reset-token
  */
 export const verifyResetToken = async (token: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/auth/verify-reset-token', {
+  return apiCall('/auth/verify-reset-token', {
     method: 'POST',
     body: JSON.stringify({ token })
   });
@@ -144,10 +144,10 @@ export const verifyResetToken = async (token: string): Promise<ApiResponse<any>>
 
 /**
  * Change password
- * POST /api/auth/change-password
+ * POST /auth/change-password
  */
 export const changePassword = async (currentPassword: string, newPassword: string, token: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/auth/change-password', {
+  return apiCall('/auth/change-password', {
     method: 'POST',
     body: JSON.stringify({ currentPassword, newPassword })
   }, token);
@@ -155,10 +155,10 @@ export const changePassword = async (currentPassword: string, newPassword: strin
 
 /**
  * Send verification email
- * POST /api/auth/send-verification-email
+ * POST /auth/send-verification-email
  */
 export const sendVerificationEmail = async (email: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/auth/send-verification-email', {
+  return apiCall('/auth/send-verification-email', {
     method: 'POST',
     body: JSON.stringify({ email })
   });
@@ -166,10 +166,10 @@ export const sendVerificationEmail = async (email: string): Promise<ApiResponse<
 
 /**
  * Verify email
- * POST /api/auth/verify-email
+ * POST /auth/verify-email
  */
 export const verifyEmail = async (email: string, code: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/auth/verify-email', {
+  return apiCall('/auth/verify-email', {
     method: 'POST',
     body: JSON.stringify({ email, code })
   });
@@ -180,7 +180,7 @@ export const verifyEmail = async (email: string, code: string): Promise<ApiRespo
  */
 
 export const getProfile = async (token: string): Promise<ApiResponse<UserAccount>> => {
-  const response = await apiCall('/api/settings/profile', { method: 'GET' }, token);
+  const response = await apiCall('/settings/profile', { method: 'GET' }, token);
   if (response.data) {
     const data = response.data as any;
     return {
@@ -192,7 +192,7 @@ export const getProfile = async (token: string): Promise<ApiResponse<UserAccount
 };
 
 export const updateProfile = async (data: { fullName?: string; email?: string; phone?: string; avatarInitials?: string }, token: string): Promise<ApiResponse<UserAccount>> => {
-  const response = await apiCall('/api/settings/profile', {
+  const response = await apiCall('/settings/profile', {
     method: 'PATCH',
     body: JSON.stringify(data)
   }, token);
@@ -207,11 +207,11 @@ export const updateProfile = async (data: { fullName?: string; email?: string; p
 };
 
 export const getNotificationSettings = async (token: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/settings/notifications', { method: 'GET' }, token);
+  return apiCall('/settings/notifications', { method: 'GET' }, token);
 };
 
 export const updateNotificationSettings = async (data: any, token: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/settings/notifications', {
+  return apiCall('/settings/notifications', {
     method: 'PATCH',
     body: JSON.stringify(data)
   }, token);

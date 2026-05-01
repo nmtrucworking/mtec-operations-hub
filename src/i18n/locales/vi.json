@@ -38,6 +38,7 @@
     "passwordPlaceholder": "Nhập mật khẩu (123456)",
     "forgotPassword": "Quên mật khẩu?",
     "loginButton": "Đăng nhập",
+    "logoutButton": "Đăng xuất",
     "footer": "Hệ thống quản trị nội bộ dành cho Ban Điều Hành CLB MTEC.",
     "errorEmpty": "Vui lòng nhập đầy đủ thông tin",
     "errorInvalid": "Tên đăng nhập hoặc mật khẩu không chính xác"

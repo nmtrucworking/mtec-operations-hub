@@ -37,6 +37,7 @@
     "passwordPlaceholder": "Enter password (123456)",
     "forgotPassword": "Forgot password?",
     "loginButton": "Login",
+    "logoutButton": "Logout",
     "footer": "Internal management system for MTEC Executive Board.",
     "errorEmpty": "Please fill in all fields",
     "errorInvalid": "Invalid username or password"

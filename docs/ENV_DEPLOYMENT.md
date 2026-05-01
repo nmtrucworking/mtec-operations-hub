@@ -8,11 +8,11 @@ This document explains how to configure environment variables for the Frontend a
 - **Purpose**: Backend API base URL for all API calls
 - **Type**: String (URL)
 - **Required**: Yes for production
-- **Default**: `http://localhost:8000` (development only)
+- **Default**: `http://localhost:8000/api/v1` (development only)
 - **Examples**:
-  - Development: `http://localhost:8000`
-  - Staging: `https://api-staging.example.com`
-  - Production: `https://api.example.com`
+  - Development: `http://localhost:8000/api/v1`
+  - Staging: `https://api-staging.example.com/api/v1`
+  - Production: `https://api.example.com/api/v1`
 
 ### VITE_GEMINI_API_KEY
 - **Purpose**: Google Gemini AI API key for AI features
@@ -32,7 +32,7 @@ cp .env.example .env
 
 Update the values in `.env`:
 ```env
-VITE_API_BASE_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000/api/v1
 VITE_GEMINI_API_KEY=your_development_key_here
 ```
 
@@ -104,10 +104,10 @@ The Frontend uses a centralized API client located at `src/services/api.ts`. Thi
 ### Common API Endpoints Used
 
 ```
-GET  /health                    # Health check
-POST /api/auth/login            # User login
-POST /api/auth/refresh          # Refresh token
-GET  /api/auth/me               # Get current user
+GET  /health                    # Health check (usually at root)
+POST /auth/login                # User login (relative to /api/v1)
+POST /auth/refresh              # Refresh token
+GET  /auth/me                   # Get current user
 ```
 
 All endpoints except `/health` require the `Authorization: Bearer <token>` header.

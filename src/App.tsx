@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { LoginView } from './views/LoginView';
 import { ToastProvider } from './components/ui/toast';
+import { Button } from './components/ui/button';
+import { LogOut, Loader2 } from 'lucide-react';
 import { getCurrentUser, normalizeUser } from './services/auth';
 import { APP_VISIBLE_TABS, getVisibleTabDefinitions } from './config/appRegistry';
 import type { AppTab, UserAccount, UserRole } from './types/app';
@@ -95,6 +97,7 @@ const App = () => {
   const handleLogout = () => {
     setCurrentUser(null);
     setAuthToken('');
+    setIsBootstrapping(false);
     localStorage.removeItem('authToken');
     localStorage.removeItem(SESSION_STORAGE_KEY);
     setActiveTab('dashboard');
@@ -113,10 +116,36 @@ const App = () => {
 
   if (isBootstrapping) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background text-primary">
-        <div className="text-center space-y-2">
-          <div className="text-lg font-semibold text-gold">{t('auth.restoringSession')}</div>
-          <p className="text-sm text-secondary">{t('auth.pleaseWait')}</p>
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-primary relative overflow-hidden">
+        {/* Background decorations */}
+        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="z-10 text-center space-y-6 max-w-sm px-6">
+          <div className="relative mx-auto w-20 h-20">
+            <div className="absolute inset-0 border-4 border-gold/20 rounded-full animate-pulse" />
+            <div className="absolute inset-0 border-t-4 border-gold rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-gold animate-pulse" />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gold tracking-tight">{t('auth.restoringSession')}</h2>
+            <p className="text-secondary text-sm">{t('auth.pleaseWait')}</p>
+          </div>
+
+          <div className="pt-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleLogout}
+              className="border-gold/30 text-gold hover:bg-gold/10 transition-all duration-300 group"
+            >
+              <LogOut size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" />
+              {t('login.logoutButton') || 'Đăng xuất'}
+            </Button>
+          </div>
         </div>
       </div>
     );

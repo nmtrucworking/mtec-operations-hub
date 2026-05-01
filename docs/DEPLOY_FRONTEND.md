@@ -3,9 +3,9 @@
 This file lists the backend environment variables and deployment snippets the Frontend (FE) team needs to configure and verify before deploying the FE to any hosting (Vercel / Netlify / Render).
 
 ## API information for FE
-- API base URL (set in FE env): `API_BASE_URL` — e.g. `https://api.example.com`
+- API base URL (set in FE env): `API_BASE_URL` — e.g. `https://api.example.com/api/v1`
 - Health endpoint: `GET /health` -> returns `{"status":"ok"}`
-- Auth: login/refresh/me under `/api/auth/*`. Use header `Authorization: Bearer <token>`.
+- Auth: login/refresh/me under `/auth/*` (relative to `/api/v1`). Use header `Authorization: Bearer <token>`.
 
 ## Required backend envs (ops must set)
 - `DATABASE_URL` — Postgres connection string (production). Example: `postgres://user:pass@host:5432/dbname`
@@ -19,8 +19,8 @@ This file lists the backend environment variables and deployment snippets the Fr
 FE teams should not set DB credentials locally for production; request the `API_BASE_URL` from backend ops.
 
 ## FE env examples
-- Vite/React (example): `VITE_API_BASE_URL=https://api.example.com`
-- Create React App: `REACT_APP_API_BASE_URL=https://api.example.com`
+- Vite/React (example): `VITE_API_BASE_URL=https://api.example.com/api/v1`
+- Create React App: `REACT_APP_API_BASE_URL=https://api.example.com/api/v1`
 
 ## Migration & seeding (ops)
 - Run migrations once after deploy (CI or manual):

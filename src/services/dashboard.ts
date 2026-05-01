@@ -31,10 +31,10 @@ const normalizeDeptDistribution = (value: unknown): DashboardOverviewData['deptD
 
 /**
  * Get Dashboard Overview Data
- * GET /api/dashboard/overview
+ * GET /dashboard/overview
  */
 export const getDashboardOverview = async (token: string): Promise<ApiResponse<DashboardOverviewData>> => {
-  const response = await apiCall<any>('/api/dashboard/overview', {
+  const response = await apiCall<any>('/dashboard/overview', {
     method: 'GET'
   }, token);
 

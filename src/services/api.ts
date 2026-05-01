@@ -3,7 +3,7 @@
  * This module provides a centralized way to make API calls to the backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 interface RequestOptions extends RequestInit {
   headers?: HeadersInit;
@@ -17,7 +17,7 @@ export interface ApiResponse<T> {
 
 /**
  * Make an authenticated API request
- * @param endpoint - API endpoint (e.g., '/api/auth/login', '/api/members')
+ * @param endpoint - API endpoint (e.g., '/auth/login', '/members')
  * @param options - Fetch options (method, body, headers, etc.)
  * @param token - Optional auth token (will be added to Authorization header)
  */
