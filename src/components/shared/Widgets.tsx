@@ -1,5 +1,6 @@
 import React, { type ReactNode } from 'react';
 import { CheckCircle2, FileText, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface NavItemProps {
   icon: ReactNode;
@@ -33,23 +34,26 @@ interface StatCardProps {
   color?: string;
 }
 
-export const StatCard = ({ title, value, icon, trend, trendUp, color = 'text-gold' }: StatCardProps) => (
-  <div className="bg-card p-6 rounded-xl border border-border">
-    <div className="flex justify-between items-start">
-      <div>
-        <p className="text-sm text-secondary font-medium mb-1">{title}</p>
-        <h3 className="text-3xl font-bold">{value}</h3>
+export const StatCard = ({ title, value, icon, trend, trendUp, color = 'text-gold' }: StatCardProps) => {
+  const { t } = useTranslation();
+  return (
+    <div className="bg-card p-6 rounded-xl border border-border">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-sm text-secondary font-medium mb-1">{title}</p>
+          <h3 className="text-3xl font-bold">{value}</h3>
+        </div>
+        <div className={`p-3 rounded-lg bg-background ${color}`}>{icon}</div>
       </div>
-      <div className={`p-3 rounded-lg bg-background ${color}`}>{icon}</div>
+      {trend ? (
+        <div className="mt-4 flex items-center text-sm">
+          <span className={trendUp === false ? 'text-danger-text' : 'text-success-text'}>{trend}</span>
+          <span className="text-secondary ml-2">{t('common.vsLastMonth', 'so với tháng trước')}</span>
+        </div>
+      ) : null}
     </div>
-    {trend ? (
-      <div className="mt-4 flex items-center text-sm">
-        <span className={trendUp === false ? 'text-danger-text' : 'text-success-text'}>{trend}</span>
-        <span className="text-secondary ml-2">so với tháng trước</span>
-      </div>
-    ) : null}
-  </div>
-);
+  );
+};
 
 interface ProgressBarProps {
   label: string;
@@ -129,23 +133,32 @@ interface RequestCardProps {
   status?: string;
 }
 
-export const RequestCard = ({ name, mssv, date, reason, status }: RequestCardProps) => (
-  <div className="p-4 bg-background rounded-lg border border-border flex justify-between items-center">
-    <div>
-      <p className="font-medium text-sm">
-        {name} <span className="text-secondary text-xs ml-1">({mssv})</span>
-      </p>
-      {reason ? <p className="text-xs text-danger-text mt-1">Lý do: {reason}</p> : null}
-      <p className="text-xs text-primary mt-1">Nộp: {date}</p>
+export const RequestCard = ({ name, mssv, date, reason, status }: RequestCardProps) => {
+  const { t } = useTranslation();
+  return (
+    <div className="p-4 bg-background rounded-lg border border-border flex justify-between items-center">
+      <div>
+        <p className="font-medium text-sm">
+          {name} <span className="text-secondary text-xs ml-1">({mssv})</span>
+        </p>
+        {reason ? (
+          <p className="text-xs text-danger-text mt-1">
+            {t('common.reason', 'Lý do')}: {reason}
+          </p>
+        ) : null}
+        <p className="text-xs text-primary mt-1">
+          {t('common.submittedAt', 'Nộp')}: {date}
+        </p>
+      </div>
+      <div>
+        {status ? (
+          <span className="text-xs font-semibold px-2 py-1 bg-success-bg text-success-text rounded-md">{status}</span>
+        ) : (
+          <button className="text-xs font-semibold px-3 py-1.5 bg-gold text-background rounded-md hover:bg-gold-hover transition-colors">
+            {t('requests.approveBtn', 'Duyệt')}
+          </button>
+        )}
+      </div>
     </div>
-    <div>
-      {status ? (
-        <span className="text-xs font-semibold px-2 py-1 bg-success-bg text-success-text rounded-md">{status}</span>
-      ) : (
-        <button className="text-xs font-semibold px-3 py-1.5 bg-gold text-background rounded-md hover:bg-gold-hover transition-colors">
-          Duyệt đơn
-        </button>
-      )}
-    </div>
-  </div>
-);
+  );
+};

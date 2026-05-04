@@ -11,6 +11,9 @@
     "success": "Thành công",
     "warning": "Cảnh báo",
     "info": "Thông tin",
+    "vsLastMonth": "so với tháng trước",
+    "reason": "Lý do",
+    "submittedAt": "Nộp",
     "changeLanguage": "Đổi ngôn ngữ",
     "switchToLight": "Chuyển sang Light Mode",
     "switchToDark": "Chuyển sang Dark Mode",
@@ -49,7 +52,7 @@
     "forgotPassword": "Quên mật khẩu?",
     "loginButton": "Đăng nhập",
     "logoutButton": "Đăng xuất",
-    "footer": "Hệ thống quản trị nội bộ dành cho Ban Điều Hành CLB MTEC.",
+    "footer": "Hệ thống quản trị nội bộ dành cho Ban Vận hành CLB MTEC.",
     "errorEmpty": "Vui lòng nhập đầy đủ thông tin",
     "errorInvalid": "Tên đăng nhập hoặc mật khẩu không chính xác"
   },
@@ -72,6 +75,7 @@
     "passwordMismatch": "Mật khẩu không khớp",
     "passwordWeak": "Mật khẩu phải có ít nhất 8 ký tự bao gồm chữ hoa, chữ thường và số",
     "changeButton": "Đổi Mật Khẩu",
+    "passwordChangeFailed": "Đổi mật khẩu thất bại",
     "verifyEmailTitle": "Xác Minh Email",
     "verifyEmailSubtitle": "Nhập mã xác minh được gửi đến email của bạn",
     "codeLabel": "Mã Xác Minh",
@@ -88,6 +92,7 @@
   "dashboard": {
     "title": "Tổng quan Hệ thống",
     "subtitle": "Bảng điều khiển chung cho các hoạt động của CLB",
+    "loading": "Đang tải dữ liệu...",
     "aiInsightBtn": "✨ AI Insight",
     "aiInsightTitle": "Phân tích từ AI",
     "statTotalMembers": "Tổng Thành viên",
@@ -111,7 +116,46 @@
     "noRecentActivity": "Chưa có hoạt động mới nào trong tuần này.",
     "today": "Hôm nay",
     "yesterday": "Hôm qua",
-    "hoursAgo": "2 giờ trước"
+    "hoursAgo": "2 giờ trước",
+    "memberName": "Họ và tên",
+    "studentId": "MSSV",
+    "email": "Email",
+    "transactionType": "Loại giao dịch",
+    "amount": "Số tiền",
+    "reason": "Lý do",
+    "selectReportType": "Chọn loại báo cáo",
+    "overviewReport": "Báo cáo tổng quan",
+    "financeReport": "Báo cáo tài chính",
+    "memberList": "Danh sách thành viên",
+    "searchMembers": "Tìm kiếm thành viên",
+    "enterSearchInfo": "Nhập thông tin để bắt đầu tìm kiếm",
+    "placeholder": {
+      "memberName": "Nhập họ tên",
+      "studentId": "Nhập MSSV",
+      "email": "Nhập email",
+      "amount": "0",
+      "reason": "Nhập lý do",
+      "searchMembers": "Nhập MSSV hoặc họ tên..."
+    },
+    "errors": {
+      "fetchFailed": "Không thể truy xuất dữ liệu từ máy chủ.",
+      "fetchFailedWithReason": "Không thể truy xuất dữ liệu từ máy chủ. ({{reason}})"
+    },
+    "ai": {
+      "unavailable": "Hệ thống AI không thể xử lý yêu cầu vào lúc này.",
+      "networkError": "Lỗi kết nối đến máy chủ AI."
+    },
+    "activity": {
+      "pending": "Đang duyệt",
+      "transaction": "Giao dịch"
+    },
+    "addMember": {
+      "errors": {
+        "requiredIdentifier": "Vui lòng nhập MSSV hoặc Email để kiểm tra.",
+        "duplicateStudentId": "MSSV đã tồn tại trong hệ thống.",
+        "duplicateEmail": "Email đã tồn tại trong hệ thống."
+      }
+    }
   },
   "settings": {
     "title": "Cài đặt Hệ thống",
@@ -367,7 +411,8 @@
     "thRole": "Phân quyền",
     "thAction": "Thao tác",
     "editBtn": "Sửa",
-    "resetPwdBtn": "Reset Mật khẩu"
+    "resetPwdBtn": "Reset Mật khẩu",
+    "deleteAccountConfirm": "Bạn có chắc chắn muốn xóa tài khoản này?"
   },
   "logs": {
     "title": "Nhật ký hoạt động",
@@ -382,6 +427,57 @@
     "colModule": "Module",
     "colDescription": "Mô tả",
     "colStatus": "Trạng thái",
-    "noResults": "Không tìm thấy kết quả nào."
+    "noResults": "Không tìm thấy kết quả nào.",
+    "detailsTitle": "Chi tiết log",
+    "detailTime": "Thời gian",
+    "detailUser": "Người thực hiện",
+    "detailAction": "Hành động",
+    "detailModule": "Module",
+    "detailResourceId": "ID đối tượng",
+    "detailDescription": "Mô tả",
+    "detailChanges": "Các thay đổi",
+    "detailNoChanges": "Không có dữ liệu thay đổi.",
+    "detailBefore": "Trước",
+    "detailAfter": "Sau",
+    "modules": {
+      "member": "Thành viên",
+      "user": "Tài khoản",
+      "request": "Đơn từ",
+      "transaction": "Giao dịch",
+      "asset": "Tài sản",
+      "discipline": "Kỷ luật",
+      "settings": "Cài đặt",
+      "auth": "Xác thực",
+      "system": "Hệ thống"
+    },
+    "actions": {
+      "create": "Tạo",
+      "update": "Cập nhật",
+      "delete": "Xoá",
+      "review": "Duyệt",
+      "login": "Đăng nhập",
+      "logout": "Đăng xuất",
+      "changePassword": "Đổi mật khẩu",
+      "export": "Xuất dữ liệu"
+    },
+    "fields": {
+      "mssv": "MSSV",
+      "name": "Họ tên",
+      "gender": "Giới tính",
+      "dob": "Ngày sinh",
+      "ban": "Ban",
+      "status": "Trạng thái",
+      "role_title": "Chức vụ",
+      "phone": "SĐT",
+      "email": "Email",
+      "join_date": "Ngày vào",
+      "lop": "Lớp",
+      "chuyen_nganh": "Chuyên ngành",
+      "khoa": "Khoa",
+      "address": "Địa chỉ",
+      "experience": "Kinh nghiệm",
+      "goal": "Mục tiêu",
+      "orientation": "Định hướng"
+    }
   }
 }

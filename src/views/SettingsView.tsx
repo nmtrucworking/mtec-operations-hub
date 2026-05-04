@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle, Trash2, Plus, Clock } from 'lucide-react';
-import { 
-  changePassword, 
-  getProfile, 
-  updateProfile, 
-  getNotificationSettings, 
+import {
+  changePassword,
+  getProfile,
+  updateProfile,
+  getNotificationSettings,
   updateNotificationSettings
 } from '../services/auth';
 import {
@@ -134,7 +134,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
       return;
     }
     if (pwdForm.new.length < 8) {
-      setPwdError('Mật khẩu phải từ 8 ký tự trở lên');
+      setPwdError(t('auth.passwordWeak'));
       return;
     }
 
@@ -146,7 +146,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         setSuccessMsg(t('common.success'));
         setTimeout(() => setSuccessMsg(''), 3000);
       } else {
-        setPwdError(response.error || 'Đổi mật khẩu thất bại');
+        setPwdError(t('auth.passwordChangeFailed'));
       }
     } catch (error) {
       setPwdError("Lỗi kết nối");
@@ -199,23 +199,27 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   };
 
   const handleDeleteAccount = async (id: string) => {
-    if (!authToken || !window.confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) return;
+    if (!authToken || !window.confirm(t('admin.deleteAccountConfirm'))) return;
     try {
       const response = await deleteUser(id, authToken);
-      if (response.status === 200) {
+      if (response.status >= 200 && response.status < 300) {
         setAccountsList(prev => prev.filter(a => a.id !== id));
         setSuccessMsg(t('common.success'));
         setTimeout(() => setSuccessMsg(''), 3000);
+        setErrorMsg('');
+      } else {
+        setErrorMsg(response.error || t('common.error'));
       }
     } catch (error) {
       console.error("Error deleting account:", error);
+      setErrorMsg("Lỗi kết nối");
     }
   };
 
   // Filter accounts
   const filteredAccounts = accountsList.filter(acc => {
-    const matchSearch = acc.fullName.toLowerCase().includes(searchAccount.toLowerCase()) || 
-                       acc.username.toLowerCase().includes(searchAccount.toLowerCase());
+    const matchSearch = acc.fullName.toLowerCase().includes(searchAccount.toLowerCase()) ||
+      acc.username.toLowerCase().includes(searchAccount.toLowerCase());
     const matchRole = roleFilter === 'All' || acc.role === roleFilter;
     return matchSearch && matchRole;
   });
@@ -452,33 +456,41 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                 </TableHeader>
                 <TableBody>
                   {filteredAccounts.map((acc) => (
-                      <TableRow key={acc.id}>
-                        <TableCell className="font-medium">{acc.username}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">
-                              {acc.avatarInitials}
-                            </div>
-                            {acc.fullName}
+                    <TableRow key={acc.id}>
+                      <TableCell className="font-medium">{acc.username}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">
+                            {acc.avatarInitials}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {t(`roles.${acc.role}`)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-secondary hover:text-gold" onClick={() => { setEditingAcc(acc); setIsModalOpen(true); }} title={t('admin.editBtn')}>
-                              <Pencil size={14} />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-secondary hover:text-danger-text" onClick={() => handleDeleteAccount(acc.id)} title={t('admin.deleteBtn')}>
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          {acc.fullName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {t(`roles.${acc.role}`)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-secondary hover:text-gold"
+                            onClick={() => { setEditingAcc(acc); setIsModalOpen(true); }}
+                            title={t('admin.editBtn')}>
+                            <Pencil size={14} />
+                          </Button>
+                          <Button variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-secondary hover:text-danger-text"
+                            onClick={() => handleDeleteAccount(acc.id)}
+                            title={t('admin.deleteBtn')}>
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -505,8 +517,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                           <span className={cn(
                             "mt-1 mr-2 w-1.5 h-1.5 rounded-full shrink-0",
                             change.type === 'feature' ? "bg-success-text" :
-                            change.type === 'fix' ? "bg-danger-text" :
-                            change.type === 'security' ? "bg-warning-text" : "bg-blue-400"
+                              change.type === 'fix' ? "bg-danger-text" :
+                                change.type === 'security' ? "bg-warning-text" : "bg-blue-400"
                           )} />
                           <span className="text-secondary leading-relaxed">
                             <strong className="text-primary mr-1 capitalize">{change.type}:</strong>

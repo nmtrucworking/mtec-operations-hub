@@ -86,7 +86,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
     if (selectedMember && activeDetailTab === 'history') {
       const fetchMemberLogs = async () => {
         setIsLoadingLogs(true);
-        const res = await getLogs({ search: selectedMember.mssv }, authToken);
+        const res = await getLogs({ search: selectedMember.id }, authToken);
         if (res.data) setMemberLogs(res.data.logs);
         setIsLoadingLogs(false);
       };

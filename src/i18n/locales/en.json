@@ -11,6 +11,9 @@
     "success": "Success",
     "warning": "Warning",
     "info": "Information",
+    "vsLastMonth": "vs last month",
+    "reason": "Reason",
+    "submittedAt": "Submitted",
     "changeLanguage": "Change language",
     "switchToLight": "Switch to Light Mode",
     "switchToDark": "Switch to Dark Mode",
@@ -61,6 +64,7 @@
     "backToLogin": "Back to login",
     "successMessage": "Please check your email for the password reset link",
     "resetPasswordTitle": "Reset Password",
+    "changePasswordFailed": "Password change failed",
     "resetPasswordSubtitle": "Enter your new password",
     "newPasswordLabel": "New Password",
     "confirmPasswordLabel": "Confirm Password",
@@ -87,6 +91,7 @@
   "dashboard": {
     "title": "System Overview",
     "subtitle": "General dashboard for all club operations",
+    "loading": "Loading dashboard...",
     "aiInsightBtn": "✨ AI Insight",
     "aiInsightTitle": "AI Analysis",
     "statTotalMembers": "Total Members",
@@ -110,7 +115,46 @@
     "noRecentActivity": "No recent activity this week.",
     "today": "Today",
     "yesterday": "Yesterday",
-    "hoursAgo": "2 hours ago"
+    "hoursAgo": "2 hours ago",
+    "memberName": "Full name",
+    "studentId": "Student ID",
+    "email": "Email",
+    "transactionType": "Transaction type",
+    "amount": "Amount",
+    "reason": "Reason",
+    "selectReportType": "Select report type",
+    "overviewReport": "Overview report",
+    "financeReport": "Finance report",
+    "memberList": "Member list",
+    "searchMembers": "Search members",
+    "enterSearchInfo": "Enter information to start searching",
+    "placeholder": {
+      "memberName": "Enter full name",
+      "studentId": "Enter student ID",
+      "email": "Enter email",
+      "amount": "0",
+      "reason": "Enter reason",
+      "searchMembers": "Enter student ID or name..."
+    },
+    "errors": {
+      "fetchFailed": "Unable to fetch data from the server.",
+      "fetchFailedWithReason": "Unable to fetch data from the server. ({{reason}})"
+    },
+    "ai": {
+      "unavailable": "AI is unavailable at the moment.",
+      "networkError": "Failed to connect to the AI server."
+    },
+    "activity": {
+      "pending": "Pending",
+      "transaction": "Transaction"
+    },
+    "addMember": {
+      "errors": {
+        "requiredIdentifier": "Please enter Student ID or Email to check.",
+        "duplicateStudentId": "Student ID already exists.",
+        "duplicateEmail": "Email already exists."
+      }
+    }
   },
   "settings": {
     "title": "System Settings",
@@ -366,7 +410,8 @@
     "thRole": "Role",
     "thAction": "Actions",
     "editBtn": "Edit",
-    "resetPwdBtn": "Reset Password"
+    "resetPwdBtn": "Reset Password",
+    "deleteAccountConfirm": "Are you sure you want to delete this account?"
   },
   "logs": {
     "title": "Activity Logs",
@@ -381,6 +426,57 @@
     "colModule": "Module",
     "colDescription": "Description",
     "colStatus": "Status",
-    "noResults": "No results found."
+    "noResults": "No results found.",
+    "detailsTitle": "Log details",
+    "detailTime": "Time",
+    "detailUser": "Actor",
+    "detailAction": "Action",
+    "detailModule": "Module",
+    "detailResourceId": "Resource ID",
+    "detailDescription": "Description",
+    "detailChanges": "Changes",
+    "detailNoChanges": "No change data available.",
+    "detailBefore": "Before",
+    "detailAfter": "After",
+    "modules": {
+      "member": "Member",
+      "user": "User",
+      "request": "Request",
+      "transaction": "Transaction",
+      "asset": "Asset",
+      "discipline": "Discipline",
+      "settings": "Settings",
+      "auth": "Auth",
+      "system": "System"
+    },
+    "actions": {
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete",
+      "review": "Review",
+      "login": "Login",
+      "logout": "Logout",
+      "changePassword": "Change password",
+      "export": "Export"
+    },
+    "fields": {
+      "mssv": "Student ID",
+      "name": "Full name",
+      "gender": "Gender",
+      "dob": "Date of birth",
+      "ban": "Department",
+      "status": "Status",
+      "role_title": "Role",
+      "phone": "Phone",
+      "email": "Email",
+      "join_date": "Join date",
+      "lop": "Class",
+      "chuyen_nganh": "Major",
+      "khoa": "Faculty",
+      "address": "Address",
+      "experience": "Experience",
+      "goal": "Goal",
+      "orientation": "Orientation"
+    }
   }
 }

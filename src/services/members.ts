@@ -203,6 +203,6 @@ export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; sta
  * GET /api/v1/members/{member_id}/profile
  */
 export const exportMemberProfileUrl = (memberId: number | string) => {
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-  return `${API_BASE_URL}/api/v1/members/${memberId}/profile`;
+  const API_BASE = getBaseUrl();
+  return `${API_BASE}/api/v1/members/${memberId}/profile`;
 };
