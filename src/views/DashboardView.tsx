@@ -306,8 +306,8 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
       if (!name) {
         nextErrors.name = t('dashboard.addMember.errors.requiredName', 'Vui lòng nhập họ và tên.');
       }
-      if (!mssv && !email) {
-        nextErrors.mssv = t('dashboard.addMember.errors.requiredIdentifier', 'Vui lòng nhập MSSV hoặc Email để kiểm tra.');
+      if (!mssv) {
+        nextErrors.mssv = t('dashboard.addMember.errors.requiredStudentId', 'Vui lòng nhập MSSV.');
       }
 
       if (mssv) {
@@ -345,7 +345,24 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         mssv,
         name,
         email: email || undefined,
-        status: 'Active'
+
+        // default values
+        status: 'Active',
+        gender: '',
+        dob: '',
+        ban: [],
+        role: '',
+        phone: '',
+        joinDate: '',
+        lop: '',
+        chuyenNganh: '',
+        khoa: '',
+        address: '',
+        hardSkills: [],
+        softSkills: [],
+        experience: 'Không',
+        goal: 'Không',
+        orientation: 'Không',
       };
 
       const res = await createMember(payload as any, authToken);
@@ -1059,6 +1076,7 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         </div>
       </Modal>
 
+        {/* Roles Modal */}
       <Modal
         isOpen={activeModal === 'roles'}
         onClose={closeRolesModal}

@@ -152,6 +152,8 @@
     "addMember": {
       "errors": {
         "requiredIdentifier": "Vui lòng nhập MSSV hoặc Email để kiểm tra.",
+        "requiredStudentId": "Vui lòng nhập MSSV.",
+        "requiredName": "Vui lòng nhập họ và tên.",
         "duplicateStudentId": "MSSV đã tồn tại trong hệ thống.",
         "duplicateEmail": "Email đã tồn tại trong hệ thống."
       }
@@ -183,12 +185,12 @@
     "rolesDesc1": "Tài khoản của bạn đang có quyền cao nhất:",
     "rolesDesc2": "Có quyền truy cập và chỉnh sửa mọi dữ liệu trên MTEC Operations Hub.",
     "notiTitle": "Tuỳ chọn thông báo",
-    "noti1Label": "Có đơn từ (Request) mới cần duyệt",
-    "noti1Desc": "Nhận thông báo khi có thành viên nộp đơn Rút khỏi CLB, Cam kết...",
-    "noti2Label": "Có thành viên mới tham gia",
-    "noti2Desc": "Nhận thông báo khi có hồ sơ thành viên mới được thêm vào hệ thống",
-    "noti3Label": "Cảnh báo kỷ luật tự động",
-    "noti3Desc": "Báo động khi có thành viên vắng mặt trên 2 buổi hoặc KPI dưới mức quy định",
+    "noti1Label": "Thông báo Email",
+    "noti1Desc": "Nhận thông báo qua email khi có cập nhật quan trọng.",
+    "noti2Label": "Thông báo đẩy (Push)",
+    "noti2Desc": "Hiển thị thông báo trực tiếp trên trình duyệt/thiết bị (nếu hỗ trợ).",
+    "noti3Label": "Thông báo SMS",
+    "noti3Desc": "Nhận thông báo qua tin nhắn SMS (nếu đã cấu hình số điện thoại).",
     "noti4Label": "Cập nhật tài chính",
     "noti4Desc": "Thông báo khi có giao dịch thu/chi mới được tạo"
   },

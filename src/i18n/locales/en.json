@@ -151,6 +151,8 @@
     "addMember": {
       "errors": {
         "requiredIdentifier": "Please enter Student ID or Email to check.",
+        "requiredStudentId": "Please enter Student ID.",
+        "requiredName": "Please enter full name.",
         "duplicateStudentId": "Student ID already exists.",
         "duplicateEmail": "Email already exists."
       }
@@ -182,12 +184,12 @@
     "rolesDesc1": "Your account has the highest permission:",
     "rolesDesc2": "Can access and edit all data on MTEC Operations Hub.",
     "notiTitle": "Notification Preferences",
-    "noti1Label": "New requests to approve",
-    "noti1Desc": "Receive notifications when members submit resignations or commitments...",
-    "noti2Label": "New members joined",
-    "noti2Desc": "Receive notifications when new member profiles are added to the system",
-    "noti3Label": "Automatic discipline warnings",
-    "noti3Desc": "Alert when members are absent for more than 2 sessions or KPIs are below standard",
+    "noti1Label": "Email notifications",
+    "noti1Desc": "Receive important updates via email.",
+    "noti2Label": "Push notifications",
+    "noti2Desc": "Show notifications directly in your browser/device (if supported).",
+    "noti3Label": "SMS notifications",
+    "noti3Desc": "Receive notifications via SMS (if a phone number is configured).",
     "noti4Label": "Finance updates",
     "noti4Desc": "Notification when new income/expense transactions are created"
   },

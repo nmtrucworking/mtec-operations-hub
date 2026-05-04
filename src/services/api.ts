@@ -106,7 +106,7 @@ export const apiCall = async <T = any>(
 
       return {
         status: response.status,
-        error: data.message || `HTTP ${response.status}`,
+        error: data.message || data.detail || `HTTP ${response.status}`,
         data: data as T
       };
     }

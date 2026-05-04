@@ -206,3 +206,60 @@ export const exportMemberProfileUrl = (memberId: number | string) => {
   const API_BASE = getBaseUrl();
   return `${API_BASE}/api/v1/members/${memberId}/profile`;
 };
+
+export type MembersImportResult = {
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  errors: Array<{ row: number; error: string; details?: unknown }>;
+};
+
+export const membersImportTemplateUrl = (token?: string) => {
+  const API_BASE = getBaseUrl();
+  return `${API_BASE}/api/v1/members/import/template?format=csv`;
+};
+
+export const importMembers = async (
+  file: File,
+  params: { onDuplicate?: 'skip' | 'update' } = {},
+  token?: string
+): Promise<ApiResponse<{ data: MembersImportResult } | MembersImportResult>> => {
+  const API_BASE = getBaseUrl();
+  const onDuplicate = params.onDuplicate ?? 'skip';
+  const url = `${API_BASE}/api/v1/members/import?on_duplicate=${encodeURIComponent(onDuplicate)}`;
+
+  try {
+    const form = new FormData();
+    form.append('file', file);
+
+    const headers = new Headers();
+    const effectiveToken = token || (typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null);
+    if (effectiveToken) {
+      headers.set('Authorization', `Bearer ${effectiveToken}`);
+    }
+
+    const response = await fetch(url, { method: 'POST', body: form, headers });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return {
+        status: response.status,
+        error: data.message || data.detail || `HTTP ${response.status}`,
+        data
+      };
+    }
+
+    return {
+      status: response.status,
+      data
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return {
+      status: 0,
+      error: `Network error: ${message}`
+    };
+  }
+};

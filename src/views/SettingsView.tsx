@@ -29,6 +29,12 @@ interface SettingsViewProps {
   authToken?: string;
 }
 
+type NotificationSettings = {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  smsNotifications: boolean;
+};
+
 export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'accounts' | 'version'>('profile');
@@ -51,7 +57,12 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const [pwdError, setPwdError] = useState('');
 
   // 3. Notifications states
-  const [notis, setNotis] = useState<Record<string, boolean>>({});
+  const [notis, setNotis] = useState<NotificationSettings>({
+    emailNotifications: false,
+    pushNotifications: false,
+    smsNotifications: false
+  });
+  const [notiError, setNotiError] = useState('');
 
   // 4. Accounts Admin states
   const [accountsList, setAccountsList] = useState<UserAccount[]>([]);
@@ -81,8 +92,12 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         // 2. Fetch notifications
         const notiRes = await getNotificationSettings(authToken);
         if (notiRes.status === 200 && notiRes.data) {
-          const data = notiRes.data.data || notiRes.data;
-          setNotis(data);
+          const data = (notiRes.data as any).data || notiRes.data;
+          setNotis({
+            emailNotifications: Boolean(data?.emailNotifications),
+            pushNotifications: Boolean(data?.pushNotifications),
+            smsNotifications: Boolean(data?.smsNotifications)
+          });
         }
 
         // 3. Fetch Accounts if Admin
@@ -155,14 +170,22 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
     }
   };
 
-  const handleNotiChange = async (id: string, checked: boolean) => {
+  const handleNotiChange = async (id: keyof NotificationSettings, checked: boolean) => {
     if (!authToken) return;
-    const updatedNotis = { ...notis, [id]: checked };
+    setNotiError('');
+    const previous = notis;
+    const updatedNotis = { ...notis, [id]: checked } as NotificationSettings;
     setNotis(updatedNotis);
     try {
-      await updateNotificationSettings({ [id]: checked }, authToken);
+      const res = await updateNotificationSettings({ [id]: checked }, authToken);
+      if (res.status < 200 || res.status >= 300) {
+        setNotis(previous);
+        setNotiError(res.error || t('common.error'));
+      }
     } catch (error) {
       console.error("Error updating notifications:", error);
+      setNotis(previous);
+      setNotiError(t('common.error'));
     }
   };
 
@@ -386,10 +409,9 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
               <div className="space-y-4">
                 {[
-                  { id: 'noti-1', labelKey: 'settings.noti1Label', descKey: 'settings.noti1Desc' },
-                  { id: 'noti-2', labelKey: 'settings.noti2Label', descKey: 'settings.noti2Desc' },
-                  { id: 'noti-3', labelKey: 'settings.noti3Label', descKey: 'settings.noti3Desc' },
-                  { id: 'noti-4', labelKey: 'settings.noti4Label', descKey: 'settings.noti4Desc' }
+                  { id: 'emailNotifications', labelKey: 'settings.noti1Label', descKey: 'settings.noti1Desc' },
+                  { id: 'pushNotifications', labelKey: 'settings.noti2Label', descKey: 'settings.noti2Desc' },
+                  { id: 'smsNotifications', labelKey: 'settings.noti3Label', descKey: 'settings.noti3Desc' }
                 ].map((item) => (
                   <div key={item.id} className="flex items-start justify-between p-4 bg-background border border-border rounded-lg">
                     <div>
@@ -399,14 +421,17 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                     <label className="relative inline-flex items-center cursor-pointer mt-1">
                       <input
                         type="checkbox"
-                        checked={notis[item.id] || false}
-                        onChange={(e) => handleNotiChange(item.id, e.target.checked)}
+                        checked={notis[item.id as keyof NotificationSettings] || false}
+                        onChange={(e) => handleNotiChange(item.id as keyof NotificationSettings, e.target.checked)}
+                        disabled={isLoading}
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold"></div>
                     </label>
                   </div>
                 ))}
+                {notiError && <p className="text-danger-text text-sm">{notiError}</p>}
+                {isLoading && <p className="text-secondary text-sm">{t('common.loading')}</p>}
               </div>
             </div>
           )}
