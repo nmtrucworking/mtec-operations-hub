@@ -11,12 +11,12 @@ export type AppTab =
 
 
 export type UserRole = 
-  | 'bcn' 
-  | 'bvh_hr' 
-  | 'bvh_finance' 
-  | 'bvh_discipline' 
-  | 'bvh_logistics' 
-  | 'bcm' 
+  | 'bcn' // ban chu nhiem
+  | 'bvh_hr' // ban van hanh - nhan su
+  | 'bvh_finance' // ban van hanh - tai chinh
+  | 'bvh_discipline' // ban van hanh - ky luat
+  | 'bvh_logistics' // ban van hanh - hau can
+  | 'bcm' // ban chuyen mon
   | 'member';
 
 export interface UserAccount {

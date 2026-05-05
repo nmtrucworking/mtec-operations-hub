@@ -202,6 +202,13 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         response = await createUser(editingAcc, authToken);
       }
 
+      // Show Error toast with response.status is 400
+      if (response.status === 400 && response.data) {
+        setErrorMsg(String(response.data));
+        setTimeout(() => setErrorMsg(''), 3000);
+        return;
+      }
+
       if (response.status === 200 && response.data) {
         // Refresh list
         const accRes = await getUsers({}, authToken);

@@ -20,9 +20,10 @@ import type { UserAccount, UserRole } from '../types/app';
 
 interface DashboardViewProps {
   authToken: string;
+  currentUser?: UserAccount;
 }
 
-export const DashboardView = ({ authToken }: DashboardViewProps) => {
+export const DashboardView = ({ authToken, currentUser }: DashboardViewProps) => {
   const { t, i18n } = useTranslation();
   const [dashboardData, setDashboardData] = useState<DashboardOverviewData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -30,6 +31,17 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const [memberDirectory, setMemberDirectory] = useState<Member[] | null>(null);
   const [recentLogs, setRecentLogs] = useState<ActivityLog[]>([]);
   const [isLoadingRecentLogs, setIsLoadingRecentLogs] = useState(false);
+
+  const noPermissionTitle = 'Không có quyền';
+
+  const canAddMember = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_hr';
+  const canAddFinanceTx = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_finance';
+  const canManageRoles = currentUser?.role === 'bcn';
+
+  const canExportOverview = currentUser?.role !== 'member';
+  const canExportFinance = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_finance';
+  const canExportMembers = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_hr';
+  const canOpenExport = canExportOverview || canExportFinance || canExportMembers;
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -292,6 +304,11 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
   const handleSubmitAddMember = async () => {
+    if (!canAddMember) {
+      setAddMemberApiError(noPermissionTitle);
+      return;
+    }
+
     const name = addMemberForm.name.trim();
     const mssv = addMemberForm.mssv.trim();
     const email = addMemberForm.email.trim();
@@ -386,6 +403,11 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   };
 
   const handleSubmitFinanceTx = async () => {
+    if (!canAddFinanceTx) {
+      setFinanceApiError(noPermissionTitle);
+      return;
+    }
+
     setFinanceErrors({});
     setFinanceApiError(null);
     setIsSavingFinance(true);
@@ -462,6 +484,21 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
 
   const handleExport = async () => {
     setExportError(null);
+
+    if (exportType === 'overview' && !canExportOverview) {
+      setExportError(noPermissionTitle);
+      return;
+    }
+
+    if (exportType === 'finance' && !canExportFinance) {
+      setExportError(noPermissionTitle);
+      return;
+    }
+
+    if (exportType === 'members' && !canExportMembers) {
+      setExportError(noPermissionTitle);
+      return;
+    }
     setIsExporting(true);
     try {
       const date = new Date().toISOString().slice(0, 10);
@@ -566,6 +603,11 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
   const roleOptions: UserRole[] = ['bcn', 'bvh_hr', 'bvh_finance', 'bvh_discipline', 'bvh_logistics', 'bcm', 'member'];
 
   const handleSaveRole = async () => {
+    if (!canManageRoles) {
+      setRolesError(noPermissionTitle);
+      return;
+    }
+
     if (!rolesSelectedUser) return;
     setIsSavingRole(true);
     setRolesError(null);
@@ -801,23 +843,98 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
             </CardHeader>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => setActiveModal('addMember')} 
-                  className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
-                  <Users size={18} className="text-gold" />
-                  {t('dashboard.qaAddMember')}
-                </button>
-                <button onClick={() => setActiveModal('financeTx')} className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
-                  <DollarSign size={18} className="text-gold" />
-                  {t('dashboard.qaFinanceTx')}
-                </button>
-                <button onClick={() => setActiveModal('export')} className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
-                  <Download size={18} className="text-gold" />
-                  {t('dashboard.qaExport')}
-                </button>
-                <button onClick={() => setActiveModal('roles')} className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2">
-                  <Star size={18} className="text-gold" />
-                  {t('dashboard.qaRoles')}
-                </button>
+                {canAddMember ? (
+                  <button
+                    onClick={() => {
+                      setAddMemberApiError(null);
+                      setActiveModal('addMember');
+                    }}
+                    className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2"
+                  >
+                    <Users size={18} className="text-gold" />
+                    {t('dashboard.qaAddMember')}
+                  </button>
+                ) : (
+                  <span title={noPermissionTitle} className="cursor-not-allowed">
+                    <button
+                      disabled
+                      className="w-full p-4 bg-background border border-border rounded-xl text-xs font-semibold text-center transition-all flex flex-col items-center gap-2 opacity-50 cursor-not-allowed"
+                    >
+                      <Users size={18} className="text-gold" />
+                      {t('dashboard.qaAddMember')}
+                    </button>
+                  </span>
+                )}
+
+                {canAddFinanceTx ? (
+                  <button
+                    onClick={() => {
+                      setFinanceApiError(null);
+                      setActiveModal('financeTx');
+                    }}
+                    className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2"
+                  >
+                    <DollarSign size={18} className="text-gold" />
+                    {t('dashboard.qaFinanceTx')}
+                  </button>
+                ) : (
+                  <span title={noPermissionTitle} className="cursor-not-allowed">
+                    <button
+                      disabled
+                      className="w-full p-4 bg-background border border-border rounded-xl text-xs font-semibold text-center transition-all flex flex-col items-center gap-2 opacity-50 cursor-not-allowed"
+                    >
+                      <DollarSign size={18} className="text-gold" />
+                      {t('dashboard.qaFinanceTx')}
+                    </button>
+                  </span>
+                )}
+
+                {canOpenExport ? (
+                  <button
+                    onClick={() => {
+                      setExportError(null);
+                      setExportType(canExportOverview ? 'overview' : canExportFinance ? 'finance' : 'members');
+                      setActiveModal('export');
+                    }}
+                    className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2"
+                  >
+                    <Download size={18} className="text-gold" />
+                    {t('dashboard.qaExport')}
+                  </button>
+                ) : (
+                  <span title={noPermissionTitle} className="cursor-not-allowed">
+                    <button
+                      disabled
+                      className="w-full p-4 bg-background border border-border rounded-xl text-xs font-semibold text-center transition-all flex flex-col items-center gap-2 opacity-50 cursor-not-allowed"
+                    >
+                      <Download size={18} className="text-gold" />
+                      {t('dashboard.qaExport')}
+                    </button>
+                  </span>
+                )}
+
+                {canManageRoles ? (
+                  <button
+                    onClick={() => {
+                      setRolesError(null);
+                      setActiveModal('roles');
+                    }}
+                    className="p-4 bg-background hover:bg-brand-hover border border-border rounded-xl text-xs font-semibold text-center transition-all hover:border-gold hover:shadow-md active:scale-95 flex flex-col items-center gap-2"
+                  >
+                    <Star size={18} className="text-gold" />
+                    {t('dashboard.qaRoles')}
+                  </button>
+                ) : (
+                  <span title={noPermissionTitle} className="cursor-not-allowed">
+                    <button
+                      disabled
+                      className="w-full p-4 bg-background border border-border rounded-xl text-xs font-semibold text-center transition-all flex flex-col items-center gap-2 opacity-50 cursor-not-allowed"
+                    >
+                      <Star size={18} className="text-gold" />
+                      {t('dashboard.qaRoles')}
+                    </button>
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -886,7 +1003,13 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         footer={
           <>
             <Button variant="outline" onClick={closeAddMemberModal}>{t('common.cancel')}</Button>
-            <Button onClick={handleSubmitAddMember} isLoading={isCheckingAddMember}>{t('members.addBtn', 'Thêm thành viên')}</Button>
+            {canAddMember ? (
+              <Button onClick={handleSubmitAddMember} isLoading={isCheckingAddMember}>{t('members.addBtn', 'Thêm thành viên')}</Button>
+            ) : (
+              <span title={noPermissionTitle} className="inline-flex cursor-not-allowed">
+                <Button disabled>{t('members.addBtn', 'Thêm thành viên')}</Button>
+              </span>
+            )}
           </>
         }
       >
@@ -946,7 +1069,13 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         footer={
           <>
             <Button variant="outline" onClick={closeFinanceModal}>{t('common.cancel')}</Button>
-            <Button onClick={handleSubmitFinanceTx} isLoading={isSavingFinance}>{t('finance.addBtn', 'Thêm giao dịch')}</Button>
+            {canAddFinanceTx ? (
+              <Button onClick={handleSubmitFinanceTx} isLoading={isSavingFinance}>{t('finance.addBtn', 'Thêm giao dịch')}</Button>
+            ) : (
+              <span title={noPermissionTitle} className="inline-flex cursor-not-allowed">
+                <Button disabled>{t('finance.addBtn', 'Thêm giao dịch')}</Button>
+              </span>
+            )}
           </>
         }
       >
@@ -1031,7 +1160,19 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         footer={
           <>
             <Button variant="outline" onClick={closeExportModal}>{t('common.cancel')}</Button>
-            <Button onClick={handleExport} isLoading={isExporting}>{t('common.export')}</Button>
+            {(
+              exportType === 'overview'
+                ? canExportOverview
+                : exportType === 'finance'
+                  ? canExportFinance
+                  : canExportMembers
+            ) ? (
+              <Button onClick={handleExport} isLoading={isExporting}>{t('common.export')}</Button>
+            ) : (
+              <span title={noPermissionTitle} className="inline-flex cursor-not-allowed">
+                <Button disabled>{t('common.export')}</Button>
+              </span>
+            )}
           </>
         }
       >
@@ -1039,35 +1180,38 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
           {exportError ? <p className="text-sm text-danger-text">{exportError}</p> : null}
           <p className="text-sm text-secondary mb-4">{t('dashboard.selectReportType', 'Chọn loại báo cáo')}</p>
           <div className="space-y-2">
-            <label className="flex items-center space-x-2">
+            <label className={`flex items-center space-x-2 ${canExportOverview ? '' : 'opacity-50 cursor-not-allowed'}`} title={canExportOverview ? undefined : noPermissionTitle}>
               <input
                 type="radio"
                 name="exportType"
                 value="overview"
                 checked={exportType === 'overview'}
                 onChange={() => setExportType('overview')}
+                disabled={!canExportOverview}
                 className="text-gold focus:ring-gold"
               />
               <span className="text-sm text-primary">{t('dashboard.overviewReport', 'Báo cáo tổng quan')}</span>
             </label>
-            <label className="flex items-center space-x-2">
+            <label className={`flex items-center space-x-2 ${canExportFinance ? '' : 'opacity-50 cursor-not-allowed'}`} title={canExportFinance ? undefined : noPermissionTitle}>
               <input
                 type="radio"
                 name="exportType"
                 value="finance"
                 checked={exportType === 'finance'}
                 onChange={() => setExportType('finance')}
+                disabled={!canExportFinance}
                 className="text-gold focus:ring-gold"
               />
               <span className="text-sm text-primary">{t('dashboard.financeReport', 'Báo cáo tài chính')}</span>
             </label>
-            <label className="flex items-center space-x-2">
+            <label className={`flex items-center space-x-2 ${canExportMembers ? '' : 'opacity-50 cursor-not-allowed'}`} title={canExportMembers ? undefined : noPermissionTitle}>
               <input
                 type="radio"
                 name="exportType"
                 value="members"
                 checked={exportType === 'members'}
                 onChange={() => setExportType('members')}
+                disabled={!canExportMembers}
                 className="text-gold focus:ring-gold"
               />
               <span className="text-sm text-primary">{t('dashboard.memberList', 'Danh sách thành viên')}</span>
@@ -1084,7 +1228,13 @@ export const DashboardView = ({ authToken }: DashboardViewProps) => {
         footer={
           <>
             <Button variant="outline" onClick={closeRolesModal}>{t('common.cancel')}</Button>
-            <Button onClick={handleSaveRole} isLoading={isSavingRole} disabled={!rolesSelectedUser}>{t('common.save')}</Button>
+            {canManageRoles ? (
+              <Button onClick={handleSaveRole} isLoading={isSavingRole} disabled={!rolesSelectedUser}>{t('common.save')}</Button>
+            ) : (
+              <span title={noPermissionTitle} className="inline-flex cursor-not-allowed">
+                <Button disabled>{t('common.save')}</Button>
+              </span>
+            )}
           </>
         }
       >

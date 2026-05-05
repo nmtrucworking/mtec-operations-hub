@@ -24,6 +24,7 @@ import {
   FileText,
   RefreshCw,
   ArrowUpDown,
+  Upload,
   type LucideIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -35,9 +36,10 @@ import { Modal } from '../components/ui/modal';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl } from '../services/members';
+import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl, importMembers, membersImportTemplateUrl, type MembersImportResult } from '../services/members';
 import { formatDate, toDateInputFormat, downloadFileWithAuth, copyToClipboard } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
+import type { UserAccount } from '../types/app';
 import { getLogs, type ActivityLog } from '../services/logs';
 import {
   FACULTY_MAJOR_MAP,
@@ -56,12 +58,13 @@ const ITEMS_PER_PAGE = 10;
 
 interface MembersViewProps {
   authToken?: string;
+  currentUser?: UserAccount;
 }
 
 type SortField = keyof Member | 'stt';
 type SortOrder = 'asc' | 'desc';
 
-export const MembersView = ({ authToken }: MembersViewProps) => {
+export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const { t } = useTranslation();
   const [members, setMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,6 +77,7 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [isSavingMember, setIsSavingMember] = useState(false);
   const toast = useToast();
+  const canManageMembers = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_hr';
   const [sortConfig, setSortConfig] = useState<{ field: SortField; order: SortOrder }>({
     field: 'id',
     order: 'asc'
@@ -81,6 +85,39 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   const [memberLogs, setMemberLogs] = useState<ActivityLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'history'>('info');
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importOnDuplicate, setImportOnDuplicate] = useState<'skip' | 'update'>('skip');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<MembersImportResult | null>(null);
+
+  const handleImportSubmit = async () => {
+    if (!canManageMembers) {
+      toast.error('Bạn chỉ có quyền xem danh sách thành viên.');
+      return;
+    }
+
+    if (!importFile) {
+      toast.error('Vui lòng chọn file cần tải lên');
+      return;
+    }
+    setIsImporting(true);
+    setImportResult(null);
+    const response = await importMembers(importFile, { onDuplicate: importOnDuplicate }, authToken);
+    setIsImporting(false);
+    
+    if (response.status >= 200 && response.status < 300 && response.data) {
+      const resultData = (response.data as any).data || response.data;
+      setImportResult(resultData);
+      toast.success(t('members.importSuccess'));
+      if (resultData.created > 0 || resultData.updated > 0) {
+        await refreshMembers();
+      }
+    } else {
+      toast.error(response.error || t('members.importFailed'));
+    }
+  };
 
   useEffect(() => {
     if (selectedMember && activeDetailTab === 'history') {
@@ -224,6 +261,11 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   };
 
   const handleDeleteMember = async (memberId: string) => {
+    if (!canManageMembers) {
+      toast.error('Bạn chỉ có quyền xem danh sách thành viên.');
+      return;
+    }
+
     if (!window.confirm('Bạn có chắc chắn muốn xóa thành viên này?')) {
       return;
     }
@@ -332,6 +374,11 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
       return;
     }
 
+    if (!canManageMembers) {
+      toast.error('Bạn chỉ có quyền xem danh sách thành viên.');
+      return;
+    }
+
     // Validation
     const requiredFields: (keyof MemberFormData)[] = ['mssv', 'name', 'dob', 'phone', 'email', 'joinDate', 'role', 'experience', 'goal', 'orientation'];
     const missingFields = requiredFields.filter(field => !formData[field]);
@@ -378,6 +425,11 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   };
 
   const openEditModal = (member: Member) => {
+    if (!canManageMembers) {
+      toast.error('Bạn chỉ có quyền xem danh sách thành viên.');
+      return;
+    }
+
     const { id, ...memberData } = member;
     setSelectedMember(member);
     setFormData({
@@ -394,6 +446,11 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
   const handleEditSubmit = async () => {
     if (!selectedMember || !authToken) {
       toast.error('Lỗi: Thiếu dữ liệu hoặc token xác thực.');
+      return;
+    }
+
+    if (!canManageMembers) {
+      toast.error('Bạn chỉ có quyền xem danh sách thành viên.');
       return;
     }
 
@@ -518,28 +575,63 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
             >
               <Eye size={16} />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-secondary hover:text-brand-blue-hover hover:bg-brand-light"
-              onClick={(e) => {
-                e.stopPropagation();
-                openEditModal(member);
-              }}
-            >
-              <Edit size={16} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-secondary hover:text-danger-text hover:bg-danger-bg"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteMember(member.id);
-              }}
-            >
-              <Trash2 size={16} />
-            </Button>
+            {canManageMembers ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-secondary hover:text-brand-blue-hover hover:bg-brand-light"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditModal(member);
+                }}
+              >
+                <Edit size={16} />
+              </Button>
+            ) : (
+              <span title="Không có quyền" className="inline-flex cursor-not-allowed">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-secondary hover:text-brand-blue-hover hover:bg-brand-light"
+                  disabled
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEditModal(member);
+                  }}
+                >
+                  <Edit size={16} />
+                </Button>
+              </span>
+            )}
+
+            {canManageMembers ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-secondary hover:text-danger-text hover:bg-danger-bg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteMember(member.id);
+                }}
+              >
+                <Trash2 size={16} />
+              </Button>
+            ) : (
+              <span title="Không có quyền" className="inline-flex cursor-not-allowed">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-secondary hover:text-danger-text hover:bg-danger-bg"
+                  disabled
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteMember(member.id);
+                  }}
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </span>
+            )}
           </div>
         </TableCell>
       </TableRow>
@@ -573,10 +665,49 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
             <Download size={16} />
             ZIP
           </Button>
-          <Button onClick={() => { setFormData(initialFormState); setIsAddModalOpen(true); }} className="flex items-center gap-2 shadow-lg shadow-gold/20">
-            <Plus size={16} />
-            {t('members.addBtn')}
-          </Button>
+          {canManageMembers ? (
+            <Button
+              variant="outline"
+              onClick={() => { setIsImportModalOpen(true); setImportResult(null); setImportFile(null); }}
+              className="hidden sm:flex items-center gap-2 border-border-highlight"
+            >
+              <Upload size={16} />
+              {t('members.importBtn')}
+            </Button>
+          ) : (
+            <span title="Không có quyền" className="hidden sm:flex cursor-not-allowed">
+              <Button
+                variant="outline"
+                onClick={() => { setIsImportModalOpen(true); setImportResult(null); setImportFile(null); }}
+                disabled
+                className="flex items-center gap-2 border-border-highlight"
+              >
+                <Upload size={16} />
+                {t('members.importBtn')}
+              </Button>
+            </span>
+          )}
+
+          {canManageMembers ? (
+            <Button
+              onClick={() => { setFormData(initialFormState); setIsAddModalOpen(true); }}
+              className="flex items-center gap-2 shadow-lg shadow-gold/20"
+            >
+              <Plus size={16} />
+              {t('members.addBtn')}
+            </Button>
+          ) : (
+            <span title="Không có quyền" className="inline-flex cursor-not-allowed">
+              <Button
+                onClick={() => { setFormData(initialFormState); setIsAddModalOpen(true); }}
+                disabled
+                className="flex items-center gap-2 shadow-lg shadow-gold/20"
+              >
+                <Plus size={16} />
+                {t('members.addBtn')}
+              </Button>
+            </span>
+          )}
         </div>
       </div>
 
@@ -739,10 +870,28 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
             <Button variant="outline" onClick={() => { setSelectedMember(null); setActiveDetailTab('info'); }} className="hover:bg-secondary/10 transition-colors">
               Đóng
             </Button>
-            <Button variant="default" onClick={() => selectedMember && openEditModal(selectedMember)} className="transition-transform active:scale-95">
-              <Edit size={16} className="mr-2" />
-              Chỉnh sửa
-            </Button>
+            {canManageMembers ? (
+              <Button
+                variant="default"
+                onClick={() => selectedMember && openEditModal(selectedMember)}
+                className="transition-transform active:scale-95"
+              >
+                <Edit size={16} className="mr-2" />
+                Chỉnh sửa
+              </Button>
+            ) : (
+              <span title="Không có quyền" className="inline-flex cursor-not-allowed">
+                <Button
+                  variant="default"
+                  onClick={() => selectedMember && openEditModal(selectedMember)}
+                  disabled
+                  className="transition-transform active:scale-95"
+                >
+                  <Edit size={16} className="mr-2" />
+                  Chỉnh sửa
+                </Button>
+              </span>
+            )}
           </>
         }
       >
@@ -1182,6 +1331,99 @@ export const MembersView = ({ authToken }: MembersViewProps) => {
             </div>
           </div>
         </form>
+        </div>
+      </Modal>
+
+      {/* Import Modal */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        title={t('members.importTitle')}
+        className="max-w-md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsImportModalOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => void handleImportSubmit()}
+              disabled={!importFile || isImporting}
+            >
+              {isImporting ? t('common.loading') : t('members.importBtn')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-secondary">{t('members.importDesc')}</p>
+          
+          <div className="flex flex-col space-y-2">
+            <label className="text-sm font-medium">{t('members.importFile')}</label>
+            <Input
+              type="file"
+              accept=".csv, .xlsx"
+              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              className="file:bg-brand-light file:text-primary file:border-0 file:mr-4 file:px-4 file:py-2 file:rounded-md file:text-sm file:font-medium hover:file:bg-brand-light/80"
+            />
+          </div>
+
+          <div className="flex flex-col space-y-2">
+            <label className="text-sm font-medium">{t('members.importOnDuplicate')}</label>
+            <Select
+              value={importOnDuplicate}
+              onChange={(e) => setImportOnDuplicate(e.target.value as 'skip' | 'update')}
+              className="bg-background border-border"
+            >
+              <option value="skip">{t('members.importSkip')}</option>
+              <option value="update">{t('members.importUpdate')}</option>
+            </Select>
+          </div>
+
+          <div className="pt-2">
+            <a
+              href={membersImportTemplateUrl(authToken)}
+              className="text-sm text-gold hover:underline flex items-center gap-1 w-max"
+            >
+              <Download size={14} />
+              {t('members.importDownloadTemplate')}
+            </a>
+          </div>
+
+          {importResult && (
+            <div className="mt-4 p-4 border border-border rounded-md bg-card/50 space-y-2">
+              <h4 className="font-semibold text-primary">{t('members.importResultTitle')}</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <span className="text-secondary">{t('members.importTotal')}</span>
+                <span className="font-medium">{importResult.total}</span>
+                
+                <span className="text-secondary">{t('members.importCreated')}</span>
+                <span className="font-medium text-success-text">{importResult.created}</span>
+                
+                <span className="text-secondary">{t('members.importUpdated')}</span>
+                <span className="font-medium text-brand-blue">{importResult.updated}</span>
+                
+                <span className="text-secondary">{t('members.importSkipped')}</span>
+                <span className="font-medium text-warning-text">{importResult.skipped}</span>
+                
+                <span className="text-secondary">{t('members.importErrorCount')}</span>
+                <span className="font-medium text-danger-text">{importResult.failed}</span>
+              </div>
+
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  <p className="text-xs text-danger-text mb-1 font-medium">{t('members.importErrorCount')}</p>
+                  <ul className="text-xs text-secondary max-h-32 overflow-y-auto space-y-1">
+                    {importResult.errors.map((err, idx) => (
+                      <li key={idx}>
+                        {t('members.importRowError', { row: err.row })} {err.error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
     </div>

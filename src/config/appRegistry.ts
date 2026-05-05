@@ -180,7 +180,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(BarChart3, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: 'all',
-    render: ({ authToken }) => React.createElement(DashboardView, { authToken })
+    render: ({ authToken, currentUser }) => React.createElement(DashboardView, { authToken, currentUser })
   },
   {
     tab: 'members',
@@ -188,14 +188,14 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     icon: React.createElement(Users, { size: 20 }),
     minVersion: '1.0.0',
     allowedRoles: 'all',
-    render: ({ authToken }) => React.createElement(MembersView, { authToken })
+    render: ({ authToken, currentUser }) => React.createElement(MembersView, { authToken, currentUser })
   },
   {
     tab: 'requests',
     labelKey: 'appShell.navRequests',
     icon: React.createElement(FileText, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: 'all',
+    allowedRoles: ['bcn'],
     render: ({ authToken, currentUser }) => React.createElement(RequestsWrapper, { authToken, currentUser })
   },
   {
@@ -203,7 +203,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     labelKey: 'appShell.navFinance',
     icon: React.createElement(DollarSign, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: ['bcn', 'bvh_finance'],
+    allowedRoles: ['bcn', 'bvh_finance', 'bvh_hr', 'bvh_logistics', 'bcm'],
     render: ({ authToken, currentUser }) => React.createElement(FinanceWrapper, { authToken, currentUser })
   },
   {
@@ -211,7 +211,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     labelKey: 'appShell.navDiscipline',
     icon: React.createElement(ShieldCheck, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: 'all',
+    allowedRoles: ['bcn', 'bvh_hr', 'bvh_discipline', 'bcm', 'member'],
     render: ({ authToken }) => React.createElement(DisciplineView, { authToken })
   },
   {
@@ -219,7 +219,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     labelKey: 'appShell.navLogistics',
     icon: React.createElement(Box, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: 'all',
+    allowedRoles: ['bcn', 'bvh_finance', 'bvh_logistics', 'bcm'],
     render: ({ authToken }) => React.createElement(LogisticsView, { authToken })
   },
   {
@@ -227,7 +227,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     labelKey: 'appShell.navGenerator',
     icon: React.createElement(Wand2, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: 'all',
+    allowedRoles: ['bcn'],
     render: ({ authToken }) => React.createElement(GeneratorView, { authToken })
   },
   {
@@ -235,7 +235,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     labelKey: 'appShell.navLogs',
     icon: React.createElement(History, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: ['bcn', 'bcm'], // Only board and committee members can see logs
+    allowedRoles: ['bcn'], // Only board and committee members can see logs
     render: ({ authToken }) => React.createElement(LogsView, { authToken })
   },
   {
