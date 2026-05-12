@@ -119,7 +119,7 @@ Chúng tôi hoan nghênh mọi sự đóng góp để cải thiện hệ thống
 
 ```text
 mtec-operations-hub/
-├── docs/                # Chứa các tài liệu thiết kế hệ thống và mô tả tính năng chi tiết
+├── docs/                # Tài liệu chi tiết được tập trung ở docs/frontend của monorepo
 ├── public/              # Chứa các asset tĩnh (hình ảnh, favicon)
 ├── src/                 # Source code chính
 │   ├── components/      # Các UI component có thể tái sử dụng (Layout, Widget, v.v.)
