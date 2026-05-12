@@ -8,15 +8,14 @@ export interface AITemplate {
 }
 
 export interface AIProcessContextRequest {
-  text?: string;
-  fileUrl?: string;
-  link?: string;
+  source: 'file' | 'link';
+  content: string;
 }
 
 export interface AIProcessContextResponse {
-  contextId: string;
-  summary: string;
-  extractedData: any;
+  message: string;
+  extractedLength: number;
+  preview: string;
 }
 
 export interface AIExportRequest {
@@ -27,8 +26,7 @@ export interface AIExportRequest {
 
 export interface AIGenerateRequest {
   prompt: string;
-  contextId?: string;
-  templateId?: string;
+  context?: string;
 }
 
 export interface AIGenerateResponse {
@@ -42,7 +40,25 @@ export interface AIGenerateResponse {
  * Get available document templates
  */
 export const getAITemplates = async (token?: string): Promise<ApiResponse<AITemplate[]>> => {
-  return apiCall<AITemplate[]>('/api/v1/ai/templates', {}, token);
+  const response = await apiCall<any>('/api/v1/ai/templates', { method: 'GET' }, token);
+
+  if (!response.data) {
+    return response as ApiResponse<AITemplate[]>;
+  }
+
+  const payload = response.data as any;
+  const rawItems = payload?.data ?? payload;
+  const items = Array.isArray(rawItems) ? rawItems : [];
+
+  return {
+    ...response,
+    data: items.map((item: any) => ({
+      id: String(item?.id ?? ''),
+      name: String(item?.name ?? ''),
+      description: String(item?.description ?? ''),
+      code: String(item?.code ?? item?.id ?? '')
+    }))
+  };
 };
 
 /**
@@ -69,10 +85,26 @@ export const generateAIDraft = async (data: AIGenerateRequest, token?: string): 
  * Process context for AI generation
  */
 export const processAIContext = async (data: AIProcessContextRequest, token?: string): Promise<ApiResponse<AIProcessContextResponse>> => {
-  return apiCall<AIProcessContextResponse>('/api/v1/ai/process-context', {
+  const response = await apiCall<any>('/api/v1/ai/process-context', {
     method: 'POST',
     body: JSON.stringify(data)
   }, token);
+
+  if (!response.data) {
+    return response as ApiResponse<AIProcessContextResponse>;
+  }
+
+  const payload = response.data as any;
+  const body = payload?.data ?? payload;
+
+  return {
+    ...response,
+    data: {
+      message: String(body?.message ?? ''),
+      extractedLength: Number(body?.extractedLength ?? 0),
+      preview: String(body?.preview ?? '')
+    }
+  };
 };
 
 /**

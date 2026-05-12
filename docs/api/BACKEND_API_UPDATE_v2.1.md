@@ -3,7 +3,7 @@
 **Người gửi:** Backend Team  
 **Ngày:** 01/05/2026  
 **Trạng thái:** Hoàn thành triển khai  
-**Tài liệu chi tiết:** `docs/API_REPORT.md` (v2.1)
+**Tài liệu chi tiết:** `api/API_REPORT.md` (v2.1)
 
 ---
 

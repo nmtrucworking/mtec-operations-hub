@@ -155,6 +155,16 @@ export const createMember = async (member: Omit<Member, 'id'>, token?: string): 
     body: JSON.stringify(member)
   }, token);
 
+  // check date of born
+  if (member.dob > new Date(Date.now()).toLocaleDateString()) {
+    throw new Error('Ngay sinh phai lon hon hon ngay hien');
+  }
+
+  // default of date of born is 01 Jan 2000
+  if (!member.dob) {
+    member.dob = new Date(2000, 0, 1).toLocaleDateString();
+  }
+
   return normalizeMemberResponse(response, normalizeMember);
 };
 
