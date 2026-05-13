@@ -1,8 +1,18 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Filter, Search, Loader2 } from 'lucide-react';
-import { getDisciplineStats, getDisciplineRecords, type DisciplineStats, type DisciplineRecord as ApiDisciplineRecord } from '../services/discipline';
+import { AlertTriangle, Filter, Search, Loader2, Plus, X } from 'lucide-react';
+import { formatDate } from '../lib/helpers';
+import { 
+  getDisciplineStats, 
+  getDisciplineRecords, 
+  createDisciplineRecord,
+  type DisciplineStats, 
+  type DisciplineRecord as ApiDisciplineRecord,
+  type DisciplineRecordCreate
+} from '../services/discipline';
 
+import { getMembers} from '../services/members';
+import { Member } from '../data/members';
 
 interface DisciplineViewProps {
   authToken?: string;
@@ -18,22 +28,51 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
   const [search, setSearch] = useState('');
   const [disciplineFilter, setDisciplineFilter] = useState<'All' | DisciplineLevel>('All');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      const [statsRes, recordsRes] = await Promise.all([
-        getDisciplineStats(authToken),
-        getDisciplineRecords({ 
-          search: search || undefined, 
-          disciplineLevel: disciplineFilter === 'All' ? undefined : disciplineFilter 
-        }, authToken)
-      ]);
+  // State for create form management
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState<DisciplineRecordCreate>({
+    mssv: '',
+    name: '',
+    committee: '',
+    absents: 0,
+    kpi: 100,
+    disciplineLevel: 'Không',
+    note: ''
+  });
 
-      if (statsRes.data) setStats(statsRes.data);
-      if (recordsRes.data) setRecords(recordsRes.data.records);
-      setIsLoading(false);
-    };
+  // members
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
+  const [isFetchingMembers, setIsFetchingMembers] = useState(false);
+
+  const fetchClubMembers = async () => {
+    setIsFetchingMembers(true);
+    const res = await getMembers({ pageSize: 1000, status: 'Active' }, authToken);
+    if (res.data) {
+      setAllMembers(res.data.members);
+    }
+    setIsFetchingMembers(false);
+  };
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    const [statsRes, recordsRes] = await Promise.all([
+      getDisciplineStats(authToken),
+      getDisciplineRecords({ 
+        search: search || undefined, 
+        disciplineLevel: disciplineFilter === 'All' ? undefined : disciplineFilter 
+      }, authToken)
+    ]);
+
+    if (statsRes.data) setStats(statsRes.data);
+    if (recordsRes.data) setRecords(recordsRes.data.records);
+    setIsLoading(false);
+  }
+
+
+  useEffect(() => {
     fetchData();
+    fetchClubMembers();
   }, [authToken, search, disciplineFilter]);
 
   const getDisciplineName = (level: string) => {
@@ -42,6 +81,57 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
       case 'Nhắc nhở': return t('discipline.levelRemind');
       case 'Cảnh cáo Lần 1': return t('discipline.levelWarning');
       default: return level;
+    }
+  };
+
+  const handleCreateRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.memberId) {
+      alert('Vui lòng chọn thành viên hợp lệ.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await createDisciplineRecord(formData, authToken);
+      if (response.success) {
+        setIsAddModalOpen(false);
+        // Reset form
+        setFormData({
+          mssv: '', name: '', committee: '', absents: 0, kpi: 100, disciplineLevel: 'Không', note: ''
+        });
+        // Tải lại dữ liệu sau khi thêm thành công
+        await fetchData();
+      } else {
+        alert(response.error || 'Đã xảy ra lỗi khi tạo bản ghi.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Lỗi hệ thống khi tạo bản ghi.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSelectMember = (memberId: string) => {
+    const selected = allMembers.find(m => m.id === memberId);
+    if (selected) {
+      setFormData({
+        ...formData,
+        memberId: selected.id,
+        mssv: selected.mssv,
+        name: selected.name,
+        // Ép kiểu mảng string[] thành chuỗi string ngăn cách bằng dấu phẩy
+        committee: selected.ban && selected.ban.length > 0 ? selected.ban.join(', ') : '' 
+      });
+    } else {
+      // Reset khi không chọn
+      setFormData({
+        ...formData,
+        memberId: undefined,
+        mssv: '',
+        name: '',
+        committee: ''
+      });
     }
   };
 
@@ -54,9 +144,18 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
           <h2 className="text-2xl font-bold">{t('discipline.title')}</h2>
           <p className="text-blue-300 mt-1">{t('discipline.subtitle')}</p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition-colors">
-          {t('discipline.exportBtn')}
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg text-sm transition-colors"
+          >
+            <Plus size={16} />
+            {t('discipline.addBtn', 'Thêm bản ghi')}
+          </button>
+          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition-colors">
+            {t('discipline.exportBtn')}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -150,6 +249,104 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
         <h3 className="font-semibold text-lg mb-2 flex items-center gap-2"><AlertTriangle size={18} className="text-orange-300" />{t('discipline.noteTitle')}</h3>
         <p className="text-sm text-blue-100">{t('discipline.noteDesc')}</p>
       </div>
+    
+    {/* Add Modal */}
+    {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[#0a1f3f] border border-[#2a4d85] rounded-xl w-full max-w-lg p-6 shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">{t('discipline.createTitle', 'Thêm bản ghi kỷ luật mới')}</h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateRecord} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-blue-300 mb-1">
+                  Chọn thành viên <span className="text-red-500">*</span>
+                </label>
+                <select 
+                  required
+                  value={formData.memberId || ''}
+                  onChange={(e) => handleSelectMember(e.target.value)}
+                  className="w-full bg-[#1e3a66] border border-[#2a4d85] rounded-lg px-3 py-2 text-white outline-none"
+                >
+                  <option value="">-- Tìm hoặc chọn thành viên --</option>
+                  {allMembers.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.mssv} - {m.name} ({m.ban})
+                    </option>
+                  ))}
+                </select>
+                {isFetchingMembers && <p className="text-xs text-blue-400 mt-1 italic">Đang tải danh sách thành viên...</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* MSSV và Họ tên giờ là Read-only (Chỉ đọc) */}
+                <div>
+                  <label className="block text-sm font-medium text-blue-300 mb-1">MSSV</label>
+                  <input 
+                    readOnly 
+                    disabled
+                    value={formData.mssv} 
+                    className="w-full bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-gray-400 cursor-not-allowed" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-blue-300 mb-1">Họ và tên</label>
+                  <input 
+                    readOnly 
+                    disabled
+                    value={formData.name} 
+                    className="w-full bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-gray-400 cursor-not-allowed" 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-blue-300 mb-1">Ban/Ban Chuyên môn</label>
+                <input value={formData.committee} onChange={e => setFormData({...formData, committee: e.target.value})} className="w-full bg-[#1e3a66] border border-[#2a4d85] rounded-lg px-3 py-2 text-white outline-none" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-blue-300 mb-1">Số ngày vắng</label>
+                  <input type="number" min="0" value={formData.absents} onChange={e => setFormData({...formData, absents: parseInt(e.target.value) || 0})} className="w-full bg-[#1e3a66] border border-[#2a4d85] rounded-lg px-3 py-2 text-white outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-blue-300 mb-1">KPI</label>
+                  <input type="number" min="0" max="100" value={formData.kpi} onChange={e => setFormData({...formData, kpi: parseFloat(e.target.value) || 0})} className="w-full bg-[#1e3a66] border border-[#2a4d85] rounded-lg px-3 py-2 text-white outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-blue-300 mb-1">Mức kỷ luật</label>
+                <select value={formData.disciplineLevel} onChange={e => setFormData({...formData, disciplineLevel: e.target.value})} className="w-full bg-[#1e3a66] border border-[#2a4d85] rounded-lg px-3 py-2 text-white outline-none">
+                  <option value="Không">{t('discipline.levelNone')}</option>
+                  <option value="Nhắc nhở">{t('discipline.levelRemind')}</option>
+                  <option value="Cảnh cáo Lần 1">{t('discipline.levelWarning')}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-blue-300 mb-1">Ghi chú</label>
+                <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} rows={2} className="w-full bg-[#1e3a66] border border-[#2a4d85] rounded-lg px-3 py-2 text-white outline-none"></textarea>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#2a4d85]">
+                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 bg-transparent border border-[#2a4d85] text-white rounded-lg hover:bg-[#2a4d85] transition-colors">
+                  {t('common.cancel')}
+                </button>
+                <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                  {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
+                  Xác nhận lưu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

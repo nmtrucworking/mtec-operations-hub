@@ -22,6 +22,18 @@ export interface DisciplineResponse {
   total: number;
 }
 
+// Interface for creating discipline record
+export interface DisciplineRecordCreate {
+  memberId?: string;
+  mssv: string;
+  name: string;
+  committee?: string;
+  absents: number;
+  kpi: number;
+  disciplineLevel: string;
+  note?: string;
+}
+
 /**
  * Get discipline statistics
  */
@@ -57,4 +69,15 @@ export const getDisciplineRecords = async (
   }
 
   return response;
+};
+
+// Create a new discipline record
+export const createDisciplineRecord = async (
+  data: DisciplineRecordCreate,
+  token?: string
+): Promise<ApiResponse<DisciplineRecord>> => {
+  return apiCall<DisciplineRecord>('/api/v1/discipline-records', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, token);
 };
