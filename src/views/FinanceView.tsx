@@ -4,6 +4,7 @@ import { Calendar, CheckCircle2, DollarSign, Filter, Pencil, ReceiptText, Search
 import { StatCard } from '../components/shared/Widgets';
 import { formatCurrency, getRequiredApprovalRole, type Transaction, type TransactionStatus, type TxType } from '../data/finance';
 import type { UserAccount } from '../types/app';
+import { hasAnyRole } from '../lib/permissions';
 
 interface FinanceViewProps {
   transactions: Transaction[];
@@ -57,8 +58,8 @@ const toComparableDate = (value: string) => {
   return new Date(yyyy, mm - 1, dd).getTime();
 };
 
-const canManageTransaction = (role: UserAccount['role']) => ['bcn', 'bvh_finance', 'bvh_logistics', 'bcm'].includes(role);
-const canDeleteTransaction = (role: UserAccount['role']) => ['bcn', 'bvh_finance'].includes(role);
+const canManageTransaction = (roles: readonly UserAccount['role'][] | undefined) => hasAnyRole(roles ?? [], ['bcn', 'bvh_finance', 'bvh_logistics', 'bcm']);
+const canDeleteTransaction = (roles: readonly UserAccount['role'][] | undefined) => hasAnyRole(roles ?? [], ['bcn', 'bvh_finance']);
 
 export const FinanceView = ({
   transactions,
@@ -178,7 +179,8 @@ export const FinanceView = ({
     return role === 'bcn' ? t('finance.approverBCN') : t('finance.approverFinance');
   };
 
-  const isFinanceManager = canManageTransaction(currentUser.role);
+  const userRoles = currentUser.roles ?? [currentUser.role];
+  const isFinanceManager = canManageTransaction(userRoles);
 
 
   return (
@@ -334,7 +336,7 @@ export const FinanceView = ({
                     </button>
                     <button
                       onClick={() => onSoftDeleteTransaction(tx.id)}
-                      disabled={!canDeleteTransaction(currentUser.role)}
+                      disabled={!canDeleteTransaction(userRoles)}
                       className="text-xs px-3 py-1.5 rounded-md bg-red-600/20 text-red-300 hover:bg-red-600/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
                     >
                       <Trash2 size={12} />{t('finance.deleteBtn')}

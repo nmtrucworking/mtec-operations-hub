@@ -25,6 +25,7 @@ export interface UserAccount {
   password?: string;
   fullName: string;
   role: UserRole;
+  roles?: UserRole[];
   avatarInitials: string;
   email?: string;
   phone?: string;

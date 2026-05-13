@@ -13,6 +13,7 @@ import { getRequests, reviewRequest as reviewRequestApi, createRequest, updateRe
 import { getTransactions, getPendingTransactions, reviewTransaction as reviewTransactionApi, deleteTransaction as deleteTransactionApi, createTransaction, updateTransaction } from '../services/finance';
 import { getDashboardOverview } from '../services/dashboard';
 import type { UserAccount, UserRole, AppTab } from '../types/app';
+import { hasAnyRole, hasRole } from '../lib/permissions';
 
 import { APP_VERSION } from './appVersion';
 export { APP_VERSION };
@@ -153,8 +154,9 @@ const FinanceWrapper = ({ authToken, currentUser }: { authToken: string; current
       return false;
     },
     canReviewTransaction: (tx: any) => {
-      if (currentUser.role === 'bcn') return true;
-      return tx.requiredApprovalRole === currentUser.role || !tx.requiredApprovalRole;
+      const userRoles = currentUser.roles ?? [currentUser.role];
+      if (hasRole(userRoles, 'bcn')) return true;
+      return tx.requiredApprovalRole ? hasRole(userRoles, tx.requiredApprovalRole) : true;
     },
     totalIncome,
     totalExpense,

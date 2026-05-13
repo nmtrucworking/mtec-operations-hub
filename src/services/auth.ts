@@ -1,5 +1,6 @@
 import { apiCall, type ApiResponse } from './api';
 import type { UserAccount, UserRole } from '../types/app';
+import { getPrimaryRole, normalizeRoles } from '../lib/permissions';
 
 /**
  * Normalize user data from API response
@@ -9,7 +10,9 @@ export const normalizeUser = (payload: unknown, fallback?: Partial<UserAccount>)
   
   const fullName = String(record.fullName ?? record.full_name ?? record.name ?? fallback?.fullName ?? '').trim();
   const username = String(record.username ?? fallback?.username ?? '').trim();
-  const role = String(record.role ?? fallback?.role ?? 'member') as UserRole;
+  const fallbackRole = String(record.role ?? fallback?.role ?? 'member') as UserRole;
+  const roles = normalizeRoles(record.roles, fallbackRole);
+  const role = getPrimaryRole(roles, fallbackRole);
   
   const initials = String(
     record.avatarInitials ??
@@ -29,6 +32,7 @@ export const normalizeUser = (payload: unknown, fallback?: Partial<UserAccount>)
     username,
     fullName: fullName || username,
     role,
+    roles,
     avatarInitials: initials || username.slice(0, 2).toUpperCase(),
     email: record.email ? String(record.email) : fallback?.email,
     phone: record.phone ? String(record.phone) : fallback?.phone,

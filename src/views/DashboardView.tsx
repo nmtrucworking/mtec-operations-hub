@@ -17,6 +17,7 @@ import { createTransaction, getTransactions } from '../services/finance';
 import { getBaseUrl } from '../services/api';
 import { getUsers, updateUser } from '../services/users';
 import type { UserAccount, UserRole } from '../types/app';
+import { hasAnyRole, hasRole } from '../lib/permissions';
 
 interface DashboardViewProps {
   authToken: string;
@@ -34,13 +35,16 @@ export const DashboardView = ({ authToken, currentUser }: DashboardViewProps) =>
 
   const noPermissionTitle = 'Không có quyền';
 
-  const canAddMember = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_hr';
-  const canAddFinanceTx = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_finance';
-  const canManageRoles = currentUser?.role === 'bcn';
+  const userRoles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
+  const isMemberOnly = userRoles.length === 1 && hasRole(userRoles, 'member');
 
-  const canExportOverview = currentUser?.role !== 'member';
-  const canExportFinance = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_finance';
-  const canExportMembers = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_hr';
+  const canAddMember = hasAnyRole(userRoles, ['bcn', 'bvh_hr']);
+  const canAddFinanceTx = hasAnyRole(userRoles, ['bcn', 'bvh_finance']);
+  const canManageRoles = hasRole(userRoles, 'bcn');
+
+  const canExportOverview = !isMemberOnly;
+  const canExportFinance = hasAnyRole(userRoles, ['bcn', 'bvh_finance']);
+  const canExportMembers = hasAnyRole(userRoles, ['bcn', 'bvh_hr']);
   const canOpenExport = canExportOverview || canExportFinance || canExportMembers;
 
   useEffect(() => {

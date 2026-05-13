@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Clock3, FileArchive, Filter, Link2, Pencil, Search, X, XCircle } from 'lucide-react';
 import type { RequestItem, RequestStatus, RequestType } from '../data/requests';
 import type { UserAccount } from '../types/app';
+import { hasAnyRole } from '../lib/permissions';
 
 
 interface RequestsViewProps {
@@ -51,7 +52,7 @@ const defaultRequestForm = (list: RequestItem[]): RequestItem => ({
   }
 });
 
-const canReviewRequest = (role: UserAccount['role']) => ['bcn', 'bvh_hr'].includes(role);
+const canReviewRequest = (roles: readonly UserAccount['role'][] | undefined) => hasAnyRole(roles ?? [], ['bcn', 'bvh_hr']);
 
 export const RequestsView = ({ requests, currentUser, onSaveRequest, onReviewRequest }: RequestsViewProps) => {
   const { t } = useTranslation();
@@ -162,7 +163,7 @@ export const RequestsView = ({ requests, currentUser, onSaveRequest, onReviewReq
     onReviewRequest({ requestId: item.id, status: 'Từ chối', reviewNote: note });
   };
 
-  const reviewerAllowed = canReviewRequest(currentUser.role);
+  const reviewerAllowed = canReviewRequest(currentUser.roles ?? [currentUser.role]);
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">

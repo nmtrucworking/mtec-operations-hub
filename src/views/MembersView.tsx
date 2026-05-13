@@ -53,6 +53,7 @@ import {
   normalizeBanList
 } from '../data/members';
 import { Copy, Check } from 'lucide-react';
+import { hasAnyRole } from '../lib/permissions';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -77,7 +78,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [isSavingMember, setIsSavingMember] = useState(false);
   const toast = useToast();
-  const canManageMembers = currentUser?.role === 'bcn' || currentUser?.role === 'bvh_hr';
+  const canManageMembers = hasAnyRole(currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []), ['bcn', 'bvh_hr']);
   const [sortConfig, setSortConfig] = useState<{ field: SortField; order: SortOrder }>({
     field: 'id',
     order: 'asc'

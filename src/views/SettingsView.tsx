@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge';
 import { cn } from '../lib/utils';
 import type { UserAccount, UserRole } from '../types/app';
+import { getPrimaryRole, hasAnyRole, normalizeRoles } from '../lib/permissions';
 
 interface SettingsViewProps {
   currentUser: UserAccount;
@@ -71,6 +72,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Partial<UserAccount> | null>(null);
+  const userRoles = currentUser.roles ?? [currentUser.role];
+  const availableRoles: UserRole[] = ['bcn', 'bvh_hr', 'bvh_finance', 'bvh_discipline', 'bvh_logistics', 'bcm', 'member'];
 
   // Fetch settings on component mount
   useEffect(() => {
@@ -101,7 +104,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         }
 
         // 3. Fetch Accounts if Admin
-        if (currentUser.role === 'bcn') {
+        if (hasAnyRole(userRoles, ['bcn'])) {
           const accRes = await getUsers({}, authToken);
           if (accRes.status === 200 && accRes.data) {
             setAccountsList(accRes.data.users);
@@ -116,7 +119,23 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
     };
 
     fetchSettings();
-  }, [authToken, currentUser.role]);
+  }, [authToken, userRoles]);
+
+  const handleToggleEditingRole = (role: UserRole) => {
+    setEditingAcc((prev) => {
+      if (!prev) return prev;
+      const currentRoles = normalizeRoles(prev.roles, prev.role);
+      const nextRoles = currentRoles.includes(role)
+        ? currentRoles.filter((item) => item !== role)
+        : [...currentRoles, role];
+      const resolvedRoles = (nextRoles.length > 0 ? nextRoles : ['member']) as UserRole[];
+      return {
+        ...prev,
+        roles: resolvedRoles,
+        role: getPrimaryRole(resolvedRoles, (prev.role || 'member') as UserRole)
+      };
+    });
+  };
 
   const handleSaveProfile = async () => {
     if (!authToken) return;
@@ -193,13 +212,19 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
     if (!authToken || !editingAcc) return;
     setIsSaving(true);
     try {
+      const normalizedRoles = normalizeRoles(editingAcc.roles, editingAcc.role) as UserRole[];
+      const payload: Partial<UserAccount> = {
+        ...editingAcc,
+        roles: normalizedRoles,
+        role: getPrimaryRole(normalizedRoles, (editingAcc.role || 'member') as UserRole)
+      };
       let response;
       if (editingAcc.id) {
         // Update
-        response = await updateUser(editingAcc.id, editingAcc, authToken);
+        response = await updateUser(editingAcc.id, payload, authToken);
       } else {
         // Create
-        response = await createUser(editingAcc, authToken);
+        response = await createUser(payload, authToken);
       }
 
       // Show Error toast with response.status is 400
@@ -250,7 +275,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const filteredAccounts = accountsList.filter(acc => {
     const matchSearch = acc.fullName.toLowerCase().includes(searchAccount.toLowerCase()) ||
       acc.username.toLowerCase().includes(searchAccount.toLowerCase());
-    const matchRole = roleFilter === 'All' || acc.role === roleFilter;
+    const matchRole = roleFilter === 'All' || hasAnyRole(acc.roles ?? [acc.role], [roleFilter]);
     return matchSearch && matchRole;
   });
 
@@ -303,7 +328,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
             {t('settings.tabNotifications')}
           </button>
 
-          {currentUser.role === 'bcn' && (
+          {hasAnyRole(userRoles, ['bcn']) && (
             <button
               onClick={() => setActiveTab('accounts')}
               className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'accounts'
@@ -443,11 +468,11 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
             </div>
           )}
 
-          {activeTab === 'accounts' && currentUser.role === 'bcn' && (
+          {activeTab === 'accounts' && hasAnyRole(userRoles, ['bcn']) && (
             <div className="p-5 space-y-4 animate-in fade-in duration-300">
               <div className="flex justify-between items-center border-b border-border pb-4">
                 <h3 className="text-lg font-bold">{t('admin.accountsTitle')}</h3>
-                <Button onClick={() => { setEditingAcc({ role: 'member' }); setIsModalOpen(true); }}>
+                <Button onClick={() => { setEditingAcc({ role: 'member', roles: ['member'] }); setIsModalOpen(true); }}>
                   <Plus size={16} className="mr-2" />
                   {t('admin.addAccountBtn')}
                 </Button>
@@ -499,9 +524,13 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {t(`roles.${acc.role}`)}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {(acc.roles?.length ? acc.roles : [acc.role]).map((role) => (
+                            <Badge key={role} variant="secondary">
+                              {t(`roles.${role}`)}
+                            </Badge>
+                          ))}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-2">
@@ -610,18 +639,24 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-secondary">Chức vụ (Phân quyền)</label>
-              <Select
-                value={editingAcc.role || 'member'}
-                onChange={e => setEditingAcc({ ...editingAcc, role: e.target.value as UserRole })}
-              >
-                <option value="bcn">{t('roles.bcn')}</option>
-                <option value="bvh_hr">{t('roles.bvh_hr')}</option>
-                <option value="bvh_finance">{t('roles.bvh_finance')}</option>
-                <option value="bvh_discipline">{t('roles.bvh_discipline')}</option>
-                <option value="bvh_logistics">{t('roles.bvh_logistics')}</option>
-                <option value="bcm">{t('roles.bcm')}</option>
-                <option value="member">{t('roles.member')}</option>
-              </Select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg border border-border bg-background p-3">
+                {availableRoles.map((role) => {
+                  const selectedRoles = normalizeRoles(editingAcc.roles, editingAcc.role);
+                  const checked = selectedRoles.includes(role);
+                  return (
+                    <label key={role} className="flex items-center gap-2 text-sm text-primary cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleToggleEditingRole(role)}
+                        className="h-4 w-4 rounded border-border text-gold focus:ring-gold"
+                      />
+                      <span>{t(`roles.${role}`)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-secondary">Role chính sẽ được tự động chọn theo mức ưu tiên khi lưu.</p>
             </div>
           </div>
         </Modal>

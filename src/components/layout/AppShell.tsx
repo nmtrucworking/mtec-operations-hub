@@ -7,6 +7,7 @@ import { useTheme } from '../theme-provider';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import type { AppTab, UserAccount, UserRole } from '../../types/app';
 import { APP_VERSION, getVisibleTabDefinitions } from '../../config/appRegistry';
+import { hasAnyRole } from '../../lib/permissions';
 
 interface AppShellProps {
   activeTab: AppTab;
@@ -16,13 +17,15 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-const checkTabAccess = (tab: AppTab, role: UserRole): boolean => {
+const checkTabAccess = (tab: AppTab, roles: readonly UserRole[] | undefined, fallbackRole?: UserRole): boolean => {
   const definition = getVisibleTabDefinitions().find((item) => item.tab === tab);
   if (!definition) {
     return false;
   }
 
-  return definition.allowedRoles === 'all' || definition.allowedRoles.includes(role);
+  if (definition.allowedRoles === 'all') return true;
+  const resolvedRoles = roles && roles.length > 0 ? roles : fallbackRole ? [fallbackRole] : [];
+  return hasAnyRole(resolvedRoles, definition.allowedRoles);
 };
 
 export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, children }: AppShellProps) => {
@@ -66,7 +69,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           {getVisibleTabDefinitions()
-            .filter((item) => checkTabAccess(item.tab, currentUser.role))
+            .filter((item) => checkTabAccess(item.tab, currentUser.roles, currentUser.role))
             .map((item) => (
               <NavItem
                 key={item.tab}
@@ -108,7 +111,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           {getVisibleTabDefinitions()
-            .filter((item) => checkTabAccess(item.tab, currentUser.role))
+            .filter((item) => checkTabAccess(item.tab, currentUser.roles, currentUser.role))
             .map((item) => (
               <NavItem
                 key={item.tab}
