@@ -14,8 +14,6 @@ export const VERSION_HISTORY: VersionEntry[] = [
     changes: [
       { type: 'fix', description: 'Hotfix (Backend): Khắc phục các lỗi nghiêm trọng gây crash ứng dụng (lỗi import schemas, lỗi API chi tiết thành viên, lỗi syntax router).' },
       { type: 'fix', description: 'Hotfix (Backend): Tích hợp lifespan cho FastAPI để đảm bảo tự động khởi tạo cơ sở dữ liệu và nạp dữ liệu mẫu (seed data).' },
-      { type: 'feature', description: 'Giao diện & UX: Triển khai thiết kế Light Mode toàn diện cho Trang chủ, tối ưu hoá thành phần hiển thị Globe 3D.' },
-      { type: 'improvement', description: 'Giao diện & UX: Tinh chỉnh Layout, Typography và hiệu ứng trên Landing Page và Opportunities Page.' },
       { type: 'feature', description: 'Tính năng mới: Bổ sung module Quản lý tài khoản (Account Management) chi tiết trong tab Cài đặt (Settings).' }
     ]
   },

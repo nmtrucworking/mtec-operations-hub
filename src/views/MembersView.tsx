@@ -85,7 +85,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   });
   const [memberLogs, setMemberLogs] = useState<ActivityLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'history'>('info');
+  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'history' | 'performance'>('info');
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -929,17 +929,24 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               </div>
             </div>
 
-            <div className="flex border-b border-border">
+            <div className="flex border-b border-border overflow-x-auto">
               <button 
                 onClick={() => setActiveDetailTab('info')}
-                className={`px-4 py-2 text-sm font-medium transition-colors relative ${activeDetailTab === 'info' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
+                className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'info' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
                 Thông tin chi tiết
                 {activeDetailTab === 'info' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
               <button 
+                onClick={() => setActiveDetailTab('performance')}
+                className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'performance' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
+              >
+                Kỷ luật & KPI
+                {activeDetailTab === 'performance' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
+              </button>
+              <button 
                 onClick={() => setActiveDetailTab('history')}
-                className={`px-4 py-2 text-sm font-medium transition-colors relative ${activeDetailTab === 'history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
+                className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
                 Lịch sử thay đổi
                 {activeDetailTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
@@ -1039,6 +1046,38 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                       <p className="text-sm text-primary leading-relaxed bg-secondary/5 p-3 rounded-lg border border-border/50">{selectedMember.orientation}</p>
                     </div>
                   </div>
+                </div>
+              </div>
+            ) : activeDetailTab === 'performance' ? (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-2">
+                      <Target size={24} />
+                    </div>
+                    <span className="text-sm text-secondary font-medium">Điểm KPI</span>
+                    <span className="text-3xl font-bold text-primary">{selectedMember.kpi ?? 100}</span>
+                  </div>
+                  <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center mb-2">
+                      <Calendar size={24} />
+                    </div>
+                    <span className="text-sm text-secondary font-medium">Số buổi vắng</span>
+                    <span className="text-3xl font-bold text-primary">{selectedMember.absents ?? 0}</span>
+                  </div>
+                  <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-2">
+                      <Star size={24} />
+                    </div>
+                    <span className="text-sm text-secondary font-medium">Mức kỷ luật</span>
+                    <span className="text-xl font-bold text-primary">{selectedMember.disciplineLevel || 'Không'}</span>
+                  </div>
+                </div>
+                <div className="bg-brand-light p-5 rounded-xl border border-border">
+                  <h4 className="text-sm font-bold text-gold uppercase tracking-wider mb-2">Ghi chú</h4>
+                  <p className="text-sm text-secondary">
+                    Dữ liệu kỷ luật và KPI được cập nhật liên tục từ hệ thống điểm danh và quản lý thành tích của CLB.
+                  </p>
                 </div>
               </div>
             ) : (

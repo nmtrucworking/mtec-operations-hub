@@ -92,6 +92,9 @@ export interface Member {
   experience: string;
   goal: string;
   orientation: string;
+  absents?: number;
+  kpi?: number;
+  disciplineLevel?: string;
 }
 
 export const mockMembers: Member[] = [
