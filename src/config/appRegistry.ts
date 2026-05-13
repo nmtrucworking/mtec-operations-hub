@@ -205,7 +205,7 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     labelKey: 'appShell.navFinance',
     icon: React.createElement(DollarSign, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: ['bcn', 'bvh_finance', 'bvh_hr', 'bvh_logistics', 'bcm'],
+    allowedRoles: ['bcn', 'bvh_finance', 'bvh_logistics'],
     render: ({ authToken, currentUser }) => React.createElement(FinanceWrapper, { authToken, currentUser })
   },
   {
@@ -213,8 +213,8 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     labelKey: 'appShell.navDiscipline',
     icon: React.createElement(ShieldCheck, { size: 20 }),
     minVersion: '1.0.0',
-    allowedRoles: ['bcn', 'bvh_hr', 'bvh_discipline', 'bcm', 'member'],
-    render: ({ authToken }) => React.createElement(DisciplineView, { authToken })
+    allowedRoles: ['bcn', 'bvh_discipline'],
+    render: ({ authToken, currentUser }) => React.createElement(DisciplineView, { authToken, currentUser })
   },
   {
     tab: 'logistics',
