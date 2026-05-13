@@ -71,8 +71,9 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
   const [attendanceModalMeeting, setAttendanceModalMeeting] = useState<Meeting | null>(null);
   const [isAddMeetingModalOpen, setIsAddMeetingModalOpen] = useState(false);
   const [newMeeting, setNewMeeting] = useState({ title: '', date: '', meetingType: 'Họp định kỳ', description: '' });
-  
-
+  // State form điểm danh
+  const [attendanceData, setAttendanceData] = useState<Record<string, Attendance>>({});
+  const riskCount = stats?.warnedCases ?? records.filter((item) => item.disciplineLevel !== 'Không').length;
   const [resultData, setResultData] = useState<Record<string, { achievement: string, bonusKpi: number }>>({});
 
   const fetchClubMembers = async () => {
@@ -189,8 +190,6 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
     setIsSubmitting(false);
   };
 
-  // State form điểm danh
-  const [attendanceData, setAttendanceData] = useState<Record<string, Attendance>>({});
   
   // Fetch dữ liệu khởi tạo
   const fetchInitialData = async () => {
@@ -255,8 +254,7 @@ export const DisciplineView = ({ authToken }: DisciplineViewProps) => {
     }
   };
 
-  const riskCount = stats?.warnedCases ?? records.filter((item) => item.disciplineLevel !== 'Không').length;
-
+  
   const renderRecordsTab = () => {
     return (
       <div className="space-y-4 animate-in fade-in duration-300">
