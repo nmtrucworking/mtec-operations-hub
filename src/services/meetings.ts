@@ -9,6 +9,11 @@ export interface Meeting {
   description?: string;
   status: 'Scheduled' | 'Completed' | 'Cancelled';
   minutesUrl?: string;
+  stats?: {
+    present: number;
+    absent: number;
+    excused: number;
+  };
 }
 
 export interface Attendance {
@@ -60,7 +65,7 @@ export const getMeetingDetail = async (meetingId: string, token?: string): Promi
 };
 
 /**
- * C?p nh?t thông tin cu?c h?p (bao g?m biên b?n)
+ * C?p nh?t thï¿½ng tin cu?c h?p (bao g?m biï¿½n b?n)
  */
 export const updateMeeting = async (meetingId: string, data: Partial<Meeting>, token?: string): Promise<ApiResponse<Meeting>> => {
   return apiCall<Meeting>(`/api/v1/meetings/${meetingId}`, {

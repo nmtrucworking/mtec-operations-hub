@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 
-import { 
-  Loader2, 
-  Plus, 
-  Users, 
-  CheckCircle, 
-  X, 
+import {
+  Loader2,
+  Plus,
+  Users,
+  CheckCircle,
+  X,
   AlertCircle,
-  Calendar
- } from "lucide-react";
+  Calendar,
+  CheckCheck
+} from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Modal } from "../ui/modal";
 import { Select } from "../ui/select";
@@ -56,21 +57,21 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
 
   // Attendance Modal State
   const [attendanceData, setAttendanceData] = useState<Record<string, Attendance>>({});
- 
+
   const [isEditMeetingModalOpen, setIsEditMeetingModalOpen] = useState(false);
   const [editMeetingData, setEditMeetingData] = useState<Meeting | null>(null);
 
   const [attendanceModalMeeting, setAttendanceModalMeeting] = useState<Meeting | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  
 
-  const [newMeeting, setNewMeeting] = useState<NewMeetingState>({ 
-    title: '', 
-    date: '', 
-    meetingType: 'Họp định kỳ', 
-    description: '', 
-    minutesUrl: '' 
+
+  const [newMeeting, setNewMeeting] = useState<NewMeetingState>({
+    title: '',
+    date: '',
+    meetingType: 'Họp định kỳ',
+    description: '',
+    minutesUrl: ''
   });
 
 
@@ -81,13 +82,69 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
     }
   }, [authToken]);
 
+  /**
+   * Fetch danh sách các cuộc họp.
+   */
   const fetchMeetings = async () => {
     setIsLoadingInitial(true);
     if (!authToken) return;
     try {
+      // 1. Fetch danh sách các cuộc họp
       const meetingsRes = await getMeetings(authToken);
       const parsedMeetings = parseListData<Meeting>(meetingsRes);
-      setMeetings(parsedMeetings);
+
+      // 2. Resolve N+1 Queries để tính toán Stats
+      const meetingsWithStats = await Promise.all(
+        parsedMeetings.map(async (meeting) => {
+          try {
+            const attRes = await getMeetingAttendance(meeting.id, authToken);
+            // Chuẩn hóa dữ liệu mảng an toàn
+            const attendanceList = Array.isArray(attRes.data) ? attRes.data : (attRes.data || []);
+
+            // Trạng thái: Chưa điểm danh bao giờ
+            if (!attendanceList || attendanceList.length === 0) {
+              return meeting;
+            }
+
+            let presentCount = 0;
+            let excusedCount = 0;
+            let absentCount = 0;
+
+            // Sử dụng Set để tối ưu hóa việc kiểm tra độ phức tạp O(1)
+            const recordedMemberIds = new Set();
+
+            // Phân loại dữ liệu từ DB
+            attendanceList.forEach((att: any) => {
+              const targetId = att.member_id || att.memberId;
+              if (targetId) recordedMemberIds.add(targetId);
+
+              if (att.status === 'Present') presentCount++;
+              else if (att.status === 'Excused') excusedCount++;
+              else if (att.status === 'Absent') absentCount++;
+            });
+
+            // Bù trừ số lượng thành viên mặc định (Vắng không phép)
+            const unrecordedCount = allMembers.filter(m => !recordedMemberIds.has(m.id)).length;
+            absentCount += unrecordedCount;
+
+            // Gắn stats đã tính toán vào meeting
+            return {
+              ...meeting,
+              stats: {
+                present: presentCount,
+                absent: absentCount,
+                excused: excusedCount
+              }
+            };
+          } catch (err) {
+            console.warn(`[Cảnh báo] Lỗi tải điểm danh cuộc họp ${meeting.id}:`, err);
+            // Fallback: Trả về meeting gốc nếu lỗi fetch chi tiết
+            return meeting;
+          }
+        })
+      );
+
+      setMeetings(meetingsWithStats);
       setHasLoadedMeetings(true);
     } catch (error) {
       console.error("Lỗi truy xuất dữ liệu cuộc họp:", error);
@@ -96,22 +153,36 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
     }
   };
 
-
-
+  /**
+   * Mở modal điểm danh
+   * 
+   * @param meeting - Cuộc họp cần điểm danh
+   */
   const openAttendanceModal = async (meeting: Meeting) => {
     const initialAttendance: Record<string, Attendance> = {};
-    
+
     // Thiết lập trạng thái mặc định cho tất cả thành viên
     allMembers.forEach(m => {
       initialAttendance[m.id] = { memberId: m.id, status: 'Absent', note: '' };
     });
-    
+
     try {
       const response = await getMeetingAttendance(meeting.id, authToken);
       if (response.success && response.data) {
-        response.data.forEach((att: Attendance) => {
-          if (initialAttendance[att.memberId]) {
-            initialAttendance[att.memberId].status = att.status;
+        // Đảm bảo trích xuất đúng mảng dữ liệu để tránh lỗi runtime
+        const attendanceList = Array.isArray(response.data) ? response.data : (response.data || []);
+
+        // Sử dụng kiểu any tạm thời để bắt cả trường hợp camelCase và snake_case từ Backend
+        attendanceList.forEach((att: any) => {
+          // Trích xuất ID ưu tiên snake_case từ API, fallback về camelCase
+          const targetMemberId = att.member_id || att.memberId;
+
+          if (targetMemberId && initialAttendance[targetMemberId]) {
+            initialAttendance[targetMemberId].status = att.status;
+            // Cập nhật thêm thuộc tính note nếu API có trả về
+            if (att.note) {
+              initialAttendance[targetMemberId].note = att.note;
+            }
           }
         });
       }
@@ -123,6 +194,10 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
     setAttendanceModalMeeting(meeting);
   };
 
+  /**
+   * Xử lý tạo cuộc họp
+   * @param e - Sự kiện click nút tạo cuộc họp
+   */
   const handleCreateMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -152,37 +227,57 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
     if (res.success) {
       setIsEditMeetingModalOpen(false);
       setEditMeetingData(null);
+      await fetchMeetings(); // Bổ sung để làm mới dữ liệu bảng
     } else {
       alert("Lỗi khi cập nhật cuộc họp: " + res.error);
     }
     setIsSubmitting(false);
   };
 
+  /**
+   * Xử lý thay đổi điểm danh
+   * 
+   * @param memberId - ID của thành viên
+   * @param status - Trạng thái điểm danh, có 3 trạng thái: Present, Absent, Excused
+   */
   const handleAttendanceChange = (memberId: string, status: 'Present' | 'Absent' | 'Excused') => {
     setAttendanceData(prev => ({ ...prev, [memberId]: { ...prev[memberId], status } }));
   };
 
+  const handleBulkAttendanceChange = (status: 'Present' | 'Absent' | 'Excused') => {
+    setAttendanceData(prev => {
+      const newData = { ...prev };
+      Object.keys(newData).forEach(key => {
+        newData[key] = { ...newData[key], status };
+      });
+      return newData;
+    });
+  };
+
+  /**
+   * Xử lý lưu điểm danh
+   */
   const handleSaveAttendance = async () => {
     if (!attendanceModalMeeting) return;
     setIsSubmitting(true);
-    
-    // 1. CHUẨN HÓA PAYLOAD (Biến đổi camelCase sang snake_case)
+
+
     const rawPayload = Object.values(attendanceData).map(att => ({
-      member_id: att.memberId, // Chuyển thành snake_case cho Backend
+      memberId: att.memberId,
       status: att.status,
-      note: att.note || ""     // Đảm bảo không gửi undefined
+      note: att.note || ""
     }));
 
     try {
       // 2. GỬI API (Thử gửi mảng trực tiếp trước)
       // Nếu Backend cần wrapper dạng { "records": rawPayload }, bạn đổi rawPayload thành { records: rawPayload }
       const res = await updateAttendance(attendanceModalMeeting.id, rawPayload as any, authToken);
-      
+
       if (res.success || res.status === 200) {
         // ... (Thay alert bằng toast nếu bạn đã cài đặt)
         alert("Lưu kết quả điểm danh thành công.");
         setAttendanceModalMeeting(null);
-        await fetchMeetings(); 
+        await fetchMeetings();
       } else {
         alert("Lỗi khi lưu điểm danh: " + (res.error || "Dữ liệu không hợp lệ"));
       }
@@ -216,25 +311,26 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                 <TableHead className="font-semibold">Thời gian</TableHead>
                 <TableHead className="font-semibold">Loại hình</TableHead>
                 <TableHead className="font-semibold">Trạng thái</TableHead>
+                <TableHead className="font-semibold text-center">Thống kê</TableHead>
                 <TableHead className="text-right font-semibold">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoadingInitial ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-secondary">
+                  <TableCell colSpan={6} className="h-32 text-center text-secondary">
                     <Loader2 size={24} className="animate-spin inline mr-2 text-primary" /> Đang tải lịch họp...
                   </TableCell>
                 </TableRow>
               ) : !hasLoadedMeetings ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-secondary font-medium">
+                  <TableCell colSpan={6} className="h-32 text-center text-secondary font-medium">
                     Chưa tải dữ liệu cuộc họp.
                   </TableCell>
                 </TableRow>
               ) : meetings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-secondary font-medium">
+                  <TableCell colSpan={6} className="h-32 text-center text-secondary font-medium">
                     Chưa có dữ liệu cuộc họp.
                   </TableCell>
                 </TableRow>
@@ -250,17 +346,44 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                       ? <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold text-xs"><CheckCircle size={12} /> Đã kết thúc</span>
                       : <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-semibold text-xs"><Calendar size={12} /> Theo kế hoạch</span>}
                   </TableCell>
+                  <TableCell className="text-center">
+                    {meeting.stats ? (
+                      <div className="flex items-center justify-center gap-1.5 text-xs">
+                        <div className="flex items-center gap-1 text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-md font-medium" title="Có mặt">
+                          <CheckCircle size={12} /> {meeting.stats.present}
+                        </div>
+                        <div className="flex items-center gap-1 text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-md font-medium" title="Vắng không phép">
+                          <X size={12} /> {meeting.stats.absent}
+                        </div>
+                        <div className="flex items-center gap-1 text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 px-2 py-0.5 rounded-md font-medium" title="Vắng có phép">
+                          <AlertCircle size={12} /> {meeting.stats.excused}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-secondary italic">Chưa thống kê</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:border-orange-900/50" onClick={() => handleSyncDiscipline(meeting.id, authToken)}>
+                        <AlertCircle size={14} className="mr-1.5" /> Đồng bộ
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg shadow-sm bg-background hover:bg-muted"
+                        onClick={() => {
+                          setEditMeetingData(meeting);
+                          setIsEditMeetingModalOpen(true);
+                        }}>
+                        Chỉnh sửa
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         className="rounded-lg shadow-sm bg-background hover:bg-muted"
                         onClick={() => { void openAttendanceModal(meeting); }}>
                         <Users size={14} className="mr-1.5" /> Điểm danh
-                      </Button>
-                      <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:border-orange-900/50" onClick={() => handleSyncDiscipline(meeting.id, authToken)}>
-                        <AlertCircle size={14} className="mr-1.5" /> Đồng bộ
                       </Button>
                     </div>
                   </TableCell>
@@ -303,6 +426,48 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
         </form>
       </Modal>
 
+      <Modal isOpen={isEditMeetingModalOpen} onClose={() => setIsEditMeetingModalOpen(false)} title="Chỉnh sửa cuộc họp">
+        {editMeetingData && (
+          <form onSubmit={handleUpdateMeeting} className="space-y-5 pt-2">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Tiêu đề cuộc họp <span className="text-red-500">*</span></label>
+              <Input required value={editMeetingData.title} onChange={e => setEditMeetingData({ ...editMeetingData, title: e.target.value })} className="rounded-xl" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Thời gian <span className="text-red-500">*</span></label>
+              {/* Định dạng lại chuỗi datetime để hiển thị chính xác trong input type="datetime-local" */}
+              <Input type="datetime-local" required value={editMeetingData.date.substring(0, 16)} onChange={e => setEditMeetingData({ ...editMeetingData, date: e.target.value })} className="rounded-xl" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Loại hình</label>
+              <Select value={editMeetingData.meetingType} onChange={e => setEditMeetingData({ ...editMeetingData, meetingType: e.target.value })} className="w-full rounded-xl">
+                <option value="Họp định kỳ">Họp định kỳ toàn CLB</option>
+                <option value="Họp Ban">Họp Ban chuyên môn</option>
+                <option value="Họp dự án">Họp dự án cụ thể</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">URL biên bản</label>
+              <Input type="url" value={editMeetingData.minutesUrl || ''} onChange={e => setEditMeetingData({ ...editMeetingData, minutesUrl: e.target.value })} className="rounded-xl" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Trạng thái</label>
+              <Select value={editMeetingData.status} onChange={e => setEditMeetingData({ ...editMeetingData, status: e.target.value })} className="w-full rounded-xl">
+                <option value="Scheduled">Theo kế hoạch</option>
+                <option value="Completed">Đã kết thúc</option>
+                <option value="Cancelled">Đã hủy</option>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
+              <Button type="button" variant="outline" className="rounded-xl" onClick={() => setIsEditMeetingModalOpen(false)}>Hủy</Button>
+              <Button type="submit" disabled={isSubmitting} className="rounded-xl">
+                {isSubmitting ? <Loader2 size={16} className="animate-spin mr-2" /> : 'Cập nhật'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
       {attendanceModalMeeting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card border border-border/50 rounded-2xl w-full max-w-4xl flex flex-col h-[85vh] shadow-2xl animate-in zoom-in-95 duration-200">
@@ -313,6 +478,37 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
               </div>
               <button onClick={() => setAttendanceModalMeeting(null)} className="text-secondary hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted"><X size={24} /></button>
             </div>
+
+            <div className="px-5 py-3 bg-muted/20 border-b border-border/50 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-foreground/80 flex items-center">
+                Thao tác nhanh:
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAttendanceChange('Present')}
+                className="rounded-lg text-green-600 border-green-200 bg-green-50 hover:bg-green-100 dark:bg-green-900/10 dark:border-green-900/50 dark:hover:bg-green-900/30 transition-colors"
+              >
+                <CheckCheck size={14} className="mr-1.5" /> Tất cả có mặt
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAttendanceChange('Absent')}
+                className="rounded-lg text-red-600 border-red-200 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:border-red-900/50 dark:hover:bg-red-900/30 transition-colors"
+              >
+                <X size={14} className="mr-1.5" /> Tất cả vắng (Không phép)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAttendanceChange('Excused')}
+                className="rounded-lg text-yellow-600 border-yellow-200 bg-yellow-50 hover:bg-yellow-100 dark:bg-yellow-900/10 dark:border-yellow-900/50 dark:hover:bg-yellow-900/30 transition-colors"
+              >
+                <AlertCircle size={14} className="mr-1.5" /> Tất cả vắng (Có phép)
+              </Button>
+            </div>
+
             <div className="overflow-y-auto p-0 flex-1">
               <Table>
                 <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">

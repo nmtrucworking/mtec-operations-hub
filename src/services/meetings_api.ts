@@ -10,6 +10,11 @@ export interface Meeting {
   minutesUrl?: string;
   createdAt?: string;
   updatedAt?: string;
+  stats?: {
+    present: number;
+    absent: number;
+    excused: number;
+  };
 }
 
 export interface Attendance {
