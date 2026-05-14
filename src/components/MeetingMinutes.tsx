@@ -33,12 +33,12 @@ export const MeetingMinutes = ({ meeting, authToken, onUpdate }: MeetingMinutesP
     setIsSubmitting(true);
     try {
       const res = await updateMeeting(meeting.id, { minutesUrl }, authToken);
-      if (res.status === 200) {
+      if (res.success) {
         setIsEditModalOpen(false);
         setError('');
         if (onUpdate) onUpdate();
       } else {
-        setError(res.message || 'Lỗi cập nhật biên bản');
+        setError(res.error || 'Lỗi cập nhật biên bản');
       }
     } catch (err) {
       setError('Không thể cập nhật biên bản');
