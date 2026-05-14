@@ -81,3 +81,22 @@ export const createDisciplineRecord = async (
     body: JSON.stringify(data),
   }, token);
 };
+
+export interface DisciplineRecordUpdate {
+  committee?: string;
+  absents?: number;
+  kpi?: number;
+  disciplineLevel?: string;
+  note?: string;
+}
+
+export const updateDisciplineRecord = async (
+  recordId: string,
+  data: DisciplineRecordUpdate,
+  token?: string
+): Promise<ApiResponse<DisciplineRecord>> => {
+  return apiCall<DisciplineRecord>(`/api/v1/discipline-records/${recordId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }, token);
+};

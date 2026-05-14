@@ -8,6 +8,7 @@ export interface Meeting {
   meetingType: string;
   description?: string;
   status: 'Scheduled' | 'Completed' | 'Cancelled';
+  minutesUrl?: string;
 }
 
 export interface Attendance {
@@ -49,5 +50,21 @@ export const updateAttendance = async (meetingId: string, attendances: Attendanc
 export const syncAttendanceToDiscipline = async (meetingId: string, token?: string): Promise<ApiResponse<{ message: string, syncedCount: number }>> => {
   return apiCall<any>(`/api/v1/discipline-records/sync-attendance/${meetingId}`, {
     method: 'POST',
+  }, token);
+};
+/**
+ * L?y chi ti?t cu?c h?p
+ */
+export const getMeetingDetail = async (meetingId: string, token?: string): Promise<ApiResponse<Meeting>> => {
+  return apiCall<Meeting>(`/api/v1/meetings/${meetingId}`, { method: 'GET' }, token);
+};
+
+/**
+ * C?p nh?t thông tin cu?c h?p (bao g?m biên b?n)
+ */
+export const updateMeeting = async (meetingId: string, data: Partial<Meeting>, token?: string): Promise<ApiResponse<Meeting>> => {
+  return apiCall<Meeting>(`/api/v1/meetings/${meetingId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   }, token);
 };

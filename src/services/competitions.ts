@@ -28,7 +28,7 @@ export const createCompetition = async (data: Partial<Competition>, token?: stri
 export const updateCompetitionResults = async (competitionId: string, results: CompetitionResult[], token?: string): Promise<ApiResponse<any>> => {
   return apiCall<any>(`/api/v1/competitions/${competitionId}/results`, {
     method: 'PUT',
-    body: JSON.stringify({ results }),
+    body: JSON.stringify(results),
   }, token);
 };
 
