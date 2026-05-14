@@ -99,7 +99,8 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
           try {
             const attRes = await getMeetingAttendance(meeting.id, authToken);
             // Chuẩn hóa dữ liệu mảng an toàn
-            const attendanceList = Array.isArray(attRes.data) ? attRes.data : (attRes.data || []);
+            const rawData = attRes?.data || attRes;
+            const attendanceList = Array.isArray(rawData) ? rawData : [];
 
             // Trạng thái: Chưa điểm danh bao giờ
             if (!attendanceList || attendanceList.length === 0) {
@@ -107,8 +108,8 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
             }
 
             let presentCount = 0;
-            let excusedCount = 0;
-            let absentCount = 0;
+            let excusedCount = 0; // Vắng có phép
+            let absentCount = 0; // Vắng không phép
 
             // Sử dụng Set để tối ưu hóa việc kiểm tra độ phức tạp O(1)
             const recordedMemberIds = new Set();
@@ -159,6 +160,10 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
    * @param meeting - Cuộc họp cần điểm danh
    */
   const openAttendanceModal = async (meeting: Meeting) => {
+    // Debug:
+    console.log(">> Open Attendace Modal");
+    console.log("meeting", meeting);
+
     const initialAttendance: Record<string, Attendance> = {};
 
     // Thiết lập trạng thái mặc định cho tất cả thành viên
@@ -168,26 +173,27 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
 
     try {
       const response = await getMeetingAttendance(meeting.id, authToken);
-      if (response.success && response.data) {
-        // Đảm bảo trích xuất đúng mảng dữ liệu để tránh lỗi runtime
-        const attendanceList = Array.isArray(response.data) ? response.data : (response.data || []);
+      
+      // Sử dụng hàm parseListData có sẵn để trích xuất mảng an toàn tuyệt đối
+      const attendanceList = parseListData<any>(response);
 
-        // Sử dụng kiểu any tạm thời để bắt cả trường hợp camelCase và snake_case từ Backend
+      if (attendanceList.length > 0) {
         attendanceList.forEach((att: any) => {
-          // Trích xuất ID ưu tiên snake_case từ API, fallback về camelCase
+          // Khớp ID theo cả chuẩn snake_case (Backend) và camelCase (Frontend)
           const targetMemberId = att.member_id || att.memberId;
-
+          
           if (targetMemberId && initialAttendance[targetMemberId]) {
             initialAttendance[targetMemberId].status = att.status;
-            // Cập nhật thêm thuộc tính note nếu API có trả về
             if (att.note) {
               initialAttendance[targetMemberId].note = att.note;
             }
           }
         });
+      } else {
+        console.warn("Không tìm thấy mảng dữ liệu điểm danh hợp lệ trong payload.", response);
       }
     } catch (err) {
-      console.warn("Không thể tải dữ liệu điểm danh cũ", err);
+      console.error("Lỗi quá trình tải dữ liệu điểm danh:", err);
     }
 
     setAttendanceData(initialAttendance);
@@ -365,7 +371,8 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:border-orange-900/50" onClick={() => handleSyncDiscipline(meeting.id, authToken)}>
+                      <Button
+                        variant="outline" size="sm" className="rounded-lg shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:border-orange-900/50" onClick={() => handleSyncDiscipline(meeting.id, authToken)}>
                         <AlertCircle size={14} className="mr-1.5" /> Đồng bộ
                       </Button>
                       <Button
@@ -530,13 +537,31 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                         <TableCell className="font-semibold">{member.name}</TableCell>
                         <TableCell><span className="text-xs px-2 py-1 bg-muted rounded border border-border/30">{member.ban && member.ban.length > 0 ? member.ban.join(', ') : ''}</span></TableCell>
                         <TableCell className="text-center">
-                          <input type="radio" checked={status === 'Present'} onChange={() => handleAttendanceChange(member.id, 'Present')} className="w-5 h-5 accent-green-600 cursor-pointer" />
+                          <input
+                            type="radio"
+                            name={`status-${member.id}`}
+                            checked={status === 'Present'}
+                            onChange={() => handleAttendanceChange(member.id, 'Present')}
+                            className="w-5 h-5 accent-green-600 cursor-pointer"
+                          />
                         </TableCell>
                         <TableCell className="text-center">
-                          <input type="radio" checked={status === 'Absent'} onChange={() => handleAttendanceChange(member.id, 'Absent')} className="w-5 h-5 accent-red-600 cursor-pointer" />
+                          <input
+                            type="radio"
+                            name={`status-${member.id}`}
+                            checked={status === 'Absent'}
+                            onChange={() => handleAttendanceChange(member.id, 'Absent')}
+                            className="w-5 h-5 accent-red-600 cursor-pointer"
+                          />
                         </TableCell>
                         <TableCell className="text-center">
-                          <input type="radio" checked={status === 'Excused'} onChange={() => handleAttendanceChange(member.id, 'Excused')} className="w-5 h-5 accent-yellow-500 cursor-pointer" />
+                          <input
+                            type="radio"
+                            name={`status-${member.id}`}
+                            checked={status === 'Excused'}
+                            onChange={() => handleAttendanceChange(member.id, 'Excused')}
+                            className="w-5 h-5 accent-yellow-500 cursor-pointer"
+                          />
                         </TableCell>
                       </TableRow>
                     );

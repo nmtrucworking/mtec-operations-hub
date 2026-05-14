@@ -44,7 +44,13 @@ export const updateMeeting = async (meetingId: string, data: any, token?: string
 };
 
 export const getMeetingAttendance = async (meetingId: string, token?: string): Promise<ApiResponse<Attendance[]>> => {
-  return apiCall<Attendance[]>(`/api/v1/meetings/${meetingId}/attendance`, {}, token);
+  return apiCall<Attendance[]>(`/api/v1/meetings/${meetingId}/attendance`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  }, token);
 };
 
 export const updateAttendance = async (meetingId: string, attendances: Attendance[], token?: string): Promise<ApiResponse<any>> => {
