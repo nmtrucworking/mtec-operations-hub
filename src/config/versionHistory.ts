@@ -9,6 +9,15 @@ export interface VersionEntry {
 
 export const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: '2.1.0',
+    date: '2026-05-22',
+    changes: [
+      { type: 'feature', description: 'Ra mắt Hệ thống Đánh giá Định kỳ (Evaluation v2) tích hợp vào module Kỷ luật & Hiệu suất.' },
+      { type: 'feature', description: 'Quản lý toàn diện Chu kỳ đánh giá, Tiêu chí, Sự kiện điểm và Hồ sơ minh chứng.' },
+      { type: 'feature', description: 'Tự động tính toán điểm số và phân loại thành viên dựa trên dữ liệu chuyên cần, KPI và kỷ luật.' }
+    ]
+  },
+  {
     version: '1.2.2',
     date: '2026-05-14',
     changes: [

@@ -57,7 +57,13 @@ export const apiCall = async <T = any>(
       finalEndpoint = cleanEndpoint.substring(7); 
     }
     
-    const url = `${API_BASE_URL}${finalEndpoint}`;
+    let url = `${API_BASE_URL}${finalEndpoint}`;
+    
+    // Special handling for v2 endpoints when base URL has v1
+    if (cleanEndpoint.startsWith('/api/v2/') && baseHasV1) {
+      const baseUrlWithoutV1 = API_BASE_URL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+      url = `${baseUrlWithoutV1}${cleanEndpoint}`;
+    }
     
     if (import.meta.env.DEV) {
       console.log(`[API Request] ${options.method || 'GET'} ${url}`);

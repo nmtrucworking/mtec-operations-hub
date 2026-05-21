@@ -9,7 +9,8 @@ import {
   Plus,
   X,
   Trophy,
-  AlertTriangle
+  AlertTriangle,
+  ClipboardCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -34,13 +35,14 @@ import { UserAccount } from '../types/app';
 import DisciplineRecordsTab from '../components/Discipline/DisciplineRecordsTab';
 import MeetingAttendanceTab from '../components/Discipline/MeetingAttendanceTab';
 import CompetitionsTab from '../components/Discipline/CompetitionsTab';
+import EvaluationTab from '../components/Discipline/EvaluationTab';
 
 interface DisciplineViewProps {
   authToken?: string;
   currentUser: UserAccount;
 }
 
-type TabType = 'records' | 'meetings' | 'competitions';
+type TabType = 'records' | 'meetings' | 'competitions' | 'evaluations';
 
 export const parseListData = <T,>(response: any, fallbackKey?: string): T[] => {
     const directData = response?.data;
@@ -84,7 +86,7 @@ export const DisciplineView = ({ authToken, currentUser }: DisciplineViewProps) 
   }, [activeTab, authToken]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+    <div className="space-y-6 w-full px-4 sm:px-6 md:px-8 pb-10 overflow-x-hidden">
       {/* HEADER CHUNG */}
       <div className="flex flex-col gap-2">
         <h2 className="text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
@@ -126,6 +128,16 @@ export const DisciplineView = ({ authToken, currentUser }: DisciplineViewProps) 
           <Trophy size={18} />
           Hiệu suất (Thi đua)
         </button>
+        <button
+          onClick={() => setActiveTab('evaluations')}
+          className={`flex items-center gap-2.5 px-6 py-3.5 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${activeTab === 'evaluations'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-secondary hover:text-foreground hover:border-border'
+            }`}
+        >
+          <ClipboardCheck size={18} />
+          Đánh giá Định kỳ
+        </button>
       </div>
 
       {/* RENDER NỘI DUNG THEO TAB TRẠNG THÁI */}
@@ -133,6 +145,7 @@ export const DisciplineView = ({ authToken, currentUser }: DisciplineViewProps) 
         {activeTab === 'records' && <DisciplineRecordsTab authToken={authToken} allMembers={allMembers} />}
         {activeTab === 'meetings' && <MeetingAttendanceTab authToken={authToken} allMembers={allMembers} />}
         {activeTab === 'competitions' && <CompetitionsTab authToken={authToken} allMembers={allMembers} />}
+        {activeTab === 'evaluations' && <EvaluationTab authToken={authToken} currentUser={currentUser} allMembers={allMembers} />}
       </div>
     </div>
   );

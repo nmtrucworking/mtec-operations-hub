@@ -93,58 +93,19 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
       const meetingsRes = await getMeetings(authToken);
       const parsedMeetings = parseListData<Meeting>(meetingsRes);
 
-      // 2. Resolve N+1 Queries để tính toán Stats
-      const meetingsWithStats = await Promise.all(
-        parsedMeetings.map(async (meeting) => {
-          try {
-            const attRes = await getMeetingAttendance(meeting.id, authToken);
-            // Chuẩn hóa dữ liệu mảng an toàn
-            const rawData = attRes?.data || attRes;
-            const attendanceList = Array.isArray(rawData) ? rawData : [];
-
-            // Trạng thái: Chưa điểm danh bao giờ
-            if (!attendanceList || attendanceList.length === 0) {
-              return meeting;
-            }
-
-            let presentCount = 0;
-            let excusedCount = 0; // Vắng có phép
-            let absentCount = 0; // Vắng không phép
-
-            // Sử dụng Set để tối ưu hóa việc kiểm tra độ phức tạp O(1)
-            const recordedMemberIds = new Set();
-
-            // Phân loại dữ liệu từ DB
-            attendanceList.forEach((att: any) => {
-              const targetId = att.member_id || att.memberId;
-              if (targetId) recordedMemberIds.add(targetId);
-
-              if (att.status === 'Present') presentCount++;
-              else if (att.status === 'Excused') excusedCount++;
-              else if (att.status === 'Absent') absentCount++;
-            });
-
-            // Bù trừ số lượng thành viên mặc định (Vắng không phép)
-            const unrecordedCount = allMembers.filter(m => !recordedMemberIds.has(m.id)).length;
-            absentCount += unrecordedCount;
-
-            // Gắn stats đã tính toán vào meeting
-            return {
-              ...meeting,
-              stats: {
-                present: presentCount,
-                absent: absentCount,
-                excused: excusedCount
-              }
-            };
-          } catch (err) {
-            console.warn(`[Cảnh báo] Lỗi tải điểm danh cuộc họp ${meeting.id}:`, err);
-            // Fallback: Trả về meeting gốc nếu lỗi fetch chi tiết
-            return meeting;
+      // 2. Stats are now calculated efficiently by the backend in GET /meetings
+      const meetingsWithStats = parsedMeetings.map(meeting => {
+        if (!meeting.stats) return meeting;
+        const recorded = meeting.stats.present + meeting.stats.absent + meeting.stats.excused;
+        const unrecordedCount = Math.max(0, allMembers.length - recorded);
+        return {
+          ...meeting,
+          stats: {
+            ...meeting.stats,
+            absent: meeting.stats.absent + unrecordedCount
           }
-        })
-      );
-
+        };
+      });
       setMeetings(meetingsWithStats);
       setHasLoadedMeetings(true);
     } catch (error) {
