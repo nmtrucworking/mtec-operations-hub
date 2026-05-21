@@ -55,6 +55,11 @@ import {
 import { Copy, Check } from 'lucide-react';
 import { hasAnyRole } from '../lib/permissions';
 
+import {
+  getDisciplineRecords,
+  type DisciplineRecord
+} from '../services/discipline';
+
 const ITEMS_PER_PAGE = 10;
 
 interface MembersViewProps {
@@ -93,6 +98,9 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<MembersImportResult | null>(null);
 
+  const [memberDiscipline, setMemberDiscipline] = useState<DisciplineRecord | null>(null);
+  const [isLoadingDiscipline, setIsLoadingDiscipline] = useState(false);
+
   const handleImportSubmit = async () => {
     if (!canManageMembers) {
       toast.error('Bạn chỉ có quyền xem danh sách thành viên.');
@@ -107,7 +115,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
     setImportResult(null);
     const response = await importMembers(importFile, { onDuplicate: importOnDuplicate }, authToken);
     setIsImporting(false);
-    
+
     if (response.status >= 200 && response.status < 300 && response.data) {
       const resultData = (response.data as any).data || response.data;
       setImportResult(resultData);
@@ -130,6 +138,39 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
       };
       fetchMemberLogs();
     }
+  }, [selectedMember, activeDetailTab, authToken]);
+
+  useEffect(() => {
+    if (!selectedMember || !authToken) return;
+
+    const fetchPerformanceData = async () => {
+      if (activeDetailTab === 'performance') {
+        setIsLoadingDiscipline(true);
+        try {
+          // Truy vấn bản ghi kỷ luật theo MSSV của thành viên
+          const res = await getDisciplineRecords({ search: selectedMember.mssv }, authToken);
+          if (res.data && res.data.records.length > 0) {
+            // Lấy bản ghi đầu tiên khớp với MSSV
+            setMemberDiscipline(res.data.records[0]);
+          } else {
+            setMemberDiscipline(null);
+          }
+        } catch (error) {
+          console.error("Failed to fetch discipline data", error);
+        } finally {
+          setIsLoadingDiscipline(false);
+        }
+      }
+
+      if (activeDetailTab === 'history') {
+        setIsLoadingLogs(true);
+        const res = await getLogs({ search: selectedMember.id }, authToken);
+        if (res.data) setMemberLogs(res.data.logs);
+        setIsLoadingLogs(false);
+      }
+    };
+
+    void fetchPerformanceData();
   }, [selectedMember, activeDetailTab, authToken]);
 
   type MemberFormData = Omit<Member, 'id'>;
@@ -244,12 +285,12 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   };
 
   const handleExport = async (format: 'csv' | 'zip') => {
-    const exportUrl = exportMembers({ 
+    const exportUrl = exportMembers({
       format,
       ban: filterBan === 'All' ? undefined : filterBan,
       status: filterStatus === 'All' ? undefined : filterStatus
     }, authToken);
-    
+
     if (authToken) {
       const filename = `members_export_${new Date().getTime()}.${format === 'csv' ? 'csv' : 'zip'}`;
       const success = await downloadFileWithAuth(exportUrl, authToken, filename);
@@ -383,7 +424,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
     // Validation
     const requiredFields: (keyof MemberFormData)[] = ['mssv', 'name', 'dob', 'phone', 'email', 'joinDate', 'role', 'experience', 'goal', 'orientation'];
     const missingFields = requiredFields.filter(field => !formData[field]);
-    
+
     if (missingFields.length > 0) {
       toast.error(`Vui lòng nhập đầy đủ các thông tin bắt buộc: ${missingFields.join(', ')}`);
       return;
@@ -395,7 +436,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
     }
 
     setIsSavingMember(true);
-    
+
     const { role, ban, ...rest } = formData;
     const payload = {
       ...rest,
@@ -458,7 +499,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
     // Validation
     const requiredFields: (keyof MemberFormData)[] = ['mssv', 'name', 'dob', 'phone', 'email', 'joinDate', 'role', 'experience', 'goal', 'orientation'];
     const missingFields = requiredFields.filter(field => !formData[field]);
-    
+
     if (missingFields.length > 0) {
       toast.error(`Vui lòng nhập đầy đủ các thông tin bắt buộc: ${missingFields.join(', ')}`);
       return;
@@ -537,8 +578,8 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
     }
 
     return paginatedMembers.map((member, index) => (
-      <TableRow 
-        key={member.id} 
+      <TableRow
+        key={member.id}
         className="cursor-pointer group"
         onClick={() => setSelectedMember(member)}
       >
@@ -649,9 +690,9 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => void refreshMembers()} 
+          <Button
+            variant="outline"
+            onClick={() => void refreshMembers()}
             className="flex items-center gap-2 border-border-highlight"
             title="Làm mới dữ liệu"
           >
@@ -842,18 +883,18 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
       </div>
 
       {/* Member Detail Modal */}
-      <Modal 
-        isOpen={!!selectedMember && !isEditModalOpen} 
+      <Modal
+        isOpen={!!selectedMember && !isEditModalOpen}
         onClose={() => { setSelectedMember(null); setActiveDetailTab('info'); }}
         title={selectedMember ? `${t('members.profileTitle')}: ${selectedMember.name}` : t('members.profileTitle')}
         className="max-w-3xl"
         footer={
           <>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={async () => {
                 const url = exportMemberProfileUrl(selectedMember!.id);
-                  if (authToken) {
+                if (authToken) {
                   const filename = `Ho_so_${selectedMember!.name.replace(/\s+/g, '_')}_${selectedMember!.mssv}.docx`;
                   const success = await downloadFileWithAuth(url, authToken, filename);
                   if (!success) {
@@ -905,7 +946,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               <div className="flex-1 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-2xl font-bold text-primary">{selectedMember.name}</h3>
-                  <Badge 
+                  <Badge
                     variant={selectedMember.status === 'Active' ? 'default' : 'outline'}
                     className={selectedMember.status === 'Active' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-secondary/10 text-secondary border-secondary/20'}
                   >
@@ -930,21 +971,21 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
             </div>
 
             <div className="flex border-b border-border overflow-x-auto">
-              <button 
+              <button
                 onClick={() => setActiveDetailTab('info')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'info' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
                 Thông tin chi tiết
                 {activeDetailTab === 'info' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
-              <button 
+              <button
                 onClick={() => setActiveDetailTab('performance')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'performance' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
                 Kỷ luật & KPI
                 {activeDetailTab === 'performance' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
-              <button 
+              <button
                 onClick={() => setActiveDetailTab('history')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
@@ -967,7 +1008,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-primary truncate">{selectedMember.email}</span>
-                        <button 
+                        <button
                           onClick={() => handleCopy(selectedMember.email, 'Email')}
                           className="p-1 hover:bg-secondary/10 rounded transition-colors text-secondary hover:text-gold"
                         >
@@ -982,7 +1023,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-primary">{selectedMember.phone}</span>
-                        <button 
+                        <button
                           onClick={() => handleCopy(selectedMember.phone, 'Số điện thoại')}
                           className="p-1 hover:bg-secondary/10 rounded transition-colors text-secondary hover:text-gold"
                         >
@@ -1050,33 +1091,59 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               </div>
             ) : activeDetailTab === 'performance' ? (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-2">
-                      <Target size={24} />
-                    </div>
-                    <span className="text-sm text-secondary font-medium">Điểm KPI</span>
-                    <span className="text-3xl font-bold text-primary">{selectedMember.kpi ?? 100}</span>
+                {isLoadingDiscipline ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-32 w-full rounded-xl" />
+                    ))}
                   </div>
-                  <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center mb-2">
-                      <Calendar size={24} />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
+                        <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-2">
+                          <Target size={24} />
+                        </div>
+                        <span className="text-sm text-secondary font-medium">Điểm KPI</span>
+                        <span className="text-3xl font-bold text-primary">
+                          {memberDiscipline?.kpi ?? 100}
+                        </span>
+                      </div>
+                      <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
+                        <div className="w-12 h-12 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center mb-2">
+                          <Calendar size={24} />
+                        </div>
+                        <span className="text-sm text-secondary font-medium">Số buổi vắng</span>
+                        <span className="text-3xl font-bold text-primary">
+                          {memberDiscipline?.absents ?? 0}
+                        </span>
+                      </div>
+                      <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
+                        <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-2">
+                          <Star size={24} />
+                        </div>
+                        <span className="text-sm text-secondary font-medium">Mức kỷ luật</span>
+                        <span className="text-xl font-bold text-primary">
+                          {memberDiscipline?.disciplineLevel || 'Không'}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-sm text-secondary font-medium">Số buổi vắng</span>
-                    <span className="text-3xl font-bold text-primary">{selectedMember.absents ?? 0}</span>
-                  </div>
-                  <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-2">
-                      <Star size={24} />
-                    </div>
-                    <span className="text-sm text-secondary font-medium">Mức kỷ luật</span>
-                    <span className="text-xl font-bold text-primary">{selectedMember.disciplineLevel || 'Không'}</span>
-                  </div>
-                </div>
+
+                    {memberDiscipline?.note && (
+                      <div className="bg-brand-light p-5 rounded-xl border border-border">
+                        <h4 className="text-sm font-bold text-gold uppercase tracking-wider mb-2">Ghi chú kỷ luật</h4>
+                        <p className="text-sm text-secondary leading-relaxed">
+                          {memberDiscipline.note}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <div className="bg-brand-light p-5 rounded-xl border border-border">
-                  <h4 className="text-sm font-bold text-gold uppercase tracking-wider mb-2">Ghi chú</h4>
+                  <h4 className="text-sm font-bold text-gold uppercase tracking-wider mb-2">Thông tin hệ thống</h4>
                   <p className="text-sm text-secondary">
-                    Dữ liệu kỷ luật và KPI được cập nhật liên tục từ hệ thống điểm danh và quản lý thành tích của CLB.
+                    Dữ liệu kỷ luật và KPI được tổng hợp định kỳ từ hệ thống điểm danh và quản lý hoạt động.
                   </p>
                 </div>
               </div>
@@ -1127,8 +1194,8 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
             <Button variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }} className="hover:bg-secondary/10 transition-colors">
               Hủy
             </Button>
-            <Button 
-              isLoading={isSavingMember} 
+            <Button
+              isLoading={isSavingMember}
               onClick={() => void (isEditModalOpen ? handleEditSubmit() : handleAddSubmit())}
               className={`transition-all ${isSavingMember ? 'cursor-wait' : 'active:scale-95'}`}
             >
@@ -1139,7 +1206,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
       >
         <div className="space-y-4">
           {/* Toast messages shown via global toast; removed inline modal banners */}
-          
+
           <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Thông tin cơ bản */}
@@ -1148,229 +1215,229 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                   <Users size={18} className="mr-2" />
                   Thông tin cơ bản
                 </h4>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Họ và tên *</label>
-                <Input name="name" value={formData.name} onChange={handleFormChange} required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">MSSV *</label>
-                  <Input name="mssv" value={formData.mssv} onChange={handleFormChange} required />
+                  <label className="text-sm font-medium">Họ và tên *</label>
+                  <Input name="name" value={formData.name} onChange={handleFormChange} required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">MSSV *</label>
+                    <Input name="mssv" value={formData.mssv} onChange={handleFormChange} required />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Giới tính *</label>
+                    <Select name="gender" value={formData.gender} onChange={handleFormChange} required>
+                      <option value="Nam">Nam</option>
+                      <option value="Nu">Nữ</option>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Giới tính *</label>
-                  <Select name="gender" value={formData.gender} onChange={handleFormChange} required>
-                    <option value="Nam">Nam</option>
-                    <option value="Nu">Nữ</option>
+                  <label className="text-sm font-medium">Ngày sinh *</label>
+                  <Input name="dob" type="date" value={formData.dob} onChange={handleFormChange} required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Email *</label>
+                  <Input name="email" type="email" value={formData.email} onChange={handleFormChange} required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Số điện thoại *</label>
+                  <Input name="phone" value={formData.phone} onChange={handleFormChange} required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Địa chỉ</label>
+                  <Input name="address" value={formData.address} onChange={handleFormChange} />
+                </div>
+              </div>
+
+              {/* Thông tin CLB & Học vấn */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gold border-b border-border pb-2">CLB & Học vấn</h4>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Ban * (Checklist)</label>
+                  <div className="grid grid-cols-2 gap-2 p-3 border border-border rounded-lg bg-background/50">
+                    {DEPARTMENTS.map(dept => (
+                      <label key={dept} className="flex items-center space-x-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={banListMatches(formData.ban, dept)}
+                          onChange={() => handleBanToggle(dept)}
+                          className="rounded border-border text-gold focus:ring-gold transition-colors"
+                        />
+                        <span className="text-sm group-hover:text-gold transition-colors">{dept}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Chức vụ *</label>
+                  <Input name="role" value={formData.role} onChange={handleFormChange} required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Trạng thái *</label>
+                    <Select name="status" value={formData.status} onChange={handleFormChange} required>
+                      <option value="Active">Hoạt động</option>
+                      <option value="Inactive">Tạm nghỉ</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Ngày tham gia *</label>
+                    <Input name="joinDate" type="date" value={formData.joinDate} onChange={handleFormChange} required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Lớp</label>
+                  <Input name="lop" value={formData.lop} onChange={handleFormChange} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Khoa *</label>
+                  <Select name="khoa" value={formData.khoa} onChange={handleFormChange} required>
+                    {Object.keys(FACULTY_MAJOR_MAP).map(khoa => (
+                      <option key={khoa} value={khoa}>{khoa}</option>
+                    ))}
                   </Select>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ngày sinh *</label>
-                <Input name="dob" type="date" value={formData.dob} onChange={handleFormChange} required />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Email *</label>
-                <Input name="email" type="email" value={formData.email} onChange={handleFormChange} required />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Số điện thoại *</label>
-                <Input name="phone" value={formData.phone} onChange={handleFormChange} required />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Địa chỉ</label>
-                <Input name="address" value={formData.address} onChange={handleFormChange} />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Chuyên ngành *</label>
+                  {formData.khoa === 'Khác' ? (
+                    <Input
+                      name="chuyenNganh"
+                      value={formData.chuyenNganh}
+                      onChange={handleFormChange}
+                      placeholder="Nhập chuyên ngành..."
+                      required
+                    />
+                  ) : (
+                    <Select name="chuyenNganh" value={formData.chuyenNganh} onChange={handleFormChange} required>
+                      {FACULTY_MAJOR_MAP[formData.khoa]?.map(major => (
+                        <option key={major} value={major}>{major}</option>
+                      ))}
+                    </Select>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Thông tin CLB & Học vấn */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-gold border-b border-border pb-2">CLB & Học vấn</h4>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ban * (Checklist)</label>
-                <div className="grid grid-cols-2 gap-2 p-3 border border-border rounded-lg bg-background/50">
-                  {DEPARTMENTS.map(dept => (
-                    <label key={dept} className="flex items-center space-x-2 cursor-pointer group">
-                      <input 
-                        type="checkbox" 
-                        checked={banListMatches(formData.ban, dept)} 
-                        onChange={() => handleBanToggle(dept)}
-                        className="rounded border-border text-gold focus:ring-gold transition-colors"
-                      />
-                      <span className="text-sm group-hover:text-gold transition-colors">{dept}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Chức vụ *</label>
-                <Input name="role" value={formData.role} onChange={handleFormChange} required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Trạng thái *</label>
-                  <Select name="status" value={formData.status} onChange={handleFormChange} required>
-                    <option value="Active">Hoạt động</option>
-                    <option value="Inactive">Tạm nghỉ</option>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Ngày tham gia *</label>
-                  <Input name="joinDate" type="date" value={formData.joinDate} onChange={handleFormChange} required />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Lớp</label>
-                <Input name="lop" value={formData.lop} onChange={handleFormChange} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Khoa *</label>
-                <Select name="khoa" value={formData.khoa} onChange={handleFormChange} required>
-                  {Object.keys(FACULTY_MAJOR_MAP).map(khoa => (
-                    <option key={khoa} value={khoa}>{khoa}</option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Chuyên ngành *</label>
-                {formData.khoa === 'Khác' ? (
-                  <Input 
-                    name="chuyenNganh" 
-                    value={formData.chuyenNganh} 
-                    onChange={handleFormChange} 
-                    placeholder="Nhập chuyên ngành..."
-                    required 
-                  />
-                ) : (
-                  <Select name="chuyenNganh" value={formData.chuyenNganh} onChange={handleFormChange} required>
-                    {FACULTY_MAJOR_MAP[formData.khoa]?.map(major => (
-                      <option key={major} value={major}>{major}</option>
-                    ))}
-                  </Select>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Kỹ năng & Định hướng */}
-          <div className="space-y-4 pt-4">
-            <h4 className="font-semibold text-gold border-b border-border pb-2">Kỹ năng & Định hướng</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm font-medium">Kỹ năng chuyên môn *</label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleAddSkill('hard')}>
-                      <Plus size={14} className="mr-1" />
-                      Thêm kỹ năng
-                    </Button>
-                  </div>
-                  {formData.hardSkills.length === 0 ? (
-                    <p className="text-xs text-secondary border border-dashed border-border rounded-lg px-3 py-2">
-                      Chưa có kỹ năng chuyên môn. Nhấn "Thêm kỹ năng" để bắt đầu.
-                    </p>
-                  ) : null}
+            {/* Kỹ năng & Định hướng */}
+            <div className="space-y-4 pt-4">
+              <h4 className="font-semibold text-gold border-b border-border pb-2">Kỹ năng & Định hướng</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    {formData.hardSkills.map((skill, index) => (
-                      <div key={`hard-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2 items-center">
-                        <Input
-                          value={skill.name}
-                          onChange={(e) => handleSkillChange('hard', index, 'name', e.target.value)}
-                          placeholder="Tên kỹ năng"
-                        />
-                        <Select
-                          value={skill.level}
-                          onChange={(e) => handleSkillChange('hard', index, 'level', e.target.value)}
-                        >
-                          <option value="Tốt">Tốt</option>
-                          <option value="Trung bình">Trung bình</option>
-                          <option value="Cơ bản">Cơ bản</option>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleRemoveSkill('hard', index)}
-                          title="Xóa kỹ năng"
-                        >
-                          <X size={14} />
-                        </Button>
-                      </div>
-                    ))}
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-sm font-medium">Kỹ năng chuyên môn *</label>
+                      <Button type="button" variant="outline" size="sm" onClick={() => handleAddSkill('hard')}>
+                        <Plus size={14} className="mr-1" />
+                        Thêm kỹ năng
+                      </Button>
+                    </div>
+                    {formData.hardSkills.length === 0 ? (
+                      <p className="text-xs text-secondary border border-dashed border-border rounded-lg px-3 py-2">
+                        Chưa có kỹ năng chuyên môn. Nhấn "Thêm kỹ năng" để bắt đầu.
+                      </p>
+                    ) : null}
+                    <div className="space-y-2">
+                      {formData.hardSkills.map((skill, index) => (
+                        <div key={`hard-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2 items-center">
+                          <Input
+                            value={skill.name}
+                            onChange={(e) => handleSkillChange('hard', index, 'name', e.target.value)}
+                            placeholder="Tên kỹ năng"
+                          />
+                          <Select
+                            value={skill.level}
+                            onChange={(e) => handleSkillChange('hard', index, 'level', e.target.value)}
+                          >
+                            <option value="Tốt">Tốt</option>
+                            <option value="Trung bình">Trung bình</option>
+                            <option value="Cơ bản">Cơ bản</option>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleRemoveSkill('hard', index)}
+                            title="Xóa kỹ năng"
+                          >
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm font-medium">Kỹ năng mềm *</label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleAddSkill('soft')}>
-                      <Plus size={14} className="mr-1" />
-                      Thêm kỹ năng
-                    </Button>
-                  </div>
-                  {formData.softSkills.length === 0 ? (
-                    <p className="text-xs text-secondary border border-dashed border-border rounded-lg px-3 py-2">
-                      Chưa có kỹ năng mềm. Nhấn "Thêm kỹ năng" để bắt đầu.
-                    </p>
-                  ) : null}
                   <div className="space-y-2">
-                    {formData.softSkills.map((skill, index) => (
-                      <div key={`soft-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2 items-center">
-                        <Input
-                          value={skill.name}
-                          onChange={(e) => handleSkillChange('soft', index, 'name', e.target.value)}
-                          placeholder="Tên kỹ năng"
-                        />
-                        <Select
-                          value={skill.level}
-                          onChange={(e) => handleSkillChange('soft', index, 'level', e.target.value)}
-                        >
-                          <option value="Tốt">Tốt</option>
-                          <option value="Trung bình">Trung bình</option>
-                          <option value="Cơ bản">Cơ bản</option>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleRemoveSkill('soft', index)}
-                          title="Xóa kỹ năng"
-                        >
-                          <X size={14} />
-                        </Button>
-                      </div>
-                    ))}
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-sm font-medium">Kỹ năng mềm *</label>
+                      <Button type="button" variant="outline" size="sm" onClick={() => handleAddSkill('soft')}>
+                        <Plus size={14} className="mr-1" />
+                        Thêm kỹ năng
+                      </Button>
+                    </div>
+                    {formData.softSkills.length === 0 ? (
+                      <p className="text-xs text-secondary border border-dashed border-border rounded-lg px-3 py-2">
+                        Chưa có kỹ năng mềm. Nhấn "Thêm kỹ năng" để bắt đầu.
+                      </p>
+                    ) : null}
+                    <div className="space-y-2">
+                      {formData.softSkills.map((skill, index) => (
+                        <div key={`soft-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2 items-center">
+                          <Input
+                            value={skill.name}
+                            onChange={(e) => handleSkillChange('soft', index, 'name', e.target.value)}
+                            placeholder="Tên kỹ năng"
+                          />
+                          <Select
+                            value={skill.level}
+                            onChange={(e) => handleSkillChange('soft', index, 'level', e.target.value)}
+                          >
+                            <option value="Tốt">Tốt</option>
+                            <option value="Trung bình">Trung bình</option>
+                            <option value="Cơ bản">Cơ bản</option>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleRemoveSkill('soft', index)}
+                            title="Xóa kỹ năng"
+                          >
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Mục tiêu trong CLB *</label>
+                    <textarea
+                      name="goal"
+                      value={formData.goal}
+                      onChange={handleFormChange}
+                      className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold min-h-[80px]"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Kinh nghiệm trước đây *</label>
+                    <textarea
+                      name="experience"
+                      value={formData.experience}
+                      onChange={handleFormChange}
+                      className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold min-h-[80px]"
+                      required
+                    />
                   </div>
                 </div>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Mục tiêu trong CLB *</label>
-                  <textarea 
-                    name="goal" 
-                    value={formData.goal} 
-                    onChange={handleFormChange} 
-                    className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold min-h-[80px]" 
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Kinh nghiệm trước đây *</label>
-                  <textarea 
-                    name="experience" 
-                    value={formData.experience} 
-                    onChange={handleFormChange} 
-                    className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold min-h-[80px]" 
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Định hướng tương lai *</label>
+                <Input name="orientation" value={formData.orientation} onChange={handleFormChange} placeholder="Vd: Trở thành Developer trong 3 năm tới..." required />
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Định hướng tương lai *</label>
-              <Input name="orientation" value={formData.orientation} onChange={handleFormChange} placeholder="Vd: Trở thành Developer trong 3 năm tới..." required />
-            </div>
-          </div>
-        </form>
+          </form>
         </div>
       </Modal>
 
@@ -1397,7 +1464,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
       >
         <div className="space-y-4">
           <p className="text-sm text-secondary">{t('members.importDesc')}</p>
-          
+
           <div className="flex flex-col space-y-2">
             <label className="text-sm font-medium">{t('members.importFile')}</label>
             <Input
@@ -1436,16 +1503,16 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <span className="text-secondary">{t('members.importTotal')}</span>
                 <span className="font-medium">{importResult.total}</span>
-                
+
                 <span className="text-secondary">{t('members.importCreated')}</span>
                 <span className="font-medium text-success-text">{importResult.created}</span>
-                
+
                 <span className="text-secondary">{t('members.importUpdated')}</span>
                 <span className="font-medium text-brand-blue">{importResult.updated}</span>
-                
+
                 <span className="text-secondary">{t('members.importSkipped')}</span>
                 <span className="font-medium text-warning-text">{importResult.skipped}</span>
-                
+
                 <span className="text-secondary">{t('members.importErrorCount')}</span>
                 <span className="font-medium text-danger-text">{importResult.failed}</span>
               </div>
@@ -1497,7 +1564,7 @@ const SkillBadge = ({ name, level }: SkillBadgeProps) => {
   let badgeVariant: 'default' | 'success' | 'warning' | 'secondary' = 'secondary';
   if (level === 'Tốt') badgeVariant = 'success';
   if (level === 'Trung bình') badgeVariant = 'warning';
-  
+
   return (
     <Badge variant={badgeVariant} className="px-2.5 py-1 text-xs flex items-center">
       {name} <span className="ml-1 opacity-70 font-normal">({level})</span>
