@@ -8,7 +8,8 @@ import {
   X,
   AlertCircle,
   Calendar,
-  CheckCheck
+  CheckCheck,
+  Circle
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Modal } from "../ui/modal";
@@ -45,6 +46,13 @@ interface NewMeetingState {
   description: string;
   minutesUrl: string;
 }
+
+type AttendanceStatus = Attendance['status'];
+
+const formatBan = (ban: unknown): string => {
+  if (Array.isArray(ban)) return ban.filter(Boolean).join(', ');
+  return typeof ban === 'string' ? ban : '';
+};
 
 const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
   const { t } = useTranslation()
@@ -93,7 +101,6 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
       const meetingsRes = await getMeetings(authToken);
       const parsedMeetings = parseListData<Meeting>(meetingsRes);
 
-      // 2. Stats are now calculated efficiently by the backend in GET /meetings
       const meetingsWithStats = parsedMeetings.map(meeting => {
         if (!meeting.stats) return meeting;
         const recorded = meeting.stats.present + meeting.stats.absent + meeting.stats.excused;
@@ -102,7 +109,7 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
           ...meeting,
           stats: {
             ...meeting.stats,
-            absent: meeting.stats.absent + unrecordedCount
+            unrecorded: meeting.stats.unrecorded ?? unrecordedCount
           }
         };
       });
@@ -129,7 +136,7 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
 
     // Thiết lập trạng thái mặc định cho tất cả thành viên
     allMembers.forEach(m => {
-      initialAttendance[m.id] = { memberId: m.id, status: 'Absent', note: '' };
+      initialAttendance[m.id] = { memberId: m.id, status: 'Unrecorded', note: '' };
     });
 
     try {
@@ -172,6 +179,7 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
     if (res.success) {
       setIsAddMeetingModalOpen(false);
       setNewMeeting({ title: '', date: '', meetingType: 'Họp định kỳ', description: '', minutesUrl: '' });
+      await fetchMeetings();
     } else {
       alert("Lỗi khi tạo cuộc họp: " + res.error);
     }
@@ -207,11 +215,11 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
    * @param memberId - ID của thành viên
    * @param status - Trạng thái điểm danh, có 3 trạng thái: Present, Absent, Excused
    */
-  const handleAttendanceChange = (memberId: string, status: 'Present' | 'Absent' | 'Excused') => {
+  const handleAttendanceChange = (memberId: string, status: AttendanceStatus) => {
     setAttendanceData(prev => ({ ...prev, [memberId]: { ...prev[memberId], status } }));
   };
 
-  const handleBulkAttendanceChange = (status: 'Present' | 'Absent' | 'Excused') => {
+  const handleBulkAttendanceChange = (status: AttendanceStatus) => {
     setAttendanceData(prev => {
       const newData = { ...prev };
       Object.keys(newData).forEach(key => {
@@ -325,6 +333,9 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                         <div className="flex items-center gap-1 text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 px-2 py-0.5 rounded-md font-medium" title="Vắng có phép">
                           <AlertCircle size={12} /> {meeting.stats.excused}
                         </div>
+                        <div className="flex items-center gap-1 text-slate-600 bg-slate-100 dark:bg-slate-800/60 dark:text-slate-300 px-2 py-0.5 rounded-md font-medium" title="Chưa ghi nhận">
+                          <Circle size={12} /> {meeting.stats.unrecorded ?? 0}
+                        </div>
                       </div>
                     ) : (
                       <span className="text-xs text-secondary italic">Chưa thống kê</span>
@@ -378,12 +389,12 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
               <option value="Họp định kỳ">Họp định kỳ toàn CLB</option>
               <option value="Họp Ban">Họp Ban chuyên môn</option>
               <option value="Họp dự án">Họp dự án cụ thể</option>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">URL biên bản (không bắt buộc)</label>
-                <Input type="url" value={newMeeting.minutesUrl} onChange={e => setNewMeeting({ ...newMeeting, minutesUrl: e.target.value })} placeholder="https://docs.google.com/document/d/... hoặc URL Google Drive" className="rounded-xl" />
-                <p className="text-xs text-secondary mt-1.5">Hỗ trợ: Google Docs, Google Sheet, Google Slides hoặc Google Drive</p>
-              </div>
             </Select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-foreground mb-1.5">URL biên bản (không bắt buộc)</label>
+            <Input type="url" value={newMeeting.minutesUrl} onChange={e => setNewMeeting({ ...newMeeting, minutesUrl: e.target.value })} placeholder="https://docs.google.com/document/d/... hoặc URL Google Drive" className="rounded-xl" />
+            <p className="text-xs text-secondary mt-1.5">Hỗ trợ: Google Docs, Google Sheet, Google Slides hoặc Google Drive</p>
           </div>
           <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
             <Button type="button" variant="outline" className="rounded-xl" onClick={() => setIsAddMeetingModalOpen(false)}>Hủy</Button>
@@ -438,11 +449,11 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
 
       {attendanceModalMeeting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border/50 rounded-2xl w-full max-w-4xl flex flex-col h-[85vh] shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-card border border-border/50 rounded-2xl w-full max-w-5xl flex flex-col h-[85vh] shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-5 border-b border-border/50">
               <div>
                 <h3 className="text-xl font-bold flex items-center gap-2"><Users className="text-primary" /> Điểm danh: <span className="text-primary">{attendanceModalMeeting.title}</span></h3>
-                <p className="text-sm text-secondary mt-1">Trạng thái mặc định: "Vắng không phép". Cần chọn "Có mặt" cho các thành viên tham gia.</p>
+                <p className="text-sm text-secondary mt-1">Trạng thái mặc định: "Chưa ghi nhận". Chỉ các dòng chọn "Vắng không phép" mới được đồng bộ sang kỷ luật.</p>
               </div>
               <button onClick={() => setAttendanceModalMeeting(null)} className="text-secondary hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted"><X size={24} /></button>
             </div>
@@ -458,6 +469,14 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                 className="rounded-lg text-green-600 border-green-200 bg-green-50 hover:bg-green-100 dark:bg-green-900/10 dark:border-green-900/50 dark:hover:bg-green-900/30 transition-colors"
               >
                 <CheckCheck size={14} className="mr-1.5" /> Tất cả có mặt
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAttendanceChange('Unrecorded')}
+                className="rounded-lg text-slate-600 border-slate-200 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/10 dark:border-slate-700 dark:hover:bg-slate-800/40 transition-colors"
+              >
+                <Circle size={14} className="mr-1.5" /> Đặt về chưa ghi nhận
               </Button>
               <Button
                 variant="outline"
@@ -487,16 +506,17 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                     <TableHead className="text-center font-semibold text-green-600">Có mặt</TableHead>
                     <TableHead className="text-center font-semibold text-red-600">Vắng (Không phép)</TableHead>
                     <TableHead className="text-center font-semibold text-yellow-600">Vắng (Có phép)</TableHead>
+                    <TableHead className="text-center font-semibold text-slate-500">Chưa ghi nhận</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {allMembers.map(member => {
-                    const status = attendanceData[member.id]?.status || 'Absent';
+                    const status = attendanceData[member.id]?.status || 'Unrecorded';
                     return (
                       <TableRow key={member.id} className="hover:bg-muted/30">
                         <TableCell className="font-medium text-secondary-foreground">{member.mssv}</TableCell>
                         <TableCell className="font-semibold">{member.name}</TableCell>
-                        <TableCell><span className="text-xs px-2 py-1 bg-muted rounded border border-border/30">{member.ban && member.ban.length > 0 ? member.ban.join(', ') : ''}</span></TableCell>
+                        <TableCell><span className="text-xs px-2 py-1 bg-muted rounded border border-border/30">{formatBan(member.ban)}</span></TableCell>
                         <TableCell className="text-center">
                           <input
                             type="radio"
@@ -522,6 +542,15 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                             checked={status === 'Excused'}
                             onChange={() => handleAttendanceChange(member.id, 'Excused')}
                             className="w-5 h-5 accent-yellow-500 cursor-pointer"
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <input
+                            type="radio"
+                            name={`status-${member.id}`}
+                            checked={status === 'Unrecorded'}
+                            onChange={() => handleAttendanceChange(member.id, 'Unrecorded')}
+                            className="w-5 h-5 accent-slate-500 cursor-pointer"
                           />
                         </TableCell>
                       </TableRow>

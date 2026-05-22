@@ -11,7 +11,8 @@ import {
   AlertTriangle,
   Calendar,
   Layers,
-  ArrowRight
+  ArrowRight,
+  BookOpen
 } from 'lucide-react';
 import { UserAccount } from '../../types/app';
 import { Member } from '../../data/members';
@@ -31,6 +32,7 @@ import EvaluationEvidencePanel from './EvaluationEvidencePanel';
 import EvaluationResultsPanel from './EvaluationResultsPanel';
 import EvaluationSyncPanel from './EvaluationSyncPanel';
 import EvaluationAppealsPanel from './EvaluationAppealsPanel';
+import EvaluationGuidePanel from './EvaluationGuidePanel';
 
 interface EvaluationTabProps {
   authToken?: string;
@@ -38,12 +40,12 @@ interface EvaluationTabProps {
   allMembers: Member[];
 }
 
-type InnerTabType = 'cycles' | 'criteria' | 'roles' | 'events' | 'evidence' | 'results' | 'sync' | 'appeals';
+type InnerTabType = 'guide' | 'cycles' | 'criteria' | 'roles' | 'events' | 'evidence' | 'results' | 'sync' | 'appeals';
 
 export const EvaluationTab = ({ authToken, currentUser, allMembers }: EvaluationTabProps) => {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [selectedCycle, setSelectedCycle] = useState<EvaluationCycle | null>(null);
-  const [innerTab, setInnerTab] = useState<InnerTabType>('cycles');
+  const [innerTab, setInnerTab] = useState<InnerTabType>('guide');
   const [cycles, setCycles] = useState<EvaluationCycle[]>([]);
   const [summary, setSummary] = useState<EvaluationCycleSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
@@ -211,6 +213,18 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
       {/* Submodule Navigation */}
       <div className="flex space-x-1 border-b border-border/60 overflow-x-auto no-scrollbar w-full">
         <button
+          onClick={() => setInnerTab('guide')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
+            innerTab === 'guide'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-secondary hover:text-foreground hover:border-border'
+          }`}
+        >
+          <BookOpen size={16} />
+          Quy định
+        </button>
+
+        <button
           onClick={() => setInnerTab('cycles')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
             innerTab === 'cycles'
@@ -328,6 +342,8 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
 
       {/* Render Panel according to tab */}
       <div className="mt-4 transition-all">
+        {innerTab === 'guide' && <EvaluationGuidePanel />}
+
         {innerTab === 'cycles' && (
           <EvaluationCyclesPanel
             authToken={authToken}
@@ -416,7 +432,7 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
           </>
         )}
 
-        {!selectedCycleId && innerTab !== 'cycles' && innerTab !== 'criteria' && (
+        {!selectedCycleId && innerTab !== 'guide' && innerTab !== 'cycles' && innerTab !== 'criteria' && (
           <div className="flex flex-col items-center justify-center p-12 bg-card border border-border/50 rounded-2xl shadow-sm text-center space-y-4">
             <div className="p-4 bg-yellow-50 dark:bg-yellow-900/10 text-yellow-600 rounded-full">
               <AlertTriangle size={32} />

@@ -21,8 +21,41 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Member } from '../../data/members';
 
 
-type DisciplineLevel = 'Không' | 'Nhắc nhở' | 'Cảnh cáo Lần 1';
+type DisciplineLevel = 'NONE' | 'REMINDER' | 'WARNING_1' | 'WARNING_2' | 'SUSPENSION' | 'EXPULSION';
 type FormDataState = DisciplineRecordCreate & { id?: string };
+
+const DISCIPLINE_LEVEL_LABELS: Record<DisciplineLevel, string> = {
+  NONE: 'Không kỷ luật',
+  REMINDER: 'Nhắc nhở',
+  WARNING_1: 'Cảnh cáo lần 1',
+  WARNING_2: 'Cảnh cáo lần 2',
+  SUSPENSION: 'Đình chỉ',
+  EXPULSION: 'Khai trừ',
+};
+
+const normalizeDisciplineLevel = (value?: string): DisciplineLevel => {
+  if (!value) return 'NONE';
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  if (value in DISCIPLINE_LEVEL_LABELS) return value as DisciplineLevel;
+  if (['khong', 'khong ky luat', 'none'].includes(normalized)) return 'NONE';
+  if (normalized.includes('nhac nho') || normalized === 'reminder') return 'REMINDER';
+  if (normalized.includes('lan 2') || normalized === 'warning 2') return 'WARNING_2';
+  if (normalized.includes('canh cao') || normalized === 'warning' || normalized === 'warning 1') return 'WARNING_1';
+  if (normalized.includes('dinh chi') || normalized === 'suspension') return 'SUSPENSION';
+  if (normalized.includes('khai tru') || normalized === 'expulsion') return 'EXPULSION';
+  return 'WARNING_1';
+};
+
+const formatBan = (ban: unknown): string => {
+  if (Array.isArray(ban)) return ban.filter(Boolean).join(', ');
+  return typeof ban === 'string' ? ban : '';
+};
 
 // Custom Hook for Debounce (Prevents API Flooding/500 Errors)
 function useDebounce<T>(value: T, delay: number): T {
@@ -46,7 +79,6 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
   const [stats, setStats] = useState<DisciplineStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('All');
   
   const [isLoadingDiscipline, setIsLoadingDiscipline] = useState(false);
   const [hasLoadedRecords, setHasLoadedRecords] = useState(false);
@@ -57,7 +89,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const defaultFormState: FormDataState = {
-    mssv: '', name: '', committee: '', absents: 0, kpi: 100, disciplineLevel: 'Không', note: ''
+    mssv: '', name: '', committee: '', absents: 0, kpi: 100, disciplineLevel: 'NONE', note: ''
   };
   const [formData, setFormData] = useState<FormDataState>(defaultFormState);
   
@@ -112,23 +144,26 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
 
   const fetchData = async () => {
     setIsLoading(true);
+    setIsLoadingDiscipline(true);
     try {
       const statsRes = await getDisciplineStats(authToken);
       if (statsRes?.data) setStats(statsRes.data);
       
       const recordsRes = await getDisciplineRecords({ 
-        search: search || undefined,
-        disciplineLevel: filter === 'All' ? undefined : filter 
+        search: debouncedSearch || undefined,
+        disciplineLevel: disciplineFilter === 'All' ? undefined : disciplineFilter
       }, authToken);
       setRecords(recordsRes?.data?.records || []);
+      setHasLoadedRecords(true);
     } finally {
       setIsLoading(false);
+      setIsLoadingDiscipline(false);
     }
   };
 
   useEffect(() => {
     void fetchData();
-  }, [search, filter]);
+  }, [debouncedSearch, disciplineFilter]);
 
   const handleCreateRecord = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -138,7 +173,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
         const response = await createDisciplineRecord(formData, authToken);
         if (response.success) {
           setIsAddModalOpen(false);
-          setFormData({ mssv: '', name: '', committee: '', absents: 0, kpi: 100, disciplineLevel: 'Không', note: '' });
+          setFormData(defaultFormState);
           await fetchData();
         } else {
           alert(response.error || 'Đã xảy ra lỗi khi tạo bản ghi.');
@@ -158,7 +193,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
           memberId: selected.id,
           mssv: selected.mssv,
           name: selected.name,
-          committee: selected.ban && selected.ban.length > 0 ? selected.ban.join(', ') : ''
+          committee: formatBan(selected.ban)
         });
       } else {
         setFormData({ ...formData, memberId: undefined, mssv: '', name: '', committee: '' });
@@ -173,7 +208,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
         const response = await updateDisciplineRecord(formData.id, formData, authToken);
         if (response.success) {
           setIsEditModalOpen(false);
-          setFormData({ mssv: '', name: '', committee: '', absents: 0, kpi: 100, disciplineLevel: 'Không', note: '' });
+          setFormData(defaultFormState);
           await fetchData();
         } else {
           alert(response.error || 'Đã xảy ra lỗi khi cập nhật bản ghi.');
@@ -186,7 +221,10 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
     };
   
   const openEditModal = (record: DisciplineRecord) => {
-    setFormData(record as any); 
+    setFormData({
+      ...record,
+      disciplineLevel: normalizeDisciplineLevel(record.disciplineLevel),
+    } as any);
     setIsEditModalOpen(true);
   };
 
@@ -234,9 +272,12 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
             className="w-full bg-background/50 border-border/50 focus:bg-background rounded-xl"
           >
             <option value="All">Tất cả mức độ</option>
-            <option value="Không">Không kỷ luật</option>
-            <option value="Nhắc nhở">Nhắc nhở</option>
-            <option value="Cảnh cáo Lần 1">Cảnh cáo Lần 1</option>
+            <option value="NONE">Không kỷ luật</option>
+            <option value="REMINDER">Nhắc nhở</option>
+            <option value="WARNING_1">Cảnh cáo lần 1</option>
+            <option value="WARNING_2">Cảnh cáo lần 2</option>
+            <option value="SUSPENSION">Đình chỉ</option>
+            <option value="EXPULSION">Khai trừ</option>
           </Select>
         </div>
         <Button
@@ -265,7 +306,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
             <TableBody>
               {isLoadingDiscipline ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center">
+                  <TableCell colSpan={7} className="h-48 text-center">
                     <div className="flex flex-col items-center justify-center text-secondary">
                       <Loader2 size={32} className="animate-spin mb-4 text-primary" />
                       <p className="font-medium animate-pulse">Đang tải dữ liệu hồ sơ...</p>
@@ -274,7 +315,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
                 </TableRow>
               ) : records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center">
+                  <TableCell colSpan={7} className="h-48 text-center">
                     <div className="flex flex-col items-center justify-center text-secondary/70">
                       <Users size={48} className="mb-4 opacity-20" />
                       <p className="font-medium">Không tìm thấy bản ghi nào.</p>
@@ -292,13 +333,17 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
                       : <span className="text-secondary">0</span>}
                   </TableCell>
                   <TableCell>
-                    {item.disciplineLevel === 'Không' ? (
-                      <Badge variant="outline" className="text-secondary border-secondary/30 bg-secondary/5 font-medium">Không</Badge>
-                    ) : item.disciplineLevel === 'Nhắc nhở' ? (
-                      <Badge variant="outline" className="text-yellow-700 border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20 dark:text-yellow-500 font-medium shadow-sm">Nhắc nhở</Badge>
-                    ) : (
-                      <Badge variant="danger" className="shadow-sm font-medium">Cảnh cáo Lần 1</Badge>
-                    )}
+                    {(() => {
+                      const level = normalizeDisciplineLevel(item.disciplineLevel);
+                      const label = item.disciplineLevelLabel || DISCIPLINE_LEVEL_LABELS[level];
+                      if (level === 'NONE') {
+                        return <Badge variant="outline" className="text-secondary border-secondary/30 bg-secondary/5 font-medium">{label}</Badge>;
+                      }
+                      if (level === 'REMINDER') {
+                        return <Badge variant="outline" className="text-yellow-700 border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20 dark:text-yellow-500 font-medium shadow-sm">{label}</Badge>;
+                      }
+                      return <Badge variant="danger" className="shadow-sm font-medium">{label}</Badge>;
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="inline-flex items-center justify-end font-bold">
@@ -309,7 +354,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => { setFormData(item as any); setIsEditModalOpen(true); }} className="hover:text-primary text-secondary">
+                    <Button variant="ghost" size="sm" onClick={() => openEditModal(item)} className="hover:text-primary text-secondary">
                       Chỉnh sửa
                     </Button>
                   </TableCell>
@@ -348,7 +393,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Số ngày vắng</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Số buổi vắng không phép</label>
               <Input type="number" min="0" value={formData.absents} onChange={e => setFormData({ ...formData, absents: parseInt(e.target.value) || 0 })} className="rounded-xl" />
             </div>
             <div>
@@ -359,9 +404,12 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">Mức kỷ luật hiện tại</label>
             <Select value={formData.disciplineLevel} onChange={e => setFormData({ ...formData, disciplineLevel: e.target.value })} className="w-full rounded-xl">
-              <option value="Không">Không</option>
-              <option value="Nhắc nhở">Nhắc nhở</option>
-              <option value="Cảnh cáo Lần 1">Cảnh cáo Lần 1</option>
+              <option value="NONE">Không kỷ luật</option>
+              <option value="REMINDER">Nhắc nhở</option>
+              <option value="WARNING_1">Cảnh cáo lần 1</option>
+              <option value="WARNING_2">Cảnh cáo lần 2</option>
+              <option value="SUSPENSION">Đình chỉ</option>
+              <option value="EXPULSION">Khai trừ</option>
             </Select>
           </div>
           <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
@@ -392,7 +440,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Số ngày vắng</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Số buổi vắng không phép</label>
               <Input type="number" min="0" value={formData.absents} onChange={e => setFormData({ ...formData, absents: parseInt(e.target.value) || 0 })} className="rounded-xl" />
             </div>
             <div>
@@ -403,9 +451,12 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">Mức kỷ luật hiện tại</label>
             <Select value={formData.disciplineLevel} onChange={e => setFormData({ ...formData, disciplineLevel: e.target.value })} className="w-full rounded-xl">
-              <option value="Không">Không</option>
-              <option value="Nhắc nhở">Nhắc nhở</option>
-              <option value="Cảnh cáo Lần 1">Cảnh cáo Lần 1</option>
+              <option value="NONE">Không kỷ luật</option>
+              <option value="REMINDER">Nhắc nhở</option>
+              <option value="WARNING_1">Cảnh cáo lần 1</option>
+              <option value="WARNING_2">Cảnh cáo lần 2</option>
+              <option value="SUSPENSION">Đình chỉ</option>
+              <option value="EXPULSION">Khai trừ</option>
             </Select>
           </div>
           <div className="flex justify-end gap-3 pt-6 border-t border-border/50">

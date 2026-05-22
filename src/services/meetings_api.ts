@@ -14,6 +14,7 @@ export interface Meeting {
     present: number;
     absent: number;
     excused: number;
+    unrecorded?: number;
   };
 }
 
@@ -21,7 +22,7 @@ export interface Attendance {
   id?: string;
   meetingId?: string;
   memberId: string;
-  status: 'Present' | 'Absent' | 'Excused';
+  status: 'Present' | 'Absent' | 'Excused' | 'Unrecorded';
   note?: string;
 }
 

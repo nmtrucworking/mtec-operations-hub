@@ -12,6 +12,7 @@ export interface DisciplineRecord {
   name: string;
   absents: number;
   disciplineLevel: string;
+  disciplineLevelLabel?: string;
   kpi: number;
   committee: string;
   note?: string;
