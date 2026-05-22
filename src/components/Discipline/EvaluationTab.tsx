@@ -154,26 +154,26 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
         {selectedCycle && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-border/20">
             <div className="bg-card/25 border border-border/15 p-4 rounded-xl space-y-1.5 shadow-sm/5">
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Thông tin chu kỳ</span>
-              <div className="flex items-center gap-2 text-foreground font-bold">
-                <span className="truncate">{selectedCycle.name}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusBadgeColor(selectedCycle.status)}`}>
-                  {getStatusLabel(selectedCycle.status)}
-                </span>
-              </div>
-              <div className="text-xs text-secondary flex items-center gap-1">
-                <Calendar size={12} />
-                <span>
-                  {new Date(selectedCycle.startDate).toLocaleDateString('vi-VN')} - {new Date(selectedCycle.endDate).toLocaleDateString('vi-VN')}
-                </span>
-              </div>
-            </div>
+      <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Thông tin chu kỳ</span>
+      <div className="flex items-center gap-2 text-foreground font-bold">
+        <span className="truncate">{selectedCycle.name}</span>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusBadgeColor(selectedCycle.status)}`}>
+          {getStatusLabel(selectedCycle.status)}
+        </span>
+      </div>
+      <div className="text-xs text-secondary flex items-center gap-1">
+        <Calendar size={12} />
+        <span>
+          {new Date(selectedCycle.startDate).toLocaleDateString('vi-VN')} - {new Date(selectedCycle.endDate).toLocaleDateString('vi-VN')}
+        </span>
+      </div>
+    </div>
 
             <div className="bg-card/25 border border-border/15 p-4 rounded-xl space-y-1.5 shadow-sm/5">
               <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Số thành viên tham gia</span>
               <div className="text-2xl font-black text-foreground">
                 {isLoadingSummary ? '...' : summary?.totalMembers ?? 0}
-              </div>
+        </div>
               <p className="text-xs text-secondary">Đã gán vai trò trong chu kỳ này</p>
             </div>
 
@@ -183,7 +183,7 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
                 {isLoadingSummary ? '...' : (summary?.averageScore !== undefined ? summary.averageScore.toFixed(2) : '0.00')}
               </div>
               <p className="text-xs text-secondary">Dựa trên kết quả tính toán gần nhất</p>
-            </div>
+        </div>
 
             <div className="bg-card/25 border border-border/15 p-4 rounded-xl space-y-1.5 shadow-sm/5">
               <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Trạng thái chỉnh sửa</span>
@@ -199,15 +199,15 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
                     <span className="text-green-600 dark:text-green-400">Cho phép chỉnh sửa</span>
                   </>
                 )}
-              </div>
+      </div>
               <p className="text-xs text-secondary">
                 {selectedCycle.status === 'LOCKED' 
                   ? 'Chỉ xem dữ liệu, không thể sửa đổi' 
                   : 'Cán bộ có quyền có thể ghi điểm/minh chứng'}
               </p>
-            </div>
-          </div>
-        )}
+    </div>
+  </div>
+)}
       </div>
 
       {/* Submodule Navigation */}

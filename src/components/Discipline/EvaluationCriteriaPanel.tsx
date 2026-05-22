@@ -10,6 +10,7 @@ import {
   getEvaluationCriteria,
   seedEvaluationCriteria,
 } from '../../services/evaluations';
+import EvaluationCriteriaModal from './EvaluationCriteriaModal';
 import { EVALUATION_COMPONENTS, EVALUATION_UNIT_CODES } from '../../data/evaluations';
 
 interface EvaluationCriteriaPanelProps {
@@ -25,6 +26,8 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
   const [filterComponent, setFilterComponent] = useState('');
   const [filterUnit, setFilterUnit] = useState('');
   const [filterActive, setFilterActive] = useState('true');
+  const [selectedCriterion, setSelectedCriterion] = useState<EvaluationCriterion | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchCriteriaList = async () => {
     setIsLoading(true);
@@ -205,13 +208,22 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
                         )}
                       </TableCell>
                       <TableCell>
-                        {ruleCount > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-primary font-semibold bg-primary/10 px-2.5 py-1 rounded-md">
-                            <ListChecks size={12} /> {ruleCount} dòng
-                          </span>
-                        ) : (
-                          <span className="text-xs text-secondary">-</span>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCriterion(criterion);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          {ruleCount > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-primary font-semibold bg-primary/10 px-2.5 py-1 rounded-md">
+                              <ListChecks size={12} /> {ruleCount} dòng
+                            </span>
+                          ) : (
+                            <span className="text-xs text-secondary">Xem</span>
+                          )}
+                        </Button>
                       </TableCell>
                       <TableCell>
                         {criterion.requiresEvidence ? (
@@ -239,6 +251,11 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
           </div>
         )}
       </div>
+      <EvaluationCriteriaModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        criterion={selectedCriterion}
+      />
     </div>
   );
 };

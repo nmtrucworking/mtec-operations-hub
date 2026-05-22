@@ -28,6 +28,7 @@ import {
   submitEvaluationCycleReview,
   approveEvaluationCycle,
   markEvaluationCycleReadyForApproval,
+  computeEvaluationCycle,
   lockEvaluationCycle,
   cancelEvaluationCycle
 } from '../../services/evaluations';
@@ -48,10 +49,23 @@ export const EvaluationCyclesPanel = ({
   onCyclesUpdated 
 }: EvaluationCyclesPanelProps) => {
   const { success, error, warning } = useToast();
+  const fmtError = (e: any) => {
+    if (!e) return '';
+    if (typeof e === 'string') return e;
+    if (typeof e.message === 'string') return e.message;
+    try {
+      return JSON.stringify(e);
+    } catch {
+      return String(e);
+    }
+  };
   const [cycles, setCycles] = useState<EvaluationCycle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [missingModalOpen, setMissingModalOpen] = useState(false);
+  const [missingDetails, setMissingDetails] = useState<any | null>(null);
+  const [pendingCycleId, setPendingCycleId] = useState<string | null>(null);
   
   // Form state
   const [formType, setFormType] = useState<'create' | 'edit'>('create');
@@ -72,7 +86,7 @@ export const EvaluationCyclesPanel = ({
       if (res?.data?.items) {
         setCycles(res.data.items);
       } else if (res?.error) {
-        error(res.error, 'Lỗi tải chu kỳ');
+        error(fmtError(res.error) || 'Lỗi tải chu kỳ', 'Lỗi tải chu kỳ');
       }
     } catch (err) {
       console.error(err);
@@ -199,7 +213,19 @@ export const EvaluationCyclesPanel = ({
         fetchCyclesList();
         onCyclesUpdated();
       } else {
-        error(res?.error || 'Không thể chuyển đổi trạng thái chu kỳ.', 'Cập nhật thất bại');
+        // in dev, log full response for debugging
+        if (import.meta.env.DEV) console.debug('Status transition error response:', res);
+
+        // If backend reports evaluation not ready, surface a guided modal
+        const detail = res?.data?.detail ?? null;
+        if (detail && detail.code === 'EVALUATION_NOT_READY_FOR_APPROVAL') {
+          setMissingDetails(detail.details || null);
+          setPendingCycleId(cycleId);
+          setMissingModalOpen(true);
+          return;
+        }
+
+        error(fmtError(res?.error) || 'Không thể chuyển đổi trạng thái chu kỳ.', 'Cập nhật thất bại');
       }
     } catch (err) {
       console.error(err);
@@ -471,6 +497,85 @@ export const EvaluationCyclesPanel = ({
             </Button>
           </div>
         </form>
+      </Modal>
+      {/* Missing requirements modal (guided flow) */}
+      <Modal
+        isOpen={missingModalOpen}
+        onClose={() => setMissingModalOpen(false)}
+        title="Chu kỳ chưa sẵn sàng cho phê duyệt"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-secondary">Hệ thống phát hiện một số yêu cầu chưa hoàn thành trước khi chuyển chu kỳ sang trạng thái <strong>Chờ duyệt</strong>.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3 bg-muted/30 rounded-lg border border-border">
+              <div className="text-xs text-secondary">Số lượng thành viên đã được chấm</div>
+              <div className="text-lg font-bold">{missingDetails?.totalMemberEvaluations ?? 0}</div>
+            </div>
+            <div className="p-3 bg-muted/30 rounded-lg border border-border">
+              <div className="text-xs text-secondary">Khiếu nại mở</div>
+              <div className="text-lg font-bold">{missingDetails?.openAppeals ?? 0}</div>
+            </div>
+            <div className="p-3 bg-muted/30 rounded-lg border border-border">
+              <div className="text-xs text-secondary">Kết quả không ổn định</div>
+              <div className="text-lg font-bold">{missingDetails?.unstableMemberEvaluations ?? 0}</div>
+            </div>
+            <div className="p-3 bg-muted/30 rounded-lg border border-border">
+              <div className="text-xs text-secondary">Trạng thái thành viên</div>
+              <div className="text-sm">{missingDetails?.memberStatusCounts ? JSON.stringify(missingDetails.memberStatusCounts) : '{}'}</div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4">
+            <Button variant="outline" onClick={() => { setMissingModalOpen(false); }}>Đóng</Button>
+            <Button
+              onClick={async () => {
+                  if (!pendingCycleId) return;
+                  // keep modal open to show result details
+                  try {
+                    setIsSubmitting(true);
+                    const res = await computeEvaluationCycle(pendingCycleId, { strict: true, evidenceMode: 'approval', recomputeExisting: true }, authToken);
+                    if (!res?.error) {
+                      success('Đã chạy Compute cho chu kỳ. Vui lòng thử lại chuyển trạng thái.', 'Compute hoàn tất');
+                      fetchCyclesList();
+                      setMissingModalOpen(false);
+                    } else {
+                      // show backend validation details when 422
+                      if (res.status === 422 && res.data?.detail) {
+                        const detail = res.data.detail;
+                        // if detail contains nested details, map to our missingDetails shape
+                        setMissingDetails(detail.details ?? detail);
+                        // keep modal open so user can see what's missing
+                        error(fmtError(res.error) || 'Compute thất bại do dữ liệu không hợp lệ.', 'Compute thất bại');
+                      } else {
+                        error(fmtError(res.error) || 'Không thể chạy Compute.', 'Compute thất bại');
+                        setMissingModalOpen(false);
+                      }
+                    }
+                  } catch (err) {
+                    console.error(err);
+                    error('Lỗi khi chạy Compute.', 'Lỗi hệ thống');
+                    setMissingModalOpen(false);
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+            >
+              Chạy Compute
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setMissingModalOpen(false);
+                // select cycle so user can navigate to cycle details (appeals/evidence)
+                const cycle = cycles.find(c => c.id === pendingCycleId) || null;
+                onSelectCycle(cycle);
+                warning('Vui lòng mở tab Minh chứng / Khiếu nại để xử lý các khiếu nại mở.', 'Hành động cần làm');
+              }}
+            >
+              Xem Khiếu nại / Minh chứng
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

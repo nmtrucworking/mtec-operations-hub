@@ -25,6 +25,8 @@ import {
   createEvaluationEvidence, 
   verifyEvaluationEvidence,
   rejectEvaluationEvidence,
+  getEvaluationScoreEvents,
+  EvaluationScoreEvent,
   getEvaluationCriteria,
   EvaluationCriterion,
   MemberCycleRole,
@@ -48,8 +50,23 @@ export const EvaluationEvidencePanel = ({
   allMembers 
 }: EvaluationEvidencePanelProps) => {
   const { success, error, warning } = useToast();
+  const fmtError = (e: any) => {
+    if (!e) return '';
+    if (typeof e === 'string') return e;
+    if (typeof e.message === 'string') return e.message;
+    try {
+      return JSON.stringify(e);
+    } catch {
+      return String(e);
+    }
+  };
   const [evidenceList, setEvidenceList] = useState<EvaluationEvidence[]>([]);
+  const [forbiddenModalOpen, setForbiddenModalOpen] = useState(false);
+  const [forbiddenInfo, setForbiddenInfo] = useState<any | null>(null);
   const [criteria, setCriteria] = useState<EvaluationCriterion[]>([]);
+  const [scoreEvents, setScoreEvents] = useState<EvaluationScoreEvent[]>([]);
+  const [missingEvents, setMissingEvents] = useState<EvaluationScoreEvent[]>([]);
+  const [isLoadingMissing, setIsLoadingMissing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -105,7 +122,7 @@ export const EvaluationEvidencePanel = ({
       if (res?.data?.items) {
         setEvidenceList(res.data.items);
       } else if (res?.error) {
-        error(res.error, 'Lỗi tải minh chứng');
+        error(fmtError(res.error) || 'Lỗi tải minh chứng', 'Lỗi tải minh chứng');
       }
     } catch (err) {
       console.error(err);
@@ -136,6 +153,43 @@ export const EvaluationEvidencePanel = ({
   }, [authToken, cycleId, filterMemberId, filterStatus]);
 
   useEffect(() => {
+    const fetchScoreEvents = async () => {
+      try {
+        const res = await getEvaluationScoreEvents(cycleId, { pageSize: 1000 }, authToken);
+        if (res?.data?.items) {
+          setScoreEvents(res.data.items);
+        }
+      } catch (err) {
+        console.error('Error fetching score events:', err);
+      }
+    };
+    fetchScoreEvents();
+  }, [authToken, cycleId]);
+
+  // Create criteria mapping
+  const criteriaMap = useMemo(() => {
+    return new Map(criteria.map(c => [c.id, c]));
+  }, [criteria]);
+
+  useEffect(() => {
+    // compute missing events: score events whose criterion requires evidence and no evidence linked
+    const mapEvidenceByEvent = new Map<string, number>();
+    for (const ev of evidenceList) {
+      if (ev.scoreEventId) {
+        mapEvidenceByEvent.set(ev.scoreEventId, (mapEvidenceByEvent.get(ev.scoreEventId) || 0) + 1);
+      }
+    }
+
+    const missing = scoreEvents.filter(se => {
+      const crit = criteriaMap.get(se.criterionId ?? '');
+      const requires = crit ? crit.requiresEvidence : false;
+      const count = mapEvidenceByEvent.get(se.id) || 0;
+      return requires && count === 0;
+    });
+    setMissingEvents(missing);
+  }, [scoreEvents, evidenceList, criteriaMap]);
+
+  useEffect(() => {
     fetchCriteriaList();
   }, [authToken]);
 
@@ -161,10 +215,6 @@ export const EvaluationEvidencePanel = ({
     return cycleMembers.filter(m => memberIdsInDept.has(m.id));
   }, [cycleMembers, cycleRoles, modalFilterDept]);
 
-  // Create criteria mapping
-  const criteriaMap = useMemo(() => {
-    return new Map(criteria.map(c => [c.id, c]));
-  }, [criteria]);
 
   // Update member selection when filter changes
   useEffect(() => {
@@ -239,7 +289,7 @@ export const EvaluationEvidencePanel = ({
         setIsModalOpen(false);
         fetchEvidenceList();
       } else {
-        error(res.error || 'Lỗi không xác định khi nộp minh chứng.', 'Nộp thất bại');
+        error(fmtError(res.error) || 'Lỗi không xác định khi nộp minh chứng.', 'Nộp thất bại');
       }
     } catch (err) {
       console.error(err);
@@ -259,6 +309,13 @@ export const EvaluationEvidencePanel = ({
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewingEvidenceId) return;
+
+    // prevent self-review client-side to avoid 403 from backend
+    const evidenceItem = evidenceList.find(x => x.id === reviewingEvidenceId);
+    if (evidenceItem && evidenceItem.memberId === currentUser.id) {
+      error('Bạn không thể tự duyệt minh chứng do bạn là người nộp.', 'Không thể tự duyệt');
+      return;
+    }
 
     const trimmedNote = reviewNote.trim();
     if (reviewType === 'reject' && !trimmedNote) {
@@ -283,7 +340,21 @@ export const EvaluationEvidencePanel = ({
         setIsReviewModalOpen(false);
         fetchEvidenceList();
       } else {
-        error(res.error || 'Gặp lỗi trong quá trình xử lý phê duyệt.', 'Xử lý thất bại');
+        // Special-case 403 to provide actionable guidance
+        if (res.status === 403) {
+          if (import.meta.env.DEV) console.debug('Verify forbidden response:', res);
+          setForbiddenInfo(res?.data ?? { status: res.status, error: res.error });
+          setForbiddenModalOpen(true);
+          // If backend explicitly states self-review not allowed, show clearer message
+          const backendCode = res?.data?.detail?.code || res?.data?.code || null;
+          if (backendCode === 'EVIDENCE_SELF_REVIEW_NOT_ALLOWED') {
+            error('Không thể tự duyệt minh chứng do bạn là người nộp. Vui lòng yêu cầu người khác xử lý.', 'Không cho phép tự duyệt');
+          } else {
+            error(fmtError(res.error) || 'Bạn không có quyền thực hiện hành động này.', 'Quyền bị từ chối');
+          }
+        } else {
+          error(fmtError(res.error) || 'Gặp lỗi trong quá trình xử lý phê duyệt.', 'Xử lý thất bại');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -343,6 +414,100 @@ export const EvaluationEvidencePanel = ({
           </Button>
         )}
       </div>
+
+      {/* Missing evidence requests panel */}
+      {missingEvents.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h4 className="font-semibold">Yêu cầu cung cấp minh chứng còn thiếu</h4>
+              <p className="text-sm text-secondary mt-1">Có {missingEvents.length} sự kiện ghi điểm yêu cầu minh chứng nhưng chưa có minh chứng liên kết.</p>
+            </div>
+            <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  disabled={isLoadingMissing}
+                  onClick={async () => {
+                    // bulk create evidence requests - skip events that already have evidence to avoid duplicates
+                    setIsLoadingMissing(true);
+                    try {
+                      const existingByEvent = new Set(evidenceList.filter(ev => ev.scoreEventId).map(ev => ev.scoreEventId));
+                      const toCreate = missingEvents.filter(ev => !existingByEvent.has(ev.id));
+                      if (toCreate.length === 0) {
+                        warning('Không có sự kiện nào còn thiếu minh chứng (hoặc đã có yêu cầu).', 'Không có hành động');
+                        return;
+                      }
+                      for (const ev of toCreate) {
+                        await createEvaluationEvidence(cycleId, {
+                          memberId: ev.memberId,
+                          scoreEventId: ev.id,
+                          criterionId: ev.criterionId,
+                          evidenceType: 'TEXT',
+                          title: `Yêu cầu minh chứng cho sự kiện ${ev.id}`,
+                          description: `Vui lòng nộp minh chứng cho sự kiện ghi điểm ${ev.id} (tiêu chí ${ev.criterionCode}).`
+                        }, authToken);
+                      }
+                      success(`Đã tạo yêu cầu minh chứng cho ${toCreate.length} sự kiện.`, 'Yêu cầu tạo');
+                      fetchEvidenceList();
+                    } catch (err) {
+                      console.error('Error creating evidence requests:', err);
+                      error('Lỗi khi tạo yêu cầu minh chứng.', 'Lỗi');
+                    } finally {
+                      setIsLoadingMissing(false);
+                    }
+                  }}
+                >Tạo tất cả</Button>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            {missingEvents.slice(0, 8).map(ev => {
+              const member = memberMap.get(ev.memberId);
+              const critName = criteriaMap.get(ev.criterionId || '') ? `${criteriaMap.get(ev.criterionId || '')!.code} - ${criteriaMap.get(ev.criterionId || '')!.name}` : ev.criterionCode;
+              return (
+                <div key={ev.id} className="p-3 bg-white rounded-lg border border-border flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{member ? member.name : ev.memberId} — {critName}</div>
+                    <div className="text-xs text-secondary">Sự kiện: {ev.id} • Điểm: {ev.scoreDelta}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={isLoadingMissing}
+                      onClick={async () => {
+                        try {
+                          // check if evidence already exists for this event to avoid duplicate
+                          const exists = evidenceList.some(x => x.scoreEventId === ev.id);
+                          if (exists) {
+                            warning('Đã có minh chứng hoặc yêu cầu cho sự kiện này.', 'Bỏ qua');
+                            return;
+                          }
+                          setIsLoadingMissing(true);
+                          await createEvaluationEvidence(cycleId, {
+                            memberId: ev.memberId,
+                            scoreEventId: ev.id,
+                            criterionId: ev.criterionId,
+                            evidenceType: 'TEXT',
+                            title: `Yêu cầu minh chứng cho sự kiện ${ev.id}`,
+                            description: `Vui lòng nộp minh chứng cho sự kiện ghi điểm ${ev.id} (tiêu chí ${ev.criterionCode}).`
+                          }, authToken);
+                          success('Đã tạo yêu cầu minh chứng.', 'Tạo thành công');
+                          fetchEvidenceList();
+                        } catch (err) {
+                          console.error(err);
+                          error('Không thể tạo yêu cầu minh chứng.', 'Lỗi');
+                        } finally {
+                          setIsLoadingMissing(false);
+                        }
+                      }}
+                    >Tạo yêu cầu</Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filter Row */}
       <div className="flex flex-col sm:flex-row gap-4 items-end py-2 bg-transparent border-0">
@@ -596,6 +761,46 @@ export const EvaluationEvidencePanel = ({
             </Button>
           </div>
         </form>
+      </Modal>
+      {/* Forbidden guidance modal */}
+      <Modal
+        isOpen={forbiddenModalOpen}
+        onClose={() => setForbiddenModalOpen(false)}
+        title="Quyền bị từ chối — Hướng dẫn khắc phục"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-secondary">Hệ thống yêu cầu quyền cao hơn để thực hiện thao tác này.</p>
+          <div className="p-3 bg-muted/30 rounded-lg border border-border">
+            <div className="text-xs text-secondary">Chi tiết lỗi</div>
+            <div className="text-sm font-medium mt-1 break-words">{fmtError(forbiddenInfo?.error) || 'Forbidden'}</div>
+          </div>
+
+          <div className="p-3 bg-muted/20 rounded-lg border border-border">
+            <div className="text-xs text-secondary">Vai trò hiện tại của bạn</div>
+            <div className="text-sm font-medium mt-1">{(currentUser.roles && currentUser.roles.length > 0) ? currentUser.roles.join(', ') : currentUser.role}</div>
+          </div>
+
+          <div className="text-sm">
+            <div className="font-semibold">Gợi ý khắc phục</div>
+            <ul className="list-disc list-inside mt-2 text-sm text-secondary">
+              <li>Đăng nhập lại bằng tài khoản có quyền: <strong>bcn</strong>, <strong>bvh_discipline</strong>, <strong>bvh_hr</strong>, hoặc <strong>bcm</strong>.</li>
+              <li>Kiểm tra header `Authorization` (token) trong trình duyệt hoặc cấu hình proxy dev.</li>
+              <li>Nếu cần, liên hệ admin để cấp quyền hoặc thực hiện hành động thay bạn.</li>
+            </ul>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setForbiddenModalOpen(false)}>Đóng</Button>
+            <Button
+              onClick={() => {
+                // attempt to open profile/logout page or refresh to prompt re-login
+                setForbiddenModalOpen(false);
+                // perform a soft reload to refresh tokens
+                window.location.reload();
+              }}
+            >Đăng nhập lại</Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Review Modal */}

@@ -144,6 +144,25 @@ export const EvaluationScoreEventsPanel = ({
     return new Map(allMembers.map(m => [m.id, m]));
   }, [allMembers]);
 
+  // Quick stats for filtered member
+  const memberStats = useMemo(() => {
+    if (!filterMemberId) return null;
+    const evs = events || [];
+    const count = evs.length;
+    const total = evs.reduce((s, e) => s + Number(e.scoreDelta || 0), 0);
+    const positive = evs.filter(e => e.scoreDelta > 0).reduce((s, e) => s + Number(e.scoreDelta || 0), 0);
+    const negative = evs.filter(e => e.scoreDelta < 0).reduce((s, e) => s + Number(e.scoreDelta || 0), 0);
+    const byCriterion = new Map<string, number>();
+    for (const e of evs) {
+      const prev = byCriterion.get(e.criterionCode) || 0;
+      byCriterion.set(e.criterionCode, prev + Number(e.scoreDelta || 0));
+    }
+    const topCriteria = Array.from(byCriterion.entries())
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, 3);
+    return { count, total, positive, negative, topCriteria };
+  }, [events, filterMemberId]);
+
   // Create cycle members list based on cycleRoles and allMembers
   const cycleMembers = useMemo(() => {
     const rolesMap = new Map(cycleRoles.map(r => [r.memberId, r]));
@@ -450,6 +469,23 @@ export const EvaluationScoreEventsPanel = ({
               </Button>
             </div>
           </div>
+
+          {/* Quick stats when filtering by member */}
+          {filterMemberId && memberStats && (
+            <div className="bg-muted/20 border border-border/30 rounded-xl p-3 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs text-secondary">Thống kê nhanh (lọc thành viên)</div>
+                <div className="font-semibold text-foreground">{memberStats.count} sự kiện • Tổng ảnh hưởng: {memberStats.total > 0 ? `+${memberStats.total}` : memberStats.total}</div>
+              </div>
+              <div className="text-sm text-secondary">
+                <div>Cộng: {memberStats.positive > 0 ? `+${memberStats.positive}` : memberStats.positive} • Trừ: {memberStats.negative}</div>
+                <div className="mt-1">Tiêu chí ảnh hưởng: {memberStats.topCriteria.length === 0 ? '-' : memberStats.topCriteria.map(t => `${t[0]} (${t[1] > 0 ? '+'+t[1] : t[1]})`).join(', ')}</div>
+              </div>
+              <div className="ml-auto sm:ml-0">
+                <Button variant="outline" size="sm" onClick={() => setFilterMemberId('')}>Xóa lọc</Button>
+              </div>
+            </div>
+          )}
 
           {/* Main Table */}
           <div className="bg-card/45 border border-border/30 rounded-xl shadow-sm overflow-hidden">

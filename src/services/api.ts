@@ -110,9 +110,30 @@ export const apiCall = async <T = any>(
         }
       }
 
+      const deriveError = () => {
+        if (!data) return `HTTP ${response.status}`;
+        if (typeof data === 'string') return data;
+        // prefer string message fields when available
+        if (typeof (data as any).message === 'string') return (data as any).message;
+        if (typeof (data as any).detail === 'string') return (data as any).detail;
+        // message may be an object like { code, message }
+        if ((data as any).message && typeof (data as any).message === 'object') {
+          try {
+            return JSON.stringify((data as any).message);
+          } catch {
+            return String((data as any).message);
+          }
+        }
+        try {
+          return JSON.stringify(data);
+        } catch {
+          return `HTTP ${response.status}`;
+        }
+      };
+
       return {
         status: response.status,
-        error: data.message || data.detail || `HTTP ${response.status}`,
+        error: deriveError(),
         data: data as T
       };
     }
