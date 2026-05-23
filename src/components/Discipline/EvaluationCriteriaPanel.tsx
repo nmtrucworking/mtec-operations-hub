@@ -12,6 +12,7 @@ import {
 } from '../../services/evaluations';
 import EvaluationCriteriaModal from './EvaluationCriteriaModal';
 import { EVALUATION_COMPONENTS, EVALUATION_UNIT_CODES } from '../../data/evaluations';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface EvaluationCriteriaPanelProps {
   authToken?: string;
@@ -28,6 +29,7 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
   const [filterActive, setFilterActive] = useState('true');
   const [selectedCriterion, setSelectedCriterion] = useState<EvaluationCriterion | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfirmSeedOpen, setIsConfirmSeedOpen] = useState(false);
 
   const fetchCriteriaList = async () => {
     setIsLoading(true);
@@ -69,11 +71,7 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
 
   const canManageCriteria = hasRole(['bcn', 'bvh_discipline']);
 
-  const handleSeedCriteria = async () => {
-    if (!window.confirm('Khởi tạo đầy đủ 41 tiêu chí đánh giá thành viên MTEC 2026? Các tiêu chí cùng mã hiện có sẽ được cập nhật theo bộ mới.')) {
-      return;
-    }
-
+  const performSeedCriteria = async () => {
     setIsSeeding(true);
     try {
       const res = await seedEvaluationCriteria({ version: '2026', overwrite: true }, authToken);
@@ -122,7 +120,7 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
         </div>
         {canManageCriteria && (
           <Button
-            onClick={handleSeedCriteria}
+            onClick={() => setIsConfirmSeedOpen(true)}
             disabled={isSeeding}
             className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white rounded-xl shadow-md border-0"
           >
@@ -255,6 +253,13 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         criterion={selectedCriterion}
+      />
+      <ConfirmModal
+        isOpen={isConfirmSeedOpen}
+        onClose={() => setIsConfirmSeedOpen(false)}
+        onConfirm={performSeedCriteria}
+        title="Khởi tạo tiêu chí"
+        message="Khởi tạo đầy đủ 41 tiêu chí đánh giá thành viên MTEC 2026? Các tiêu chí cùng mã hiện có sẽ được cập nhật theo bộ mới."
       />
     </div>
   );

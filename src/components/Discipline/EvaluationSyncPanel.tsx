@@ -18,6 +18,7 @@ import {
 } from '../../services/evaluations';
 import { getMeetings, Meeting } from '../../services/meetings_api';
 import { getCompetitions, Competition } from '../../services/competitions';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface EvaluationSyncPanelProps {
   authToken?: string;
@@ -43,6 +44,8 @@ export const EvaluationSyncPanel = ({
   const [isLoadingCompetitions, setIsLoadingCompetitions] = useState(false);
   const [isSyncingAttendance, setIsSyncingAttendance] = useState(false);
   const [isSyncingCompetition, setIsSyncingCompetition] = useState(false);
+
+  const [confirmSyncAction, setConfirmSyncAction] = useState<{ type: 'attendance' | 'competition', msg: string } | null>(null);
 
   const fetchMeetingsList = async () => {
     setIsLoadingMeetings(true);
@@ -92,16 +95,7 @@ export const EvaluationSyncPanel = ({
   const isLocked = cycle.status === 'LOCKED';
   const canSync = hasRole(['bcn', 'bvh_discipline', 'bvh_hr']) && !isLocked;
 
-  const handleSyncAttendance = async () => {
-    if (!selectedMeetingId) {
-      warning('Vui lòng chọn một cuộc họp để đồng bộ.', 'Chưa chọn cuộc họp');
-      return;
-    }
-
-    if (!window.confirm('Xác nhận đồng bộ chuyên cần cuộc họp này sang hệ thống điểm v2? Cần bấm Compute lại sau khi đồng bộ.')) {
-      return;
-    }
-
+  const executeSyncAttendance = async () => {
     setIsSyncingAttendance(true);
     try {
       const res = await syncEvaluationAttendance(cycleId, selectedMeetingId, authToken);
@@ -122,16 +116,7 @@ export const EvaluationSyncPanel = ({
     }
   };
 
-  const handleSyncCompetition = async () => {
-    if (!selectedCompetitionId) {
-      warning('Vui lòng chọn một cuộc thi/sự kiện thi đua để đồng bộ.', 'Chưa chọn cuộc thi');
-      return;
-    }
-
-    if (!window.confirm('Xác nhận đồng bộ điểm thi đua này sang hệ thống điểm v2? Cần bấm Compute lại sau khi đồng bộ.')) {
-      return;
-    }
-
+  const executeSyncCompetition = async () => {
     setIsSyncingCompetition(true);
     try {
       const res = await syncEvaluationCompetition(cycleId, selectedCompetitionId, authToken);
@@ -149,6 +134,39 @@ export const EvaluationSyncPanel = ({
       error('Lỗi khi thực hiện đồng bộ.', 'Lỗi hệ thống');
     } finally {
       setIsSyncingCompetition(false);
+    }
+  };
+
+  const handleSyncAttendance = () => {
+    if (!selectedMeetingId) {
+      warning('Vui lòng chọn một cuộc họp để đồng bộ.', 'Chưa chọn cuộc họp');
+      return;
+    }
+    setConfirmSyncAction({
+      type: 'attendance',
+      msg: 'Xác nhận đồng bộ chuyên cần cuộc họp này sang hệ thống điểm v2? Cần bấm Compute lại sau khi đồng bộ.'
+    });
+  };
+
+  const handleSyncCompetition = () => {
+    if (!selectedCompetitionId) {
+      warning('Vui lòng chọn một cuộc thi/sự kiện thi đua để đồng bộ.', 'Chưa chọn cuộc thi');
+      return;
+    }
+    setConfirmSyncAction({
+      type: 'competition',
+      msg: 'Xác nhận đồng bộ điểm thi đua này sang hệ thống điểm v2? Cần bấm Compute lại sau khi đồng bộ.'
+    });
+  };
+
+  const executeSync = async () => {
+    if (!confirmSyncAction) return;
+    const type = confirmSyncAction.type;
+    setConfirmSyncAction(null);
+    if (type === 'attendance') {
+      await executeSyncAttendance();
+    } else {
+      await executeSyncCompetition();
     }
   };
 
@@ -278,6 +296,14 @@ export const EvaluationSyncPanel = ({
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={!!confirmSyncAction}
+        onClose={() => setConfirmSyncAction(null)}
+        onConfirm={executeSync}
+        title="Xác nhận đồng bộ"
+        message={confirmSyncAction?.msg || ''}
+      />
     </div>
   );
 };

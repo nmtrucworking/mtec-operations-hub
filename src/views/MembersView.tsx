@@ -32,6 +32,7 @@ import { useToast } from '../components/ui/toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
+import { DatePicker } from '../components/ui/date-picker';
 import { Modal } from '../components/ui/modal';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
@@ -1234,7 +1235,10 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Ngày sinh *</label>
-                  <Input name="dob" type="date" value={formData.dob} onChange={handleFormChange} required />
+                  <DatePicker 
+                    value={formData.dob} 
+                    onChange={val => setFormData({ ...formData, dob: val || '' })} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Email *</label>
@@ -1283,7 +1287,10 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Ngày tham gia *</label>
-                    <Input name="joinDate" type="date" value={formData.joinDate} onChange={handleFormChange} required />
+                    <DatePicker 
+                      value={formData.joinDate} 
+                      onChange={val => setFormData({ ...formData, joinDate: val || '' })} 
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">

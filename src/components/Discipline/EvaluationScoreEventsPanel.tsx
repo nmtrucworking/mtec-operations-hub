@@ -56,7 +56,20 @@ export const EvaluationScoreEventsPanel = ({
   const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
   const [cycleRoles, setCycleRoles] = useState<MemberCycleRole[]>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+  const [expandedMemberIds, setExpandedMemberIds] = useState<Set<string>>(new Set());
   const [modalFilterDept, setModalFilterDept] = useState('');
+
+  // Details Modal State
+  const [detailsEventId, setDetailsEventId] = useState<string | null>(null);
+
+  const toggleExpand = (memberId: string) => {
+    setExpandedMemberIds(prev => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
 
   // Voiding State
   const [voidingEventId, setVoidingEventId] = useState<string | null>(null);
@@ -143,6 +156,17 @@ export const EvaluationScoreEventsPanel = ({
   const memberMap = useMemo(() => {
     return new Map(allMembers.map(m => [m.id, m]));
   }, [allMembers]);
+
+  // Group events by member
+  const eventsByMember = useMemo(() => {
+    const grouped = new Map<string, EvaluationScoreEvent[]>();
+    for (const ev of events) {
+      const arr = grouped.get(ev.memberId) || [];
+      arr.push(ev);
+      grouped.set(ev.memberId, arr);
+    }
+    return grouped;
+  }, [events]);
 
   // Quick stats for filtered member
   const memberStats = useMemo(() => {
@@ -487,85 +511,126 @@ export const EvaluationScoreEventsPanel = ({
             </div>
           )}
 
-          {/* Main Table */}
-          <div className="bg-card/45 border border-border/30 rounded-xl shadow-sm overflow-hidden">
+          {/* Main List (Accordion) */}
+          <div className="bg-transparent border-0 rounded-xl shadow-none">
             {isLoading ? (
-              <div className="flex items-center justify-center p-12">
+              <div className="flex items-center justify-center p-12 bg-card border border-border/30 rounded-xl">
                 <Loader2 size={32} className="animate-spin text-primary mr-2" />
                 <span className="text-secondary font-medium">Đang tải lịch sử sự kiện điểm...</span>
               </div>
             ) : events.length === 0 ? (
-              <div className="text-center p-12 text-secondary font-medium">
+              <div className="text-center p-12 text-secondary font-medium bg-card border border-border/30 rounded-xl">
                 Chưa có sự kiện điểm nào được ghi nhận cho chu kỳ này.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-muted/30">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="font-semibold">Thành viên</TableHead>
-                      <TableHead className="font-semibold">Tiêu chí</TableHead>
-                      <TableHead className="font-semibold">Ban</TableHead>
-                      <TableHead className="font-semibold">Loại sự kiện</TableHead>
-                      <TableHead className="font-semibold text-center">Thay đổi (Delta)</TableHead>
-                      <TableHead className="font-semibold">Mô tả / Ghi chú</TableHead>
-                      <TableHead className="font-semibold text-center">Trạng thái</TableHead>
-                      {canVoidEvents && <TableHead className="text-right font-semibold">Thao tác</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {events.map((event) => {
-                      const m = memberMap.get(event.memberId);
-                      const memberName = m ? m.name : 'Không rõ';
-                      return (
-                        <TableRow key={event.id} className={`hover:bg-muted/40 transition-colors ${event.isVoid ? 'opacity-50 line-through decoration-red-400 bg-red-50/10' : ''}`}>
-                          <TableCell>
-                            <div className="font-bold text-foreground">{memberName}</div>
-                            <div className="text-xs text-secondary">{m?.mssv || event.memberId}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-semibold text-sm">{event.criterionCode}</div>
-                            <div className="text-xs text-secondary mt-0.5 max-w-[200px] truncate" title={getCriterionName(event.criterionCode)}>
-                              {getCriterionName(event.criterionCode)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm font-medium">{getUnitLabel(event.unitCode)}</TableCell>
-                          <TableCell>{getEventTypeBadge(event.eventType)}</TableCell>
-                          <TableCell className={`font-black text-center ${event.scoreDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {event.scoreDelta > 0 ? `+${event.scoreDelta}` : event.scoreDelta}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm text-foreground max-w-[220px] truncate" title={event.note || ''}>{event.note || '-'}</div>
-                            {event.isVoid && event.voidReason && (
-                              <div className="text-xs text-red-500 font-medium italic mt-0.5">Lý do thu hồi: {event.voidReason}</div>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {event.isVoid ? (
-                              <span className="text-xs text-red-700 bg-red-50 px-2 py-0.5 rounded font-bold border border-red-200">Đã thu hồi</span>
-                            ) : (
-                              <span className="text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded font-bold border border-green-200">Kích hoạt</span>
-                            )}
-                          </TableCell>
-                          {canVoidEvents && (
-                            <TableCell className="text-right">
-                              {!event.isVoid && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                                  onClick={() => handleOpenVoidModal(event.id)}
-                                >
-                                  <Undo2 size={13} /> Thu hồi
-                                </Button>
-                              )}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <div className="space-y-3">
+                {cycleMembers.filter(m => eventsByMember.has(m.id)).map((member) => {
+                  const memberEvents = eventsByMember.get(member.id) || [];
+                  const isExpanded = expandedMemberIds.has(member.id);
+                  const totalDelta = memberEvents.reduce((sum, ev) => sum + (ev.isVoid ? 0 : ev.scoreDelta), 0);
+                  
+                  return (
+                    <div key={member.id} className="bg-card border border-border/40 rounded-xl overflow-hidden shadow-sm transition-all hover:border-border/80">
+                      <div 
+                        className="px-4 py-3 flex items-center justify-between cursor-pointer select-none bg-muted/10 hover:bg-muted/30"
+                        onClick={() => toggleExpand(member.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                            {member.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-bold text-foreground">{member.name}</div>
+                            <div className="text-xs text-secondary">{member.mssv} • {getUnitLabel(cycleRoles.find(r => r.memberId === member.id)?.unitCode)}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="text-xs text-secondary mb-0.5">{memberEvents.length} sự kiện</div>
+                            <Badge variant="outline" className={`font-bold ${totalDelta > 0 ? 'text-green-600 bg-green-50 border-green-200' : totalDelta < 0 ? 'text-red-600 bg-red-50 border-red-200' : ''}`}>
+                              {totalDelta > 0 ? `+${totalDelta}` : totalDelta} điểm
+                            </Badge>
+                          </div>
+                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-secondary"><path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isExpanded && (
+                        <div className="border-t border-border/30 bg-card">
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader className="bg-muted/20">
+                                <TableRow className="hover:bg-transparent">
+                                  <TableHead className="font-semibold">Tiêu chí</TableHead>
+                                  <TableHead className="font-semibold">Ban</TableHead>
+                                  <TableHead className="font-semibold">Loại sự kiện</TableHead>
+                                  <TableHead className="font-semibold text-center">Thay đổi</TableHead>
+                                  <TableHead className="font-semibold">Mô tả / Ghi chú</TableHead>
+                                  <TableHead className="font-semibold text-center">Trạng thái</TableHead>
+                                  <TableHead className="text-right font-semibold">Thao tác</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {memberEvents.map((event) => (
+                                  <TableRow key={event.id} className={`hover:bg-muted/40 transition-colors ${event.isVoid ? 'opacity-50 line-through decoration-red-400 bg-red-50/10' : ''}`}>
+                                    <TableCell>
+                                      <div className="font-semibold text-sm">{event.criterionCode}</div>
+                                      <div className="text-xs text-secondary mt-0.5 max-w-[200px] truncate" title={getCriterionName(event.criterionCode)}>
+                                        {getCriterionName(event.criterionCode)}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-sm font-medium">{getUnitLabel(event.unitCode)}</TableCell>
+                                    <TableCell>{getEventTypeBadge(event.eventType)}</TableCell>
+                                    <TableCell className={`font-black text-center ${event.scoreDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                      {event.scoreDelta > 0 ? `+${event.scoreDelta}` : event.scoreDelta}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="text-sm text-foreground max-w-[220px] truncate" title={event.note || ''}>{event.note || '-'}</div>
+                                      {event.isVoid && event.voidReason && (
+                                        <div className="text-xs text-red-500 font-medium italic mt-0.5">Lý do thu hồi: {event.voidReason}</div>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      {event.isVoid ? (
+                                        <span className="text-xs text-red-700 bg-red-50 px-2 py-0.5 rounded font-bold border border-red-200">Đã thu hồi</span>
+                                      ) : (
+                                        <span className="text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded font-bold border border-green-200">Kích hoạt</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end gap-1.5">
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1"
+                                          onClick={() => setDetailsEventId(event.id)}
+                                        >
+                                          Chi tiết
+                                        </Button>
+                                        {canVoidEvents && !event.isVoid && (
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                                            onClick={() => handleOpenVoidModal(event.id)}
+                                          >
+                                            <Undo2 size={13} /> Thu hồi
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -729,6 +794,62 @@ export const EvaluationScoreEventsPanel = ({
           </div>
         </form>
       </Modal>
+
+      {/* Details Modal */}
+      {detailsEventId && (
+        <Modal 
+          isOpen={!!detailsEventId} 
+          onClose={() => setDetailsEventId(null)} 
+          title="Chi tiết Sự kiện Điểm"
+        >
+          {(() => {
+            const ev = events.find(x => x.id === detailsEventId);
+            if (!ev) return null;
+            const m = memberMap.get(ev.memberId);
+            return (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                    <div className="text-xs text-secondary mb-1">Thành viên</div>
+                    <div className="font-bold">{m?.name || ev.memberId}</div>
+                    <div className="text-xs text-secondary">{m?.mssv}</div>
+                  </div>
+                  <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                    <div className="text-xs text-secondary mb-1">Tiêu chí</div>
+                    <div className="font-bold">{ev.criterionCode}</div>
+                    <div className="text-xs text-secondary truncate">{getCriterionName(ev.criterionCode)}</div>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                  <div className="text-xs text-secondary mb-1">Thông tin chi tiết</div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div><span className="text-xs text-secondary mr-2">Trạng thái:</span> {ev.isVoid ? <span className="text-red-500 font-bold">Đã thu hồi</span> : <span className="text-green-500 font-bold">Kích hoạt</span>}</div>
+                    <div><span className="text-xs text-secondary mr-2">Ban áp dụng:</span> {getUnitLabel(ev.unitCode)}</div>
+                    <div><span className="text-xs text-secondary mr-2">Loại:</span> {getEventTypeBadge(ev.eventType)}</div>
+                    <div><span className="text-xs text-secondary mr-2">Điểm thay đổi:</span> <span className={`font-bold ${ev.scoreDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>{ev.scoreDelta > 0 ? `+${ev.scoreDelta}` : ev.scoreDelta}</span></div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                  <div className="text-xs text-secondary mb-1">Ghi chú</div>
+                  <div className="text-sm">{ev.note || 'Không có'}</div>
+                  {ev.isVoid && ev.voidReason && (
+                    <div className="mt-2 pt-2 border-t border-border/50 text-red-600">
+                      <div className="text-xs mb-1 font-semibold">Lý do thu hồi</div>
+                      <div className="text-sm italic">{ev.voidReason}</div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
+                  <Button variant="outline" className="rounded-xl" onClick={() => setDetailsEventId(null)}>Đóng</Button>
+                </div>
+              </div>
+            );
+          })()}
+        </Modal>
+      )}
     </div>
   );
 };

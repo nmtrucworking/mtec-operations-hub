@@ -28,6 +28,7 @@ import {
   computeEvaluationMember
 } from '../../services/evaluations';
 import { EVALUATION_CLASSIFICATIONS, EVALUATION_UNIT_CODES } from '../../data/evaluations';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface EvaluationResultsPanelProps {
   authToken?: string;
@@ -51,6 +52,7 @@ export const EvaluationResultsPanel = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isComputing, setIsComputing] = useState(false);
   const [computingMemberId, setComputingMemberId] = useState<string | null>(null);
+  const [isConfirmComputeOpen, setIsConfirmComputeOpen] = useState(false);
 
   // Breakdown Modal state
   const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
@@ -104,17 +106,13 @@ export const EvaluationResultsPanel = ({
   const isLocked = cycle.status === 'LOCKED';
   const canCompute = hasRole(['bcn', 'bvh_discipline', 'bvh_hr']) && !isLocked;
 
-  const handleComputeCycle = async () => {
-    if (!window.confirm('Xác nhận tính toán kết quả đánh giá cho toàn bộ thành viên trong chu kỳ này?')) {
-      return;
-    }
-
+  const executeComputeCycle = async () => {
     setIsComputing(true);
     try {
       const res = await computeEvaluationCycle(cycleId, {}, authToken);
       if (!res.error) {
         success('Đã tính toán xong kết quả chu kỳ!', 'Tính điểm chu kỳ');
-        fetchResultsList();
+        await fetchResultsList();
         if (onComputeComplete) onComputeComplete();
       } else {
         error(res.error || 'Lỗi không xác định khi tính toán kết quả.', 'Tính toán thất bại');
@@ -133,7 +131,7 @@ export const EvaluationResultsPanel = ({
       const res = await computeEvaluationMember(cycleId, memberId, {}, authToken);
       if (!res.error) {
         success(`Đã tính toán xong kết quả cho thành viên ${memberName}!`, 'Tính điểm thành viên');
-        fetchResultsList();
+        await fetchResultsList();
         if (onComputeComplete) onComputeComplete();
       } else {
         error(res.error || 'Lỗi không xác định.', 'Tính toán thất bại');
@@ -186,16 +184,6 @@ export const EvaluationResultsPanel = ({
     }
   };
 
-  const getClassificationLabel = (val: string) => {
-    const found = EVALUATION_CLASSIFICATIONS.find(c => c.value === val);
-    return found ? found.label : val;
-  };
-
-  const getUnitLabel = (code?: string | null) => {
-    if (!code) return 'Mặc định';
-    const found = EVALUATION_UNIT_CODES.find(u => u.value === code);
-    return found ? found.label : code;
-  };
 
   const getComponentLabel = (component: string) => {
     switch (component) {
@@ -226,7 +214,7 @@ export const EvaluationResultsPanel = ({
         </div>
         {canCompute && (
           <Button 
-            onClick={handleComputeCycle} 
+            onClick={() => setIsConfirmComputeOpen(true)} 
             disabled={isComputing}
             className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
           >
@@ -320,7 +308,7 @@ export const EvaluationResultsPanel = ({
                       <TableCell className="text-center font-semibold text-secondary-foreground">{res.componentIIScore}</TableCell>
                       <TableCell className="text-center font-semibold text-secondary-foreground">{res.componentIIiAScore}</TableCell>
                       <TableCell className="text-center font-semibold text-secondary-foreground">{res.componentIIiBScore}</TableCell>
-                      <TableCell className="text-center font-black text-primary text-base">{res.totalScore.toFixed(2)}</TableCell>
+                      <TableCell className="text-center font-black text-primary text-base">{Number(res.totalScore ?? 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center">{getClassificationBadge(res.finalClassification)}</TableCell>
                       <TableCell className="text-center">
                         <span className="text-xs text-secondary font-medium">{res.status}</span>
@@ -380,7 +368,7 @@ export const EvaluationResultsPanel = ({
                 <span className="text-secondary text-xs block">Xếp loại chu kỳ:</span>
                 <span className="font-bold text-foreground flex items-center gap-1.5 mt-0.5">
                   {getClassificationBadge(selectedResult.finalClassification)}
-                  <span className="text-xs text-secondary">(Tổng điểm: {selectedResult.totalScore.toFixed(2)})</span>
+                  <span className="text-xs text-secondary">(Tổng điểm: {Number(selectedResult.totalScore ?? 0).toFixed(2)})</span>
                 </span>
               </div>
             </div>
@@ -437,6 +425,14 @@ export const EvaluationResultsPanel = ({
           </div>
         </Modal>
       )}
+
+      <ConfirmModal
+        isOpen={isConfirmComputeOpen}
+        onClose={() => setIsConfirmComputeOpen(false)}
+        onConfirm={executeComputeCycle}
+        title="Xác nhận tính toán"
+        message="Xác nhận tính toán kết quả đánh giá cho toàn bộ thành viên trong chu kỳ này?"
+      />
     </div>
   );
 };

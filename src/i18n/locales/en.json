@@ -356,7 +356,54 @@
     "thLevel": "Discipline Level",
     "thKpi": "KPI",
     "noteTitle": "Automatic Warnings",
-    "noteDesc": "Members with 2 or more unexcused absences or KPI below 60 will be automatically added to the special watch list."
+    "noteDesc": "Members with 2 or more unexcused absences or KPI below 60 will be automatically added to the special watch list.",
+    "tabs": {
+      "evaluations": {
+        "label": "Periodic Evaluations",
+        "short": "Evaluation v2",
+        "desc": "Cycles, criteria, evidence, appeals, and grading results."
+      },
+      "meetings": {
+        "label": "Meeting Attendance",
+        "short": "Attendance",
+        "desc": "Record presence, excused absences, unexcused absences, and unrecorded."
+      },
+      "records": {
+        "label": "Disciplinary Records",
+        "short": "Legacy",
+        "desc": "Legacy summary data used for reference during the transition phase."
+      },
+      "competitions": {
+        "label": "Competition Performance",
+        "short": "Competition",
+        "desc": "Competition results and bonus points synchronized to evaluations."
+      }
+    },
+    "syncConfirm": "Sync absence data to the Discipline system?",
+    "syncError": "Sync error: ",
+    "cycles": {
+      "title": "Evaluation Cycles List",
+      "subtitle": "Manage and activate member performance evaluation cycles.",
+      "createBtn": "Create New Cycle",
+      "thCode": "Cycle Code",
+      "thName": "Cycle Name",
+      "thType": "Type",
+      "thTime": "Duration",
+      "thStatus": "Status"
+    },
+    "roles": {
+      "member": "Member",
+      "lead": "Leader / Head",
+      "contributor": "Contributor",
+      "unit": "Unit",
+      "type": "Role Type",
+      "title": "Title",
+      "weight": "Weight"
+    },
+    "filterDept": "Filter Unit",
+    "filterGroup": "Filter Criteria Group",
+    "quickFillCriterion": "Quick Fill Criterion",
+    "score": "Score"
   },
   "logistics": {
     "title": "Logistics & Facilities",

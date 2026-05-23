@@ -5,6 +5,7 @@ import { Select } from "../ui/select";
 import { Button } from "../ui/button";
 import { Users, Calendar, CheckCircle, AlertCircle, Search, Loader2, Plus, X, Trophy, AlertTriangle } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { useToast } from "../ui/toast";
 
 import {
   getDisciplineStats,
@@ -99,6 +100,8 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
   const [hasLoadedMembers, setHasLoadedMembers] = useState(false);
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
   
+  const { success, error, warning } = useToast();
+  
   
   const parseListData = <T,>(response: any, fallbackKey?: string): T[] => {
     const directData = response?.data;
@@ -138,7 +141,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
         await ensureMembersLoaded();
         setIsAddModalOpen(true);
       } catch {
-        alert('Không tải được danh sách thành viên. Vui lòng thử lại.');
+        error('Không tải được danh sách thành viên. Vui lòng thử lại.');
       }
     };
 
@@ -167,7 +170,7 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
 
   const handleCreateRecord = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!formData.memberId) return alert('Vui lòng chọn thành viên hợp lệ.');
+      if (!formData.memberId) return warning('Vui lòng chọn thành viên hợp lệ.');
       setIsSubmitting(true);
       try {
         const response = await createDisciplineRecord(formData, authToken);
@@ -175,11 +178,12 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
           setIsAddModalOpen(false);
           setFormData(defaultFormState);
           await fetchData();
+          success('Tạo bản ghi thành công.');
         } else {
-          alert(response.error || 'Đã xảy ra lỗi khi tạo bản ghi.');
+          error(response.error || 'Đã xảy ra lỗi khi tạo bản ghi.');
         }
-      } catch (error) {
-        alert('Lỗi hệ thống khi tạo bản ghi.');
+      } catch (err) {
+        error('Lỗi hệ thống khi tạo bản ghi.');
       } finally {
         setIsSubmitting(false);
       }
@@ -210,11 +214,12 @@ const DisciplineRecordsTab = ({ authToken, allMembers }: Props) => {
           setIsEditModalOpen(false);
           setFormData(defaultFormState);
           await fetchData();
+          success('Cập nhật bản ghi thành công.');
         } else {
-          alert(response.error || 'Đã xảy ra lỗi khi cập nhật bản ghi.');
+          error(response.error || 'Đã xảy ra lỗi khi cập nhật bản ghi.');
         }
-      } catch (error) {
-        alert('Lỗi hệ thống khi cập nhật bản ghi.');
+      } catch (err) {
+        error('Lỗi hệ thống khi cập nhật bản ghi.');
       } finally {
         setIsSubmitting(false);
       }

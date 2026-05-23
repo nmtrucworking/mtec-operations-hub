@@ -33,6 +33,7 @@ import {
   getMemberCycleRoles
 } from '../../services/evaluations';
 import { EVALUATION_EVIDENCE_TYPES, EVALUATION_UNIT_CODES } from '../../data/evaluations';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface EvaluationEvidencePanelProps {
   authToken?: string;
@@ -72,7 +73,20 @@ export const EvaluationEvidencePanel = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cycleRoles, setCycleRoles] = useState<MemberCycleRole[]>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+  const [expandedMemberIds, setExpandedMemberIds] = useState<Set<string>>(new Set());
   const [modalFilterDept, setModalFilterDept] = useState('');
+
+  // Details Modal State
+  const [detailsEvidenceId, setDetailsEvidenceId] = useState<string | null>(null);
+
+  const toggleExpand = (memberId: string) => {
+    setExpandedMemberIds(prev => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
   
   // Reviewing State
   const [reviewingEvidenceId, setReviewingEvidenceId] = useState<string | null>(null);
@@ -93,6 +107,10 @@ export const EvaluationEvidencePanel = ({
   // Filter State
   const [filterMemberId, setFilterMemberId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+
+  // Bulk Approve State
+  const [isBulkApproveModalOpen, setIsBulkApproveModalOpen] = useState(false);
+  const [bulkApproveTarget, setBulkApproveTarget] = useState<EvaluationEvidence[]>([]);
 
   useEffect(() => {
     const fetchCycleRoles = async () => {
@@ -197,6 +215,17 @@ export const EvaluationEvidencePanel = ({
   const memberMap = useMemo(() => {
     return new Map(allMembers.map(m => [m.id, m]));
   }, [allMembers]);
+
+  // Group evidence by member
+  const evidenceByMember = useMemo(() => {
+    const grouped = new Map<string, EvaluationEvidence[]>();
+    for (const ev of evidenceList) {
+      const arr = grouped.get(ev.memberId) || [];
+      arr.push(ev);
+      grouped.set(ev.memberId, arr);
+    }
+    return grouped;
+  }, [evidenceList]);
 
   // Create cycle members list based on cycleRoles and allMembers
   const cycleMembers = useMemo(() => {
@@ -310,12 +339,7 @@ export const EvaluationEvidencePanel = ({
     e.preventDefault();
     if (!reviewingEvidenceId) return;
 
-    // prevent self-review client-side to avoid 403 from backend
     const evidenceItem = evidenceList.find(x => x.id === reviewingEvidenceId);
-    if (evidenceItem && evidenceItem.memberId === currentUser.id) {
-      error('Bạn không thể tự duyệt minh chứng do bạn là người nộp.', 'Không thể tự duyệt');
-      return;
-    }
 
     const trimmedNote = reviewNote.trim();
     if (reviewType === 'reject' && !trimmedNote) {
@@ -345,13 +369,7 @@ export const EvaluationEvidencePanel = ({
           if (import.meta.env.DEV) console.debug('Verify forbidden response:', res);
           setForbiddenInfo(res?.data ?? { status: res.status, error: res.error });
           setForbiddenModalOpen(true);
-          // If backend explicitly states self-review not allowed, show clearer message
-          const backendCode = res?.data?.detail?.code || res?.data?.code || null;
-          if (backendCode === 'EVIDENCE_SELF_REVIEW_NOT_ALLOWED') {
-            error('Không thể tự duyệt minh chứng do bạn là người nộp. Vui lòng yêu cầu người khác xử lý.', 'Không cho phép tự duyệt');
-          } else {
-            error(fmtError(res.error) || 'Bạn không có quyền thực hiện hành động này.', 'Quyền bị từ chối');
-          }
+          error(fmtError(res.error) || 'Bạn không có quyền thực hiện hành động này.', 'Quyền bị từ chối');
         } else {
           error(fmtError(res.error) || 'Gặp lỗi trong quá trình xử lý phê duyệt.', 'Xử lý thất bại');
         }
@@ -359,6 +377,41 @@ export const EvaluationEvidencePanel = ({
     } catch (err) {
       console.error(err);
       error('Đã xảy ra lỗi hệ thống.', 'Lỗi hệ thống');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenBulkApproveModal = () => {
+    const pendingToApprove = evidenceList.filter(ev => {
+      if (ev.status !== 'PENDING') return false;
+      if (filterMemberId && ev.memberId !== filterMemberId) return false;
+      if (filterStatus && filterStatus !== 'PENDING') return false;
+      return true;
+    });
+
+    if (pendingToApprove.length === 0) {
+      warning('Không có minh chứng nào đang chờ duyệt trong bộ lọc hiện tại.');
+      return;
+    }
+    setBulkApproveTarget(pendingToApprove);
+    setIsBulkApproveModalOpen(true);
+  };
+
+  const handleBulkApproveSubmit = async () => {
+    setIsSubmitting(true);
+    let successCount = 0;
+    try {
+      for (const ev of bulkApproveTarget) {
+        const res = await verifyEvaluationEvidence(ev.id, 'Duyệt nhanh (Hàng loạt)', authToken);
+        if (!res.error) successCount++;
+      }
+      success(`Đã duyệt thành công ${successCount}/${bulkApproveTarget.length} minh chứng.`);
+      setIsBulkApproveModalOpen(false);
+      fetchEvidenceList();
+    } catch (err) {
+      console.error(err);
+      error('Lỗi hệ thống khi duyệt hàng loạt.');
     } finally {
       setIsSubmitting(false);
     }
@@ -548,100 +601,150 @@ export const EvaluationEvidencePanel = ({
           >
             Xóa bộ lọc
           </Button>
+          {canVerifyEvidence && (
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto rounded-xl border-green-200 text-green-700 bg-green-50 hover:bg-green-100 font-bold shadow-sm"
+              onClick={handleOpenBulkApproveModal}
+            >
+              <CheckCircle size={16} className="mr-1.5" /> Duyệt tất cả
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-card/45 border border-border/30 rounded-xl shadow-sm overflow-hidden">
+      {/* Main List (Accordion) */}
+      <div className="bg-transparent border-0 rounded-xl shadow-none">
         {isLoading ? (
-          <div className="flex items-center justify-center p-12">
+          <div className="flex items-center justify-center p-12 bg-card border border-border/30 rounded-xl">
             <Loader2 size={32} className="animate-spin text-primary mr-2" />
             <span className="text-secondary font-medium">Đang tải danh sách minh chứng...</span>
           </div>
         ) : evidenceList.length === 0 ? (
-          <div className="text-center p-12 text-secondary font-medium">
+          <div className="text-center p-12 text-secondary font-medium bg-card border border-border/30 rounded-xl">
             Chưa có minh chứng nào được nộp trong chu kỳ này.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold">Thành viên</TableHead>
-                  <TableHead className="font-semibold">Tiêu đề minh chứng</TableHead>
-                  <TableHead className="font-semibold">Tiêu chí</TableHead>
-                  <TableHead className="font-semibold">Loại</TableHead>
-                  <TableHead className="font-semibold">Nội dung</TableHead>
-                  <TableHead className="font-semibold">Trạng thái</TableHead>
-                  {canVerifyEvidence && <TableHead className="text-right font-semibold">Thao tác duyệt</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {evidenceList.map((ev) => {
-                  const m = memberMap.get(ev.memberId);
-                  const memberName = m ? m.name : 'Không rõ';
-                  return (
-                    <TableRow key={ev.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell>
-                        <div className="font-bold text-foreground">{memberName}</div>
-                        <div className="text-xs text-secondary">{m?.mssv || ev.memberId}</div>
-                      </TableCell>
-                      <TableCell className="font-semibold">{ev.title}</TableCell>
-                      <TableCell className="text-sm font-medium max-w-[150px] truncate" title={getCriterionName(ev.criterionId)}>
-                        {getCriterionName(ev.criterionId)}
-                      </TableCell>
-                      <TableCell className="text-xs font-semibold text-secondary-foreground">{getEvidenceTypeLabel(ev.evidenceType)}</TableCell>
-                      <TableCell className="max-w-[200px]">
-                        {ev.url && (
-                          <a 
-                            href={ev.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-sm break-all"
-                          >
-                            Xem link <ExternalLink size={12} />
-                          </a>
+          <div className="space-y-3">
+            {cycleMembers.filter(m => evidenceByMember.has(m.id)).map((member) => {
+              const memberEvidence = evidenceByMember.get(member.id) || [];
+              const isExpanded = expandedMemberIds.has(member.id);
+              const pendingCount = memberEvidence.filter(e => e.status === 'PENDING').length;
+              
+              return (
+                <div key={member.id} className="bg-card border border-border/40 rounded-xl overflow-hidden shadow-sm transition-all hover:border-border/80">
+                  <div 
+                    className="px-4 py-3 flex items-center justify-between cursor-pointer select-none bg-muted/10 hover:bg-muted/30"
+                    onClick={() => toggleExpand(member.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-bold text-foreground">{member.name}</div>
+                        <div className="text-xs text-secondary">{member.mssv} • {EVALUATION_UNIT_CODES.find(u => u.value === cycleRoles.find(r => r.memberId === member.id)?.unitCode)?.label || cycleRoles.find(r => r.memberId === member.id)?.unitCode}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-xs text-secondary mb-0.5">{memberEvidence.length} minh chứng</div>
+                        {pendingCount > 0 ? (
+                          <Badge variant="outline" className="font-bold text-yellow-600 bg-yellow-50 border-yellow-200">
+                            {pendingCount} chờ duyệt
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="font-bold text-green-600 bg-green-50 border-green-200">
+                            Đã duyệt hết
+                          </Badge>
                         )}
-                        {ev.description && (
-                          <p className="text-xs text-secondary-foreground mt-1 block max-h-16 overflow-y-auto no-scrollbar">{ev.description}</p>
-                        )}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(ev.status)}</TableCell>
-                      {canVerifyEvidence && (
-                        <TableCell className="text-right">
-                          {ev.status === 'PENDING' ? (
-                            ev.memberId === currentUser.id ? (
-                              <span className="text-xs text-orange-600 font-medium">Không thể tự duyệt</span>
-                            ) : (
-                              <div className="flex justify-end gap-1.5">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-green-600 border-green-200 hover:bg-green-50"
-                                  onClick={() => handleOpenReviewModal(ev.id, 'verify')}
-                                >
-                                  <CheckCircle size={13} /> Duyệt
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                                  onClick={() => handleOpenReviewModal(ev.id, 'reject')}
-                                >
-                                  <XCircle size={13} /> Từ chối
-                                </Button>
-                              </div>
-                            )
-                          ) : (
-                            <span className="text-xs text-secondary">Đã xử lý</span>
-                          )}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                      </div>
+                      <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-secondary"><path d="M3.13523 6.15803C3.3241 5.95657 3.64052 5.94637 3.84197 6.13523L7.5 9.56464L11.158 6.13523C11.3595 5.94637 11.6759 5.95657 11.8648 6.15803C12.0536 6.35949 12.0434 6.67591 11.842 6.86477L7.84197 10.6148C7.64964 10.7951 7.35036 10.7951 7.15803 10.6148L3.15803 6.86477C2.95657 6.67591 2.94637 6.35949 3.13523 6.15803Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {isExpanded && (
+                    <div className="border-t border-border/30 bg-card">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader className="bg-muted/20">
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="font-semibold">Tiêu đề minh chứng</TableHead>
+                              <TableHead className="font-semibold">Tiêu chí</TableHead>
+                              <TableHead className="font-semibold">Loại</TableHead>
+                              <TableHead className="font-semibold">Nội dung</TableHead>
+                              <TableHead className="font-semibold text-center">Trạng thái</TableHead>
+                              <TableHead className="text-right font-semibold">Thao tác</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {memberEvidence.map((ev) => (
+                              <TableRow key={ev.id} className="hover:bg-muted/40 transition-colors">
+                                <TableCell className="font-semibold max-w-[200px] truncate" title={ev.title}>{ev.title}</TableCell>
+                                <TableCell className="text-sm font-medium max-w-[150px] truncate" title={getCriterionName(ev.criterionId)}>
+                                  {getCriterionName(ev.criterionId)}
+                                </TableCell>
+                                <TableCell className="text-xs font-semibold text-secondary-foreground">{getEvidenceTypeLabel(ev.evidenceType)}</TableCell>
+                                <TableCell className="max-w-[200px]">
+                                  {ev.url && (
+                                    <a 
+                                      href={ev.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-sm break-all"
+                                    >
+                                      Xem link <ExternalLink size={12} />
+                                    </a>
+                                  )}
+                                  {ev.description && (
+                                    <p className="text-xs text-secondary-foreground mt-1 block max-h-16 overflow-y-auto no-scrollbar">{ev.description}</p>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center">{getStatusBadge(ev.status)}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1.5">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1"
+                                      onClick={() => setDetailsEvidenceId(ev.id)}
+                                    >
+                                      Chi tiết
+                                    </Button>
+                                    {canVerifyEvidence && ev.status === 'PENDING' && (
+                                      <>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-green-600 border-green-200 hover:bg-green-50"
+                                          onClick={() => handleOpenReviewModal(ev.id, 'verify')}
+                                        >
+                                          <CheckCircle size={13} /> Duyệt
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                                          onClick={() => handleOpenReviewModal(ev.id, 'reject')}
+                                        >
+                                          <XCircle size={13} /> Từ chối
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -844,6 +947,106 @@ export const EvaluationEvidencePanel = ({
           </div>
         </form>
       </Modal>
+
+      {/* Details Modal */}
+      {detailsEvidenceId && (
+        <Modal 
+          isOpen={!!detailsEvidenceId} 
+          onClose={() => setDetailsEvidenceId(null)} 
+          title="Chi tiết Minh chứng"
+        >
+          {(() => {
+            const ev = evidenceList.find(x => x.id === detailsEvidenceId);
+            if (!ev) return null;
+            const m = memberMap.get(ev.memberId);
+            return (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                    <div className="text-xs text-secondary mb-1">Thành viên</div>
+                    <div className="font-bold">{m?.name || ev.memberId}</div>
+                    <div className="text-xs text-secondary">{m?.mssv}</div>
+                  </div>
+                  <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                    <div className="text-xs text-secondary mb-1">Trạng thái duyệt</div>
+                    <div>{getStatusBadge(ev.status)}</div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                  <div className="text-xs text-secondary mb-1">Nội dung nộp</div>
+                  <div className="font-bold text-base mb-2">{ev.title}</div>
+                  <div className="grid grid-cols-2 gap-2 text-sm mt-2">
+                    <div><span className="text-xs text-secondary mr-2">Tiêu chí:</span> {getCriterionName(ev.criterionId)}</div>
+                    <div><span className="text-xs text-secondary mr-2">Loại MH:</span> {getEvidenceTypeLabel(ev.evidenceType)}</div>
+                  </div>
+                  
+                  {ev.url && (
+                    <div className="mt-4">
+                      <span className="text-xs text-secondary block mb-1">URL Liên kết:</span>
+                      <a href={ev.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all bg-background px-3 py-2 rounded-md border border-border block">
+                        {ev.url}
+                      </a>
+                    </div>
+                  )}
+                  {ev.description && (
+                    <div className="mt-4">
+                      <span className="text-xs text-secondary block mb-1">Mô tả thêm:</span>
+                      <div className="text-sm bg-background px-3 py-2 rounded-md border border-border whitespace-pre-wrap">
+                        {ev.description}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {ev.reviewNote && (
+                  <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                    <div className="text-xs text-secondary mb-1">Phản hồi của người duyệt</div>
+                    <div className="text-sm italic">{ev.reviewNote}</div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
+                  <Button variant="outline" className="rounded-xl" onClick={() => setDetailsEvidenceId(null)}>Đóng</Button>
+                  {canVerifyEvidence && ev.status === 'PENDING' && (
+                    <>
+                      <Button 
+                        className="bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-md border-0"
+                        onClick={() => {
+                          setDetailsEvidenceId(null);
+                          handleOpenReviewModal(ev.id, 'verify');
+                        }}
+                      >
+                        Phê duyệt
+                      </Button>
+                      <Button 
+                        className="bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md border-0"
+                        onClick={() => {
+                          setDetailsEvidenceId(null);
+                          handleOpenReviewModal(ev.id, 'reject');
+                        }}
+                      >
+                        Từ chối
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </Modal>
+      )}
+
+      {/* Bulk Approve Modal */}
+      <ConfirmModal
+        isOpen={isBulkApproveModalOpen}
+        onClose={() => setIsBulkApproveModalOpen(false)}
+        onConfirm={handleBulkApproveSubmit}
+        title="Xác nhận Duyệt Hàng loạt"
+        message={`Bạn có chắc chắn muốn duyệt tự động ${bulkApproveTarget.length} minh chứng đang chờ trong bộ lọc hiện tại? Hành động này sẽ thay đổi trạng thái của tất cả minh chứng được chọn thành "Đã duyệt".`}
+        confirmText="Duyệt tất cả"
+        cancelText="Hủy"
+      />
     </div>
   );
 };

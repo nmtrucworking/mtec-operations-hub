@@ -13,6 +13,7 @@ import {
   createEvaluationScoreEventBulk
 } from '../../services/evaluations';
 import { EVALUATION_COMPONENTS } from '../../data/evaluations';
+import { useTranslation } from 'react-i18next';
 
 interface EvaluationScoreSpreadsheetProps {
   cycleId: string;
@@ -34,6 +35,7 @@ export const EvaluationScoreSpreadsheet = ({
   isLocked
 }: EvaluationScoreSpreadsheetProps) => {
   const { success, error, warning } = useToast();
+  const { t } = useTranslation();
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -261,14 +263,14 @@ export const EvaluationScoreSpreadsheet = ({
         <div className="flex flex-wrap gap-4 w-full sm:w-auto">
           <div className="w-full sm:w-48">
             <label className="block text-xs font-bold text-secondary uppercase mb-1.5 flex items-center gap-1">
-              <Filter size={12} /> Lọc Ban/Tổ
+              <Filter size={12} /> {t('discipline.filterDept', 'Lọc Ban/Tổ')}
             </label>
             <Select 
               value={filterDept} 
               onChange={e => setFilterDept(e.target.value)}
               className="w-full rounded-lg text-sm"
             >
-              <option value="">-- Tất cả --</option>
+              <option value="">-- {t('common.all', 'Tất cả')} --</option>
               {Array.from(new Set(cycleRoles.map(r => r.unitCode))).filter(Boolean).map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
@@ -276,13 +278,13 @@ export const EvaluationScoreSpreadsheet = ({
           </div>
           
           <div className="w-full sm:w-56">
-            <label className="block text-xs font-bold text-secondary uppercase mb-1.5">Lọc Nhóm Tiêu chí</label>
+            <label className="block text-xs font-bold text-secondary uppercase mb-1.5">{t('discipline.filterGroup', 'Lọc Nhóm Tiêu chí')}</label>
             <Select 
               value={filterComponent} 
               onChange={e => setFilterComponent(e.target.value)}
               className="w-full rounded-lg text-sm"
             >
-              <option value="">-- Tất cả nhóm --</option>
+              <option value="">-- {t('common.allGroups', 'Tất cả nhóm')} --</option>
               {EVALUATION_COMPONENTS.map(comp => (
                 <option key={comp.value} value={comp.value}>{comp.label}</option>
               ))}
@@ -294,20 +296,20 @@ export const EvaluationScoreSpreadsheet = ({
           {!isLocked && (
             <div className="flex items-end gap-2 p-2.5 bg-background/50 rounded-lg border border-border/40">
               <div>
-                <label className="block text-[10px] font-bold text-secondary uppercase mb-1">Điền nhanh Tiêu chí</label>
+                <label className="block text-[10px] font-bold text-secondary uppercase mb-1">{t('discipline.quickFillCriterion', 'Điền nhanh Tiêu chí')}</label>
                 <Select
                   value={quickFillCriterion}
                   onChange={e => setQuickFillCriterion(e.target.value)}
                   className="w-32 h-8 text-xs rounded-md"
                 >
-                  <option value="">-- Chọn --</option>
+                  <option value="">-- {t('common.select', 'Chọn')} --</option>
                   {filteredCriteria.map(c => (
                     <option key={c.id} value={c.code}>{c.code}</option>
                   ))}
                 </Select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-secondary uppercase mb-1">Điểm</label>
+                <label className="block text-[10px] font-bold text-secondary uppercase mb-1">{t('discipline.score', 'Điểm')}</label>
                 <Input
                   type="number"
                   step="0.5"
@@ -322,7 +324,7 @@ export const EvaluationScoreSpreadsheet = ({
                 variant="secondary"
                 className="h-8 px-3 text-xs bg-primary/10 text-primary hover:bg-primary/20 border-0"
               >
-                Điền
+                {t('common.fill', 'Điền')}
               </Button>
             </div>
           )}
@@ -356,8 +358,8 @@ export const EvaluationScoreSpreadsheet = ({
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-20 bg-muted/95 backdrop-blur shadow-sm">
                 <tr>
-                  <th className="sticky left-0 z-30 bg-muted/95 p-3 text-left font-bold border-b border-r border-border/50 min-w-[200px]">
-                    Thành viên
+                  <th className="sticky left-0 z-30 bg-muted/95 p-3 text-left font-bold border-b border-r border-border/50 min-w-[200px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    {t('common.member', 'Thành viên')}
                   </th>
                   {filteredCriteria.map(c => (
                     <th key={c.id} className="p-3 text-center font-semibold border-b border-r border-border/50 min-w-[120px] max-w-[150px]">
@@ -368,9 +370,11 @@ export const EvaluationScoreSpreadsheet = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredMembers.map((m, idx) => (
-                  <tr key={m.id} className={`${idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'} hover:bg-muted/30 transition-colors`}>
-                    <td className="sticky left-0 z-10 bg-inherit p-3 border-b border-r border-border/50 font-medium">
+                {filteredMembers.map((m, idx) => {
+                  const bgClass = idx % 2 === 0 ? 'bg-background' : 'bg-muted/10';
+                  return (
+                  <tr key={m.id} className={`${bgClass} hover:bg-muted/30 transition-colors`}>
+                    <td className={`sticky left-0 z-10 p-3 border-b border-r border-border/50 font-medium ${bgClass} shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>
                       <div className="truncate font-bold">{m.name}</div>
                       <div className="text-xs text-secondary">{m.mssv}</div>
                     </td>
@@ -401,7 +405,8 @@ export const EvaluationScoreSpreadsheet = ({
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

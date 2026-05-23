@@ -118,6 +118,7 @@ export interface EvaluationEvidence {
   description?: string | null;
   capturedAt?: string | null;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  reviewNote?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

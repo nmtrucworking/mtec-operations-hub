@@ -9,6 +9,16 @@ export interface VersionEntry {
 
 export const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: '2.1.1',
+    date: '2026-05-23',
+    changes: [
+      { type: 'improvement', description: 'Nâng cấp tổng thể giao diện và trải nghiệm (UI/UX) của phân hệ Kỷ luật & Đánh giá.' },
+      { type: 'improvement', description: 'Trực quan hoá quy trình đánh giá thành Flowchart và hiển thị rõ ràng bảng điều kiện chặn xếp loại.' },
+      { type: 'improvement', description: 'Thay thế toàn bộ cảnh báo gốc trình duyệt (alert, confirm) thành Modal xác nhận và Toast đồng bộ.' },
+      { type: 'fix', description: 'Sửa lỗi đếm sai số thành viên tham gia trong thống kê chung của chu kỳ đánh giá (Backend).' }
+    ]
+  },
+  {
     version: '2.1.0',
     date: '2026-05-22',
     changes: [

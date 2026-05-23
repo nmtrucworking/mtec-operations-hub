@@ -211,133 +211,139 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
       </div>
 
       {/* Submodule Navigation */}
-      <div className="flex space-x-1 border-b border-border/60 overflow-x-auto no-scrollbar w-full">
-        <button
-          onClick={() => setInnerTab('guide')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            innerTab === 'guide'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <BookOpen size={16} />
-          Quy định
-        </button>
+      <div className="relative w-full">
+        <div className="flex overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
+          <div className="flex gap-1.5 p-1.5 bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl w-max shadow-sm/50">
+            <button
+              onClick={() => setInnerTab('guide')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                innerTab === 'guide'
+                  ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                  : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <BookOpen size={16} />
+              Quy định
+            </button>
 
-        <button
-          onClick={() => setInnerTab('cycles')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            innerTab === 'cycles'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <ClipboardCheck size={16} />
-          Chu kỳ đánh giá
-        </button>
+            <button
+              onClick={() => setInnerTab('cycles')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                innerTab === 'cycles'
+                  ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                  : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <ClipboardCheck size={16} />
+              Chu kỳ
+            </button>
 
-        <button
-          onClick={() => setInnerTab('criteria')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            innerTab === 'criteria'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <Scale size={16} />
-          Tiêu chí đánh giá
-        </button>
+            <button
+              onClick={() => setInnerTab('criteria')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                innerTab === 'criteria'
+                  ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                  : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <Scale size={16} />
+              Tiêu chí
+            </button>
 
-        {/* The following tabs require a cycle to be selected */}
-        <button
-          onClick={() => selectedCycleId && setInnerTab('roles')}
-          disabled={!selectedCycleId}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            !selectedCycleId 
-              ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
-              : innerTab === 'roles'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <Users size={16} />
-          Vai trò thành viên
-        </button>
+            <div className="w-px bg-border/60 my-1 mx-1 shrink-0" />
 
-        <button
-          onClick={() => selectedCycleId && setInnerTab('events')}
-          disabled={!selectedCycleId}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            !selectedCycleId 
-              ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
-              : innerTab === 'events'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <Award size={16} />
-          Sự kiện điểm
-        </button>
+            {/* The following tabs require a cycle to be selected */}
+            <button
+              onClick={() => selectedCycleId && setInnerTab('roles')}
+              disabled={!selectedCycleId}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                !selectedCycleId 
+                  ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
+                  : innerTab === 'roles'
+                    ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                    : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <Users size={16} />
+              Vai trò
+            </button>
 
-        <button
-          onClick={() => selectedCycleId && setInnerTab('evidence')}
-          disabled={!selectedCycleId}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            !selectedCycleId 
-              ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
-              : innerTab === 'evidence'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <FileCheck size={16} />
-          Minh chứng
-        </button>
+            <button
+              onClick={() => selectedCycleId && setInnerTab('events')}
+              disabled={!selectedCycleId}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                !selectedCycleId 
+                  ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
+                  : innerTab === 'events'
+                    ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                    : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <Award size={16} />
+              Sự kiện
+            </button>
 
-        <button
-          onClick={() => selectedCycleId && setInnerTab('results')}
-          disabled={!selectedCycleId}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            !selectedCycleId 
-              ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
-              : innerTab === 'results'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <BarChart3 size={16} />
-          Kết quả & Xếp loại
-        </button>
+            <button
+              onClick={() => selectedCycleId && setInnerTab('evidence')}
+              disabled={!selectedCycleId}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                !selectedCycleId 
+                  ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
+                  : innerTab === 'evidence'
+                    ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                    : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <FileCheck size={16} />
+              Minh chứng
+            </button>
 
-        <button
-          onClick={() => selectedCycleId && setInnerTab('sync')}
-          disabled={!selectedCycleId}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            !selectedCycleId 
-              ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
-              : innerTab === 'sync'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <RefreshCw size={16} />
-          Đồng bộ dữ liệu
-        </button>
+            <button
+              onClick={() => selectedCycleId && setInnerTab('results')}
+              disabled={!selectedCycleId}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                !selectedCycleId 
+                  ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
+                  : innerTab === 'results'
+                    ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                    : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <BarChart3 size={16} />
+              Kết quả
+            </button>
 
-        <button
-          onClick={() => selectedCycleId && setInnerTab('appeals')}
-          disabled={!selectedCycleId}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-            !selectedCycleId 
-              ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
-              : innerTab === 'appeals'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-secondary hover:text-foreground hover:border-border'
-          }`}
-        >
-          <MessageSquare size={16} />
-          Khiếu nại
-        </button>
+            <button
+              onClick={() => selectedCycleId && setInnerTab('sync')}
+              disabled={!selectedCycleId}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                !selectedCycleId 
+                  ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
+                  : innerTab === 'sync'
+                    ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                    : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <RefreshCw size={16} />
+              Đồng bộ
+            </button>
+
+            <button
+              onClick={() => selectedCycleId && setInnerTab('appeals')}
+              disabled={!selectedCycleId}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                !selectedCycleId 
+                  ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
+                  : innerTab === 'appeals'
+                    ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                    : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <MessageSquare size={16} />
+              Khiếu nại
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Render Panel according to tab */}

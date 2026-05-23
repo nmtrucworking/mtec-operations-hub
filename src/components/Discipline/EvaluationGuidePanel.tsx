@@ -13,8 +13,16 @@ import {
   MessageSquare,
   ShieldCheck,
   Users,
+  ChevronRight,
+  Download,
+  FileText
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
+
+// @ts-ignore
+import qcMtecPdf from '../../assets/documents/QC-MTEC-03-2026 - Dự thảo Quy chế đánh giá thành viên MTEC.pdf?url';
+// @ts-ignore
+import bangTieuChiXlsx from '../../assets/documents/BẢNG TIÊU CHÍ ĐÁNH GIÁ THÀNH VIÊN CHI TIẾT.xlsx?url';
 
 const componentRules = [
   {
@@ -67,13 +75,27 @@ const evidenceRules = [
   'Minh chứng bị từ chối sẽ không được dùng trong chế độ tính điểm phê duyệt.',
 ];
 
-const blockerRules = [
-  'Chuyên cần dưới 80% sẽ chặn mức xếp loại tối đa còn Đạt.',
-  'Có vắng không phép trong chu kỳ sẽ chặn mức xếp loại tối đa còn Tốt.',
-  'Đi trễ hoặc lỡ deadline lặp lại nhiều lần sẽ chặn mức xếp loại tối đa còn Đạt.',
-  'Cảnh cáo nội bộ có hiệu lực sẽ chặn mức xếp loại tối đa còn Cần cải thiện.',
-  'Vi phạm nghiêm trọng có hiệu lực sẽ chặn mức xếp loại tối đa còn Không đạt.',
-  'Không hoàn thành nhiệm vụ trọng yếu liên quan nhiều đơn vị sẽ chặn mức xếp loại tối đa còn Tốt.',
+const blockerRulesGrouped = [
+  { 
+    level: 'Tốt', 
+    rules: ['Có vắng không phép trong chu kỳ.', 'Không hoàn thành nhiệm vụ trọng yếu liên quan nhiều đơn vị.'], 
+    tone: 'bg-green-100 text-green-700 border-green-200' 
+  },
+  { 
+    level: 'Đạt', 
+    rules: ['Chuyên cần dưới 80%.', 'Đi trễ hoặc lỡ deadline lặp lại nhiều lần.'], 
+    tone: 'bg-blue-100 text-blue-700 border-blue-200' 
+  },
+  { 
+    level: 'Cần cải thiện', 
+    rules: ['Cảnh cáo nội bộ có hiệu lực.'], 
+    tone: 'bg-orange-100 text-orange-700 border-orange-200' 
+  },
+  { 
+    level: 'Không đạt', 
+    rules: ['Vi phạm nghiêm trọng có hiệu lực.'], 
+    tone: 'bg-red-100 text-red-700 border-red-200' 
+  },
 ];
 
 const rightsRules = [
@@ -122,6 +144,30 @@ export const EvaluationGuidePanel = () => {
             </div>
           </div>
         </div>
+        
+        {/* Document Links */}
+        <div className="mt-5 pt-4 border-t border-border/40 flex flex-wrap gap-3">
+          <a 
+            href={qcMtecPdf} 
+            target="_blank" 
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-colors text-sm font-semibold"
+          >
+            <FileText size={16} />
+            Quy chế Đánh giá (PDF)
+            <Download size={14} className="ml-1 opacity-70" />
+          </a>
+          <a 
+            href={bangTieuChiXlsx} 
+            target="_blank" 
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-green-600/20 bg-green-50 hover:bg-green-100 text-green-700 dark:bg-green-900/10 dark:text-green-500 transition-colors text-sm font-semibold"
+          >
+            <FileText size={16} />
+            Bảng Tiêu chí Chi tiết (Excel)
+            <Download size={14} className="ml-1 opacity-70" />
+          </a>
+        </div>
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -138,25 +184,41 @@ export const EvaluationGuidePanel = () => {
       </section>
 
       <section className="border border-border/40 bg-card/45 rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-6">
           <ClipboardCheck size={18} className="text-primary" />
           <h4 className="font-bold text-foreground">Vòng đời một chu kỳ</h4>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-3">
-          {workflowSteps.map((step, index) => {
-            const Icon = step.icon;
-            return (
-              <div key={step.label} className="flex items-center gap-3 border border-border/30 rounded-xl px-3 py-3 bg-background/45">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Icon size={16} />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-bold text-secondary">Bước {index + 1}</div>
-                  <div className="text-sm font-bold text-foreground truncate">{step.label}</div>
-                </div>
-              </div>
-            );
-          })}
+        
+        {/* Flowchart UI */}
+        <div className="relative">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full">
+            {workflowSteps.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <React.Fragment key={step.label}>
+                  <div className="flex flex-col items-center gap-2 z-10 w-full md:w-24 shrink-0 group">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-background border-2 border-primary/30 text-primary shadow-sm group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300">
+                      <Icon size={20} />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-0.5">Bước {index + 1}</div>
+                      <div className="text-xs font-bold text-foreground leading-tight">{step.label}</div>
+                    </div>
+                  </div>
+                  {index < workflowSteps.length - 1 && (
+                    <div className="hidden md:flex h-0.5 flex-1 bg-border/50 shrink-0 relative top-[-15px]">
+                      <div className="absolute right-[-4px] top-[-5px] text-border/80">
+                        <ChevronRight size={12} strokeWidth={4} />
+                      </div>
+                    </div>
+                  )}
+                  {index < workflowSteps.length - 1 && (
+                    <div className="flex md:hidden h-6 w-0.5 bg-border/50 shrink-0"></div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -180,16 +242,27 @@ export const EvaluationGuidePanel = () => {
           </div>
         </div>
 
-        <div className="border border-border/40 bg-card/45 rounded-2xl p-5 shadow-sm">
+        <div className="border border-border/40 bg-card/45 rounded-2xl p-5 shadow-sm h-full flex flex-col">
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck size={18} className="text-primary" />
             <h4 className="font-bold text-foreground">Điều kiện chặn xếp loại</h4>
           </div>
-          <div className="space-y-3">
-            {blockerRules.map((rule) => (
-              <div key={rule} className="flex items-start gap-3 border border-border/30 rounded-xl px-3 py-3 bg-background/45">
-                <AlertTriangle size={16} className="text-orange-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-secondary leading-6">{rule}</p>
+          <div className="flex-1 space-y-4">
+            {blockerRulesGrouped.map((group) => (
+              <div key={group.level} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${group.tone}`}>
+                    Chặn mức xếp loại tối đa: {group.level}
+                  </span>
+                </div>
+                <ul className="space-y-2 pl-2">
+                  {group.rules.map((rule, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <AlertTriangle size={14} className="text-orange-500 shrink-0 mt-0.5" />
+                      <span className="text-sm text-secondary">{rule}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>

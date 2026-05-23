@@ -12,14 +12,17 @@ import {
   Eye,
   Edit2
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { UserAccount, UserRole } from '../../types/app';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
+import { DatePicker } from '../ui/date-picker';
 import { Modal } from '../ui/modal';
 import { Badge } from '../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useToast } from '../ui/toast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { 
   EvaluationCycle, 
   getEvaluationCycles, 
@@ -48,6 +51,7 @@ export const EvaluationCyclesPanel = ({
   selectedCycleId,
   onCyclesUpdated 
 }: EvaluationCyclesPanelProps) => {
+  const { t } = useTranslation();
   const { success, error, warning } = useToast();
   const fmtError = (e: any) => {
     if (!e) return '';
@@ -65,7 +69,9 @@ export const EvaluationCyclesPanel = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [missingModalOpen, setMissingModalOpen] = useState(false);
   const [missingDetails, setMissingDetails] = useState<any | null>(null);
+  const [computeError, setComputeError] = useState<string | null>(null);
   const [pendingCycleId, setPendingCycleId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ cycleId: string, action: 'submit' | 'ready' | 'approve' | 'lock' | 'cancel', msg: string } | null>(null);
   
   // Form state
   const [formType, setFormType] = useState<'create' | 'edit'>('create');
@@ -186,7 +192,7 @@ export const EvaluationCyclesPanel = ({
     }
   };
 
-  const handleStatusTransition = async (cycleId: string, action: 'submit' | 'ready' | 'approve' | 'lock' | 'cancel') => {
+  const initiateStatusTransition = (cycleId: string, action: 'submit' | 'ready' | 'approve' | 'lock' | 'cancel') => {
     let confirmMsg = '';
     switch(action) {
       case 'submit': confirmMsg = 'Xác nhận mở giai đoạn rà soát chu kỳ này?'; break;
@@ -195,8 +201,13 @@ export const EvaluationCyclesPanel = ({
       case 'lock': confirmMsg = 'Xác nhận khóa chu kỳ này? Mọi thao tác ghi điểm sẽ bị vô hiệu hóa.'; break;
       case 'cancel': confirmMsg = 'Xác nhận hủy chu kỳ này?'; break;
     }
+    setConfirmAction({ cycleId, action, msg: confirmMsg });
+  };
 
-    if (!window.confirm(confirmMsg)) return;
+  const executeStatusTransition = async () => {
+    if (!confirmAction) return;
+    const { cycleId, action } = confirmAction;
+    setConfirmAction(null);
 
     try {
       let res;
@@ -217,9 +228,10 @@ export const EvaluationCyclesPanel = ({
         if (import.meta.env.DEV) console.debug('Status transition error response:', res);
 
         // If backend reports evaluation not ready, surface a guided modal
-        const detail = res?.data?.detail ?? null;
+        const detail = (res?.data as any)?.detail ?? null;
         if (detail && detail.code === 'EVALUATION_NOT_READY_FOR_APPROVAL') {
           setMissingDetails(detail.details || null);
+          setComputeError(null);
           setPendingCycleId(cycleId);
           setMissingModalOpen(true);
           return;
@@ -262,18 +274,18 @@ export const EvaluationCyclesPanel = ({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500 text-foreground bg-background transition-colors">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-transparent border-0 py-1">
         <div>
-          <h3 className="text-lg font-bold text-foreground">Danh sách Chu kỳ Đánh giá</h3>
-          <p className="text-sm text-secondary mt-0.5">Quản lý và kích hoạt các chu kỳ đánh giá hiệu suất thành viên.</p>
+          <h3 className="text-lg font-bold text-foreground">{t('discipline.cycles.title', 'Danh sách Chu kỳ Đánh giá')}</h3>
+          <p className="text-sm text-secondary mt-0.5">{t('discipline.cycles.subtitle', 'Quản lý và kích hoạt các chu kỳ đánh giá hiệu suất thành viên.')}</p>
         </div>
         {isOperator && (
           <Button 
             onClick={handleOpenCreateModal} 
-            className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
+            className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0 shrink-0"
           >
-            <Plus size={16} /> Tạo chu kỳ mới
+            <Plus size={16} /> {t('discipline.cycles.createBtn', 'Tạo chu kỳ mới')}
           </Button>
         )}
       </div>
@@ -289,16 +301,16 @@ export const EvaluationCyclesPanel = ({
             Chưa có chu kỳ đánh giá nào được tạo.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold">Mã chu kỳ</TableHead>
-                  <TableHead className="font-semibold">Tên chu kỳ</TableHead>
-                  <TableHead className="font-semibold">Loại</TableHead>
-                  <TableHead className="font-semibold">Thời gian</TableHead>
-                  <TableHead className="font-semibold">Trạng thái</TableHead>
-                  <TableHead className="text-right font-semibold">Thao tác</TableHead>
+          <div className="overflow-x-auto max-h-[65vh] relative custom-scrollbar">
+            <Table className="relative min-w-[700px]">
+              <TableHeader className="bg-muted/95 backdrop-blur-md sticky top-0 z-10 shadow-sm border-b border-border/50">
+                <TableRow className="hover:bg-transparent border-none">
+                  <TableHead className="font-semibold text-secondary-foreground">{t('discipline.cycles.thCode', 'Mã chu kỳ')}</TableHead>
+                  <TableHead className="font-semibold text-secondary-foreground">{t('discipline.cycles.thName', 'Tên chu kỳ')}</TableHead>
+                  <TableHead className="font-semibold text-secondary-foreground">{t('discipline.cycles.thType', 'Loại')}</TableHead>
+                  <TableHead className="font-semibold text-secondary-foreground">{t('discipline.cycles.thTime', 'Thời gian')}</TableHead>
+                  <TableHead className="font-semibold text-secondary-foreground">{t('discipline.cycles.thStatus', 'Trạng thái')}</TableHead>
+                  <TableHead className="text-right font-semibold text-secondary-foreground">{t('common.thAction', 'Thao tác')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -341,7 +353,7 @@ export const EvaluationCyclesPanel = ({
                                 variant="outline" 
                                 size="sm" 
                                 className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
-                                onClick={() => handleStatusTransition(cycle.id, 'submit')}
+                                onClick={() => initiateStatusTransition(cycle.id, 'submit')}
                               >
                                 <CheckCircle2 size={13} /> Gửi duyệt
                               </Button>
@@ -353,7 +365,7 @@ export const EvaluationCyclesPanel = ({
                               variant="outline" 
                               size="sm" 
                               className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-orange-600 border-orange-200 hover:bg-orange-50"
-                              onClick={() => handleStatusTransition(cycle.id, 'ready')}
+                              onClick={() => initiateStatusTransition(cycle.id, 'ready')}
                             >
                               <CheckCircle2 size={13} /> Hoàn tất rà soát
                             </Button>
@@ -364,7 +376,7 @@ export const EvaluationCyclesPanel = ({
                               variant="outline" 
                               size="sm" 
                               className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-green-600 border-green-200 hover:bg-green-50"
-                              onClick={() => handleStatusTransition(cycle.id, 'approve')}
+                              onClick={() => initiateStatusTransition(cycle.id, 'approve')}
                             >
                               <CheckCircle2 size={13} /> Phê duyệt
                             </Button>
@@ -375,7 +387,7 @@ export const EvaluationCyclesPanel = ({
                               variant="outline" 
                               size="sm" 
                               className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-purple-600 border-purple-200 hover:bg-purple-50"
-                              onClick={() => handleStatusTransition(cycle.id, 'lock')}
+                              onClick={() => initiateStatusTransition(cycle.id, 'lock')}
                             >
                               <Lock size={13} /> Khóa
                             </Button>
@@ -386,7 +398,7 @@ export const EvaluationCyclesPanel = ({
                               variant="outline" 
                               size="sm" 
                               className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={() => handleStatusTransition(cycle.id, 'cancel')}
+                              onClick={() => initiateStatusTransition(cycle.id, 'cancel')}
                             >
                               <XCircle size={13} /> Hủy
                             </Button>
@@ -453,24 +465,20 @@ export const EvaluationCyclesPanel = ({
               <label className="block text-sm font-semibold text-foreground mb-1.5">
                 Ngày bắt đầu <span className="text-red-500">*</span>
               </label>
-              <Input 
-                type="date" 
-                required 
+              <DatePicker 
                 value={formData.startDate} 
-                onChange={e => setFormData({ ...formData, startDate: e.target.value })} 
-                className="rounded-xl" 
+                onChange={val => setFormData({ ...formData, startDate: val })} 
+                className="w-full"
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
                 Ngày kết thúc <span className="text-red-500">*</span>
               </label>
-              <Input 
-                type="date" 
-                required 
+              <DatePicker 
                 value={formData.endDate} 
-                onChange={e => setFormData({ ...formData, endDate: e.target.value })} 
-                className="rounded-xl" 
+                onChange={val => setFormData({ ...formData, endDate: val })} 
+                className="w-full"
               />
             </div>
           </div>
@@ -525,6 +533,16 @@ export const EvaluationCyclesPanel = ({
             </div>
           </div>
 
+          {computeError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold">Lỗi Compute:</p>
+                <p>{computeError}</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 justify-end pt-4">
             <Button variant="outline" onClick={() => { setMissingModalOpen(false); }}>Đóng</Button>
             <Button
@@ -533,6 +551,7 @@ export const EvaluationCyclesPanel = ({
                   // keep modal open to show result details
                   try {
                     setIsSubmitting(true);
+                    setComputeError(null);
                     const res = await computeEvaluationCycle(pendingCycleId, { strict: true, evidenceMode: 'approval', recomputeExisting: true }, authToken);
                     if (!res?.error) {
                       success('Đã chạy Compute cho chu kỳ. Vui lòng thử lại chuyển trạng thái.', 'Compute hoàn tất');
@@ -542,13 +561,13 @@ export const EvaluationCyclesPanel = ({
                       // show backend validation details when 422
                       if (res.status === 422 && res.data?.detail) {
                         const detail = res.data.detail;
-                        // if detail contains nested details, map to our missingDetails shape
-                        setMissingDetails(detail.details ?? detail);
-                        // keep modal open so user can see what's missing
-                        error(fmtError(res.error) || 'Compute thất bại do dữ liệu không hợp lệ.', 'Compute thất bại');
+                        // Instead of overwriting missingDetails, show in computeError
+                        const errorMsg = detail.message || fmtError(res.error);
+                        setComputeError(errorMsg);
+                        error('Compute thất bại do dữ liệu không hợp lệ.', 'Compute thất bại');
                       } else {
-                        error(fmtError(res.error) || 'Không thể chạy Compute.', 'Compute thất bại');
-                        setMissingModalOpen(false);
+                        setComputeError(fmtError(res.error) || 'Không thể chạy Compute.');
+                        error('Không thể chạy Compute.', 'Compute thất bại');
                       }
                     }
                   } catch (err) {
@@ -577,6 +596,15 @@ export const EvaluationCyclesPanel = ({
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={executeStatusTransition}
+        title="Xác nhận trạng thái"
+        message={confirmAction?.msg || ''}
+        isDestructive={confirmAction?.action === 'cancel'}
+      />
     </div>
   );
 };

@@ -35,7 +35,7 @@ export const EvaluationComponentsChart = ({ cycleId, authToken, height = 220 }: 
     if (cycleId) load();
   }, [cycleId, authToken]);
 
-  const aggregated = useMemo(() => {
+  const aggregated: { name: string; key?: string; value: number; color?: string; percent?: number }[] | null = useMemo(() => {
     if (!dataRows || dataRows.length === 0) return null;
     const totals = {
       I: 0,
@@ -96,13 +96,13 @@ export const EvaluationComponentsChart = ({ cycleId, authToken, height = 220 }: 
                 innerRadius="40%"
                 outerRadius="75%"
                 paddingAngle={3}
-                label={(entry) => `${entry.name.split(' ')[0]} ${(entry.percent ?? 0).toFixed(0)}%`}
+                label={(entry: any) => `${entry.name.split(' ')[0]} ${(entry.percent ?? 0).toFixed(0)}%`}
               >
                 {aggregated.map((entry, idx) => (
-                  <Cell key={entry.key} fill={entry.color || COLORS[idx % COLORS.length]} />
+                  <Cell key={entry.key || entry.name} fill={entry.color || COLORS[idx % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(val: number) => val.toFixed(2)} />
+              <Tooltip formatter={(val: any) => (typeof val === 'number' ? val.toFixed(2) : val)} />
               <Legend verticalAlign="bottom" height={36} />
             </PieChart>
           </ResponsiveContainer>

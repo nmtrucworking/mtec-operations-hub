@@ -17,6 +17,7 @@ import { Select } from "../ui/select";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { useToast } from "../ui/toast";
 
 import {
   getMeetings,
@@ -59,6 +60,7 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(true);
   const [hasLoadedMeetings, setHasLoadedMeetings] = useState<boolean>(false);
+  const { success, error, warning } = useToast();
 
   // Add Meeting State
   const [isAddMeetingModalOpen, setIsAddMeetingModalOpen] = useState<boolean>(false);
@@ -180,8 +182,9 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
       setIsAddMeetingModalOpen(false);
       setNewMeeting({ title: '', date: '', meetingType: 'Họp định kỳ', description: '', minutesUrl: '' });
       await fetchMeetings();
+      success("Tạo cuộc họp thành công");
     } else {
-      alert("Lỗi khi tạo cuộc họp: " + res.error);
+      error("Lỗi khi tạo cuộc họp: " + res.error);
     }
     setIsSubmitting(false);
   };
@@ -203,8 +206,9 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
       setIsEditMeetingModalOpen(false);
       setEditMeetingData(null);
       await fetchMeetings(); // Bổ sung để làm mới dữ liệu bảng
+      success("Cập nhật cuộc họp thành công");
     } else {
-      alert("Lỗi khi cập nhật cuộc họp: " + res.error);
+      error("Lỗi khi cập nhật cuộc họp: " + res.error);
     }
     setIsSubmitting(false);
   };
@@ -220,49 +224,26 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
   };
 
   const handleBulkAttendanceChange = (status: AttendanceStatus) => {
-    setAttendanceData(prev => {
-      const newData = { ...prev };
-      Object.keys(newData).forEach(key => {
-        newData[key] = { ...newData[key], status };
-      });
-      return newData;
+    const newData = { ...attendanceData };
+    allMembers.forEach(m => {
+      newData[m.id] = { memberId: m.id, status };
     });
+    setAttendanceData(newData);
   };
 
-  /**
-   * Xử lý lưu điểm danh
-   */
   const handleSaveAttendance = async () => {
     if (!attendanceModalMeeting) return;
     setIsSubmitting(true);
-
-
-    const rawPayload = Object.values(attendanceData).map(att => ({
-      memberId: att.memberId,
-      status: att.status,
-      note: att.note || ""
-    }));
-
-    try {
-      // 2. GỬI API (Thử gửi mảng trực tiếp trước)
-      // Nếu Backend cần wrapper dạng { "records": rawPayload }, bạn đổi rawPayload thành { records: rawPayload }
-      const res = await updateAttendance(attendanceModalMeeting.id, rawPayload as any, authToken);
-
-      if (res.success || res.status === 200) {
-        // ... (Thay alert bằng toast nếu bạn đã cài đặt)
-        alert("Lưu kết quả điểm danh thành công.");
-        setAttendanceModalMeeting(null);
-        await fetchMeetings();
-      } else {
-        alert("Lỗi khi lưu điểm danh: " + (res.error || "Dữ liệu không hợp lệ"));
-      }
-    } catch (error: any) {
-      // Bắt lỗi 422 và log ra màn hình để biết chính xác backend đang thiếu trường gì
-      console.error("Lỗi 422 Payload:", error.response?.data);
-      alert("Hệ thống từ chối dữ liệu (Lỗi 422). Vui lòng kiểm tra console log.");
-    } finally {
-      setIsSubmitting(false);
+    const updates = Object.values(attendanceData);
+    const res = await updateAttendance(attendanceModalMeeting.id, updates as any, authToken);
+    if (res.success) {
+      success("Đã lưu kết quả điểm danh");
+      setAttendanceModalMeeting(null);
+      await fetchMeetings();
+    } else {
+      error("Lỗi khi lưu điểm danh: " + res.error);
     }
+    setIsSubmitting(false);
   };
 
   return (

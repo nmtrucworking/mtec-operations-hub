@@ -26,6 +26,7 @@ import {
 import { EVALUATION_UNIT_CODES } from '../../data/evaluations';
 import { EvaluationMemberRolesSpreadsheet } from './EvaluationMemberRolesSpreadsheet';
 import { createMemberCycleRolesBulk } from '../../services/evaluations';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface EvaluationMemberRolesPanelProps {
   authToken?: string;
@@ -50,6 +51,7 @@ export const EvaluationMemberRolesPanel = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterDept, setFilterDept] = useState<string>('');
   const [editingRole, setEditingRole] = useState<MemberCycleRole | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ roleId: string, memberName: string } | null>(null);
 
   // Filtered members for selector in Modal
   const filteredMembers = useMemo(() => {
@@ -192,11 +194,10 @@ export const EvaluationMemberRolesPanel = ({
     }
   };
 
-  const handleDeleteRole = async (roleId: string, memberName: string) => {
-    if (!window.confirm(`Xác nhận xóa vai trò của thành viên ${memberName}?`)) return;
-
+  const executeDeleteRole = async () => {
+    if (!confirmDelete) return;
     try {
-      const res = await deleteMemberCycleRole(roleId, authToken);
+      const res = await deleteMemberCycleRole(confirmDelete.roleId, authToken);
       if (!res.error) {
         success('Xóa vai trò thành công!', 'Xóa vai trò');
         fetchRolesList();
@@ -206,6 +207,8 @@ export const EvaluationMemberRolesPanel = ({
     } catch (err) {
       console.error(err);
       error('Lỗi khi thực hiện xóa vai trò.', 'Lỗi hệ thống');
+    } finally {
+      setConfirmDelete(null);
     }
   };
 
@@ -340,7 +343,7 @@ export const EvaluationMemberRolesPanel = ({
                               variant="outline" 
                               size="sm" 
                               className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={() => handleDeleteRole(role.id, memberName)}
+                              onClick={() => setConfirmDelete({ roleId: role.id, memberName })}
                             >
                               <Trash2 size={13} /> Xóa
                             </Button>
@@ -485,6 +488,15 @@ export const EvaluationMemberRolesPanel = ({
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={executeDeleteRole}
+        title="Xác nhận xóa"
+        message={confirmDelete ? `Xác nhận xóa vai trò của thành viên ${confirmDelete.memberName}?` : ''}
+        isDestructive={true}
+      />
     </div>
   );
 };

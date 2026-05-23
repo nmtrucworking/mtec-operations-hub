@@ -363,7 +363,54 @@
     "thLevel": "Mức kỷ luật",
     "thKpi": "KPI",
     "noteTitle": "Cảnh báo tự động",
-    "noteDesc": "Thành viên vắng mặt không phép từ 2 buổi hoặc KPI dưới 60 sẽ tự động đưa vào danh sách theo dõi đặc biệt."
+    "noteDesc": "Thành viên vắng mặt không phép từ 2 buổi hoặc KPI dưới 60 sẽ tự động đưa vào danh sách theo dõi đặc biệt.",
+    "tabs": {
+      "evaluations": {
+        "label": "Đánh giá định kỳ",
+        "short": "Evaluation v2",
+        "desc": "Chu kỳ, tiêu chí, minh chứng, khiếu nại và kết quả xếp loại."
+      },
+      "meetings": {
+        "label": "Điểm danh cuộc họp",
+        "short": "Attendance",
+        "desc": "Ghi nhận có mặt, vắng có phép, vắng không phép và chưa ghi nhận."
+      },
+      "records": {
+        "label": "Hồ sơ kỷ luật",
+        "short": "Legacy",
+        "desc": "Dữ liệu tóm tắt cũ, dùng để đối chiếu trong giai đoạn chuyển đổi."
+      },
+      "competitions": {
+        "label": "Hiệu suất thi đua",
+        "short": "Competition",
+        "desc": "Kết quả thi đua và điểm thưởng đồng bộ sang đánh giá."
+      }
+    },
+    "syncConfirm": "Đồng bộ dữ liệu vắng mặt sang hệ thống Kỷ luật?",
+    "syncError": "Lỗi đồng bộ: ",
+    "cycles": {
+      "title": "Danh sách Chu kỳ Đánh giá",
+      "subtitle": "Quản lý và kích hoạt các chu kỳ đánh giá hiệu suất thành viên.",
+      "createBtn": "Tạo chu kỳ mới",
+      "thCode": "Mã chu kỳ",
+      "thName": "Tên chu kỳ",
+      "thType": "Loại",
+      "thTime": "Thời gian",
+      "thStatus": "Trạng thái"
+    },
+    "roles": {
+      "member": "Thành viên",
+      "lead": "Trưởng nhóm / Ban",
+      "contributor": "Cộng tác viên",
+      "unit": "Ban/Tổ (Unit)",
+      "type": "Loại Vai trò",
+      "title": "Chức danh (Title)",
+      "weight": "Trọng số"
+    },
+    "filterDept": "Lọc Ban/Tổ",
+    "filterGroup": "Lọc Nhóm Tiêu chí",
+    "quickFillCriterion": "Điền nhanh Tiêu chí",
+    "score": "Điểm"
   },
   "logistics": {
     "title": "Cơ sở vật chất & Hậu cần",

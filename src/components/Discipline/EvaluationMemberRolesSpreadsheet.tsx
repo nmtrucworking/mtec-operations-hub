@@ -12,10 +12,12 @@ import {
 } from '../../services/evaluations';
 import { EVALUATION_UNIT_CODES } from '../../data/evaluations';
 
-const EVALUATION_ROLE_TYPES = [
-  { value: 'MEMBER', label: 'Thành viên' },
-  { value: 'LEAD', label: 'Trưởng nhóm / Ban' },
-  { value: 'CONTRIBUTOR', label: 'Cộng tác viên' }
+import { useTranslation } from 'react-i18next';
+
+const EVALUATION_ROLE_TYPES = (t: any) => [
+  { value: 'MEMBER', label: t('discipline.roles.member', 'Thành viên') },
+  { value: 'LEAD', label: t('discipline.roles.lead', 'Trưởng nhóm / Ban') },
+  { value: 'CONTRIBUTOR', label: t('discipline.roles.contributor', 'Cộng tác viên') }
 ];
 
 interface EvaluationMemberRolesSpreadsheetProps {
@@ -34,6 +36,9 @@ export const EvaluationMemberRolesSpreadsheet = ({
   isLocked
 }: EvaluationMemberRolesSpreadsheetProps) => {
   const { success, error, warning } = useToast();
+  
+  const { t } = useTranslation();
+  const roleTypesList = EVALUATION_ROLE_TYPES(t);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -124,8 +129,8 @@ export const EvaluationMemberRolesSpreadsheet = ({
            ...(newEdits[m.id] || {}),
            ...(quickUnit ? { unitCode: quickUnit } : {}),
            ...(quickRole ? { roleType: quickRole } : {}),
-           ...(quickTitle ? { roleTitle: quickTitle } : {}),
-           ...(quickWeight !== '' ? { participationWeight: parseFloat(quickWeight) || 1.0 } : {})
+           ...(quickTitle !== '' ? { roleTitle: quickTitle } : {}),
+           ...(quickWeight !== '' && !isNaN(parseFloat(quickWeight)) ? { participationWeight: Math.max(0, Math.min(1, parseFloat(quickWeight))) } : {})
         };
       }
       return newEdits;
@@ -170,12 +175,20 @@ export const EvaluationMemberRolesSpreadsheet = ({
           hasChanges = true;
         }
 
+        let parsedWeight = parseFloat(String(participationWeight));
+        if (isNaN(parsedWeight)) {
+          parsedWeight = 1.0;
+        } else if (parsedWeight < 0 || parsedWeight > 1) {
+          warning(`Thành viên ${m.name} có trọng số không hợp lệ (${parsedWeight}). Trọng số phải từ 0 đến 1.`, 'Trọng số không hợp lệ');
+          return;
+        }
+
         payloadRoles.push({
           memberId: m.id,
           unitCode,
           roleType,
           roleTitle,
-          participationWeight: Number(participationWeight),
+          participationWeight: parsedWeight,
           isPrimary
         });
       }
@@ -269,8 +282,8 @@ export const EvaluationMemberRolesSpreadsheet = ({
                   onChange={e => setQuickRole(e.target.value)}
                   className="w-28 h-8 text-xs rounded-md"
                 >
-                  <option value="">-- Bỏ qua --</option>
-                  {EVALUATION_ROLE_TYPES.map(r => (
+                  <option value="">-- {t('common.skip', 'Bỏ qua')} --</option>
+                  {roleTypesList.map(r => (
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </Select>
@@ -327,27 +340,29 @@ export const EvaluationMemberRolesSpreadsheet = ({
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-20 bg-muted/95 backdrop-blur shadow-sm">
                 <tr>
-                  <th className="sticky left-0 z-30 bg-muted/95 p-3 text-left font-bold border-b border-r border-border/50 w-[200px]">
-                    Thành viên
+                  <th className="sticky left-0 z-30 bg-muted/95 p-3 text-left font-bold border-b border-r border-border/50 w-[200px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    {t('common.member', 'Thành viên')}
                   </th>
                   <th className="p-3 text-left font-semibold border-b border-r border-border/50 min-w-[150px]">
-                    Ban/Tổ (Unit)
+                    {t('discipline.roles.unit', 'Ban/Tổ (Unit)')}
                   </th>
                   <th className="p-3 text-left font-semibold border-b border-r border-border/50 min-w-[150px]">
-                    Loại Vai trò
+                    {t('discipline.roles.type', 'Loại Vai trò')}
                   </th>
                   <th className="p-3 text-left font-semibold border-b border-r border-border/50 min-w-[150px]">
-                    Chức danh (Title)
+                    {t('discipline.roles.title', 'Chức danh (Title)')}
                   </th>
                   <th className="p-3 text-center font-semibold border-b border-r border-border/50 w-[100px]">
-                    Trọng số
+                    {t('discipline.roles.weight', 'Trọng số')}
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredMembers.map((m, idx) => (
-                  <tr key={m.id} className={`${idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'} hover:bg-muted/30 transition-colors`}>
-                    <td className="sticky left-0 z-10 bg-inherit p-3 border-b border-r border-border/50 font-medium">
+                {filteredMembers.map((m, idx) => {
+                  const bgClass = idx % 2 === 0 ? 'bg-background' : 'bg-muted/10';
+                  return (
+                  <tr key={m.id} className={`${bgClass} hover:bg-muted/30 transition-colors`}>
+                    <td className={`sticky left-0 z-10 p-3 border-b border-r border-border/50 font-medium ${bgClass} shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>
                       <div className="truncate font-bold">{m.name}</div>
                       <div className="text-xs text-secondary">{m.mssv}</div>
                     </td>
@@ -372,7 +387,7 @@ export const EvaluationMemberRolesSpreadsheet = ({
                         className="w-full h-8 text-sm bg-transparent border-transparent hover:border-border/50"
                       >
                         <option value="">-- Bỏ trống --</option>
-                        {EVALUATION_ROLE_TYPES.map((r: { value: string; label: string }) => (
+                        {EVALUATION_ROLE_TYPES(t).map((r: { value: string; label: string }) => (
                           <option key={r.value} value={r.value}>{r.label}</option>
                         ))}
                       </Select>
@@ -399,7 +414,8 @@ export const EvaluationMemberRolesSpreadsheet = ({
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

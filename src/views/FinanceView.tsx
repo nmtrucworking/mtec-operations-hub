@@ -9,6 +9,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
 import { Modal } from '../components/ui/modal';
+import { DatePicker } from '../components/ui/date-picker';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { formatDate } from '../lib/helpers';
@@ -286,8 +287,8 @@ export const FinanceView = ({
           <option value="Từ chối">{t('finance.statusRejected')}</option>
         </Select>
 
-        <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} placeholder={t('finance.filterFromDate')} className="w-full text-secondary" title={t('finance.filterFromDate')} />
-        <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} placeholder={t('finance.filterToDate')} className="w-full text-secondary" title={t('finance.filterToDate')} />
+        <DatePicker value={fromDate} onChange={val => setFromDate(val || '')} placeholder={t('finance.filterFromDate')} className="w-full text-secondary" />
+        <DatePicker value={toDate} onChange={val => setToDate(val || '')} placeholder={t('finance.filterToDate')} className="w-full text-secondary" />
       </div>
 
       <div className="bg-card rounded-xl border border-border p-5">
@@ -431,8 +432,8 @@ export const FinanceView = ({
              <Input value={form.id} disabled className="bg-brand-light cursor-not-allowed" />
           </div>
           <div className="space-y-1.5">
-             <label className="text-sm font-medium text-secondary">Ngày giao dịch *</label>
-             <Input type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} required />
+             <label className="block text-sm font-semibold text-foreground mb-1.5">{t('finance.phDate')} *</label>
+             <DatePicker value={form.date} onChange={val => setForm((prev) => ({ ...prev, date: val || '' }))} />
           </div>
           <div className="space-y-1.5 md:col-span-2">
              <label className="text-sm font-medium text-secondary">Tên khoản thu / chi *</label>

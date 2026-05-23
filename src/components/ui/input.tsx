@@ -12,7 +12,6 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, icon, ...props }, ref) => {
     const [showPassword, setShowPassword] = React.useState(false);
     const isPassword = type === 'password';
-    const isDate = type === 'date';
 
     const togglePassword = () => setShowPassword(!showPassword);
 
@@ -29,8 +28,6 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             'flex h-9 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary placeholder:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all',
             icon && 'pl-10',
             isPassword && 'pr-10',
-            isDate && 'relative w-full appearance-none',
-            isDate && '[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:w-5 [&::-webkit-calendar-picker-indicator]:h-5 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10 [&::-webkit-datetime-edit]:text-primary',
             className
           )}
           ref={ref}

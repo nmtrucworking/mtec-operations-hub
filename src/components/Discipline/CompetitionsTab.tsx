@@ -10,9 +10,12 @@ import {
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
+import { DatePicker } from '../../components/ui/date-picker';
 import { Modal } from '../../components/ui/modal';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { useToast } from '../../components/ui/toast';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 
 import { useTranslation } from 'react-i18next';
 
@@ -53,12 +56,16 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
     scale: 'Cấp CLB'
   });
 
+  const { success, error, warning } = useToast();
+  const [confirmSyncId, setConfirmSyncId] = useState<string | null>(null);
+
   const fetchCompetitions = async () => {
     setIsLoading(true);
     try {
       const res = await getCompetitions(authToken);
       const data = res?.data || [];
       setCompetitions(Array.isArray(data) ? data : []);
+      setHasLoadedCompetitions(true);
     } catch (error) {
       console.error("Lỗi truy xuất dữ liệu thi đua:", error);
     } finally {
@@ -71,7 +78,7 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
       setResultModalCompetition(competition);
       setResultData({});
     } catch {
-      alert('Không tải được danh sách thành viên cho kết quả thi đua.');
+      error('Không tải được danh sách thành viên cho kết quả thi đua.');
     }
   };
 
@@ -83,30 +90,29 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
       .map(([memberId, data]) => ({ memberId, ...data }));
 
     if (payload.length === 0) {
-      alert("Chưa có thành tích nào được ghi nhận.");
+      warning("Chưa có thành tích nào được ghi nhận.");
       setIsSubmitting(false);
       return;
     }
 
     const res = await updateCompetitionResults(resultModalCompetition.id, payload, authToken);
     if (res.status === 200 || res.success) {
-      alert("Đã lưu kết quả thành công!");
+      success("Đã lưu kết quả thành công!");
       setResultModalCompetition(null);
       setResultData({});
     } else {
-      alert("Lỗi khi lưu kết quả: " + res.error);
+      error("Lỗi khi lưu kết quả: " + res.error);
     }
     setIsSubmitting(false);
   };
 
-  const handleSyncCompetitionKPI = async (competitionId: string) => {
-    if (!window.confirm("Xác nhận đồng bộ điểm cộng KPI cho các thành viên đạt giải?")) return;
+  const performSyncCompetitionKPI = async (competitionId: string) => {
     const res = await syncCompetitionKPI(competitionId, authToken);
     if (res.status === 200 || res.success) {
-      alert(res.data?.message || "Đã đồng bộ điểm KPI thành công!");
+      success(res.data?.message || "Đã đồng bộ điểm KPI thành công!");
       // await fetchRecordsTabData();
     } else {
-      alert("Lỗi đồng bộ KPI: " + res.error);
+      error("Lỗi đồng bộ KPI: " + res.error);
     }
   };
 
@@ -122,8 +128,9 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
       setIsAddCompetitionModalOpen(false);
       setNewCompetition({ title: '', date: '', scale: 'Cấp CLB' });
       await fetchCompetitions();
+      success("Tạo sự kiện thành công");
     } else {
-      alert("Lỗi khi tạo sự kiện: " + res.error);
+      error("Lỗi khi tạo sự kiện: " + res.error);
     }
     setIsSubmitting(false);
   };
@@ -182,7 +189,7 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
                       <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-purple-700 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800/50 dark:hover:bg-purple-900/30" onClick={() => { void openResultModal(comp); }}>
                         <Trophy size={14} className="mr-1.5" /> Cập nhật KQ
                       </Button>
-                      <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800/50 dark:hover:bg-green-900/30" onClick={() => handleSyncCompetitionKPI(comp.id)}>
+                      <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800/50 dark:hover:bg-green-900/30" onClick={() => setConfirmSyncId(comp.id)}>
                         <CheckCircle size={14} className="mr-1.5" /> Đồng bộ
                       </Button>
                     </div>
@@ -202,7 +209,11 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
           </div>
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">Ngày tổ chức <span className="text-red-500">*</span></label>
-            <Input type="date" required value={newCompetition.date} onChange={e => setNewCompetition({ ...newCompetition, date: e.target.value })} className="rounded-xl" />
+            <DatePicker 
+              value={newCompetition.date} 
+              onChange={val => setNewCompetition({ ...newCompetition, date: val })} 
+              className="w-full" 
+            />
           </div>
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">Quy mô</label>
@@ -270,6 +281,14 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmSyncId}
+        onClose={() => setConfirmSyncId(null)}
+        onConfirm={() => confirmSyncId && performSyncCompetitionKPI(confirmSyncId)}
+        title="Xác nhận đồng bộ"
+        message="Xác nhận đồng bộ điểm cộng KPI cho các thành viên đạt giải?"
+      />
     </div>
   )
 };
