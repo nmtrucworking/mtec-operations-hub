@@ -92,6 +92,7 @@ export interface Member {
   experience: string;
   goal: string;
   orientation: string;
+  evaluationSummary?: import('../services/evaluations').EvaluationQuickReviewItem | null;
   absents?: number;
   kpi?: number;
   disciplineLevel?: string;
