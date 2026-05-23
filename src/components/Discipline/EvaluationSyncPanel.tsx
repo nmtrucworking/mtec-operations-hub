@@ -51,13 +51,19 @@ export const EvaluationSyncPanel = ({
     setIsLoadingMeetings(true);
     try {
       const res = await getMeetings(authToken);
-      const data = res?.data || [];
-      setMeetings(Array.isArray(data) ? data : []);
-      if (Array.isArray(data) && data.length > 0) {
-        setSelectedMeetingId(data[0].id);
+      if (res.error) {
+        error(res.error, 'Không tải được danh sách cuộc họp');
+        setMeetings([]);
+        setSelectedMeetingId('');
+        return;
       }
+
+      const data = Array.isArray(res.data) ? res.data : [];
+      setMeetings(data);
+      setSelectedMeetingId(data[0]?.id || '');
     } catch (err) {
       console.error(err);
+      error('Lỗi hệ thống khi tải danh sách cuộc họp.', 'Đồng bộ');
     } finally {
       setIsLoadingMeetings(false);
     }
@@ -67,13 +73,19 @@ export const EvaluationSyncPanel = ({
     setIsLoadingCompetitions(true);
     try {
       const res = await getCompetitions(authToken);
-      const data = res?.data || [];
-      setCompetitions(Array.isArray(data) ? data : []);
-      if (Array.isArray(data) && data.length > 0) {
-        setSelectedCompetitionId(data[0].id);
+      if (res.error) {
+        error(res.error, 'Không tải được danh sách cuộc thi');
+        setCompetitions([]);
+        setSelectedCompetitionId('');
+        return;
       }
+
+      const data = Array.isArray(res.data) ? res.data : [];
+      setCompetitions(data);
+      setSelectedCompetitionId(data[0]?.id || '');
     } catch (err) {
       console.error(err);
+      error('Lỗi hệ thống khi tải danh sách cuộc thi.', 'Đồng bộ');
     } finally {
       setIsLoadingCompetitions(false);
     }
@@ -187,6 +199,10 @@ export const EvaluationSyncPanel = ({
         <p className="text-sm text-secondary">
           Lấy dữ liệu từ các phân hệ khác (Điểm danh cuộc họp, Thành tích cuộc thi) để tự động quy đổi thành các sự kiện điểm v2.
         </p>
+      </div>
+
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-300">
+        Dữ liệu sau khi đồng bộ sẽ được ghi thành sự kiện điểm tạm trong Evaluation v2. Sau khi đồng bộ, có thể xem Quick Review để kiểm tra điểm tạm hoặc chạy Compute để lưu kết quả chính thức.
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

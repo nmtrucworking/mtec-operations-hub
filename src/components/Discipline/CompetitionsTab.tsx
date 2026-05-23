@@ -4,7 +4,6 @@ import {
   getCompetitions,
   createCompetition,
   updateCompetitionResults,
-  syncCompetitionKPI,
   type Competition
 } from '../../services/competitions';
 import { Button } from '../../components/ui/button';
@@ -15,7 +14,6 @@ import { Modal } from '../../components/ui/modal';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { useToast } from '../../components/ui/toast';
-import { ConfirmModal } from '../../components/ui/ConfirmModal';
 
 import { useTranslation } from 'react-i18next';
 
@@ -57,7 +55,6 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
   });
 
   const { success, error, warning } = useToast();
-  const [confirmSyncId, setConfirmSyncId] = useState<string | null>(null);
 
   const fetchCompetitions = async () => {
     setIsLoading(true);
@@ -106,16 +103,6 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
     setIsSubmitting(false);
   };
 
-  const performSyncCompetitionKPI = async (competitionId: string) => {
-    const res = await syncCompetitionKPI(competitionId, authToken);
-    if (res.status === 200 || res.success) {
-      success(res.data?.message || "Đã đồng bộ điểm KPI thành công!");
-      // await fetchRecordsTabData();
-    } else {
-      error("Lỗi đồng bộ KPI: " + res.error);
-    }
-  };
-
   useEffect(() => {
     fetchCompetitions();
   }, [authToken]);
@@ -140,7 +127,10 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-card/80 backdrop-blur-md border border-border/50 p-5 rounded-2xl shadow-sm gap-4">
         <div>
           <h3 className="text-lg font-bold text-foreground">Hiệu suất & Thi đua</h3>
-          <p className="text-sm text-secondary mt-1">Ghi nhận thành tích từ các cuộc thi/sự kiện và đồng bộ điểm cộng vào KPI.</p>
+          <p className="text-sm text-secondary mt-1">Ghi nhận thành tích từ các cuộc thi/sự kiện.</p>
+          <p className="text-xs text-secondary mt-1">
+            Kết quả thi đua là dữ liệu nguồn. Đồng bộ điểm thi đua vào Evaluation v2 tại tab Evaluation → Đồng bộ.
+          </p>
         </div>
         <Button onClick={() => setIsAddCompetitionModalOpen(true)} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl shadow-md border-0">
           <Plus size={16} /> {t('common.addActivity')}
@@ -188,9 +178,6 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-purple-700 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800/50 dark:hover:bg-purple-900/30" onClick={() => { void openResultModal(comp); }}>
                         <Trophy size={14} className="mr-1.5" /> Cập nhật KQ
-                      </Button>
-                      <Button variant="outline" size="sm" className="rounded-lg shadow-sm text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800/50 dark:hover:bg-green-900/30" onClick={() => setConfirmSyncId(comp.id)}>
-                        <CheckCircle size={14} className="mr-1.5" /> Đồng bộ
                       </Button>
                     </div>
                   </TableCell>
@@ -281,14 +268,6 @@ const CompetitionsTab = ({ authToken, allMembers }: Props) => {
           </div>
         </div>
       )}
-
-      <ConfirmModal
-        isOpen={!!confirmSyncId}
-        onClose={() => setConfirmSyncId(null)}
-        onConfirm={() => confirmSyncId && performSyncCompetitionKPI(confirmSyncId)}
-        title="Xác nhận đồng bộ"
-        message="Xác nhận đồng bộ điểm cộng KPI cho các thành viên đạt giải?"
-      />
     </div>
   )
 };

@@ -198,11 +198,11 @@ export const EvaluationAppealsPanel = ({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50 font-bold">Đang chờ giải quyết</Badge>;
+        return <Badge variant="outline" className="text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 font-bold">Đang chờ giải quyết</Badge>;
       case 'APPROVED':
-        return <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 font-bold">Chấp thuận</Badge>;
+        return <Badge variant="outline" className="text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 font-bold">Chấp thuận</Badge>;
       case 'REJECTED':
-        return <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 font-bold">Từ chối</Badge>;
+        return <Badge variant="outline" className="text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 font-bold">Từ chối</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

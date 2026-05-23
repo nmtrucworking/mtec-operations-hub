@@ -1,4 +1,5 @@
 import { apiCall, ApiResponse } from './api';
+import { unwrapApiList } from './response';
 
 export interface Competition {
   id: string;
@@ -15,7 +16,12 @@ export interface CompetitionResult {
 }
 
 export const getCompetitions = async (token?: string): Promise<ApiResponse<Competition[]>> => {
-  return apiCall<Competition[]>('/api/v1/competitions', { method: 'GET' }, token);
+  const res = await apiCall<any>('/api/v1/competitions', { method: 'GET' }, token);
+
+  return {
+    ...res,
+    data: unwrapApiList<Competition>(res),
+  };
 };
 
 export const createCompetition = async (data: Partial<Competition>, token?: string): Promise<ApiResponse<Competition>> => {
@@ -32,8 +38,3 @@ export const updateCompetitionResults = async (competitionId: string, results: C
   }, token);
 };
 
-export const syncCompetitionKPI = async (competitionId: string, token?: string): Promise<ApiResponse<{ message: string, syncedCount: number }>> => {
-  return apiCall<any>(`/api/v1/discipline-records/sync-competition-kpi/${competitionId}`, {
-    method: 'POST',
-  }, token);
-};

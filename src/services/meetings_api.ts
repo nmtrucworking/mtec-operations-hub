@@ -1,4 +1,5 @@
 import { apiCall, ApiResponse } from './api';
+import { unwrapApiList } from './response';
 
 export interface Meeting {
   id: string;
@@ -27,7 +28,12 @@ export interface Attendance {
 }
 
 export const getMeetings = async (token?: string): Promise<ApiResponse<Meeting[]>> => {
-  return apiCall<Meeting[]>('/api/v1/meetings', {}, token);
+  const res = await apiCall<any>('/api/v1/meetings', {}, token);
+
+  return {
+    ...res,
+    data: unwrapApiList<Meeting>(res),
+  };
 };
 
 export const createMeeting = async (data: any, token?: string): Promise<ApiResponse<Meeting>> => {
@@ -45,24 +51,23 @@ export const updateMeeting = async (meetingId: string, data: any, token?: string
 };
 
 export const getMeetingAttendance = async (meetingId: string, token?: string): Promise<ApiResponse<Attendance[]>> => {
-  return apiCall<Attendance[]>(`/api/v1/meetings/${meetingId}/attendance`, {
+  const res = await apiCall<any>(`/api/v1/meetings/${meetingId}/attendance`, {
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0'
     }
   }, token);
+
+  return {
+    ...res,
+    data: unwrapApiList<Attendance>(res),
+  };
 };
 
 export const updateAttendance = async (meetingId: string, attendances: Attendance[], token?: string): Promise<ApiResponse<any>> => {
   return apiCall<any>(`/api/v1/meetings/${meetingId}/attendance`, {
     method: 'PUT',
     body: JSON.stringify({ attendances }),
-  }, token);
-};
-
-export const syncAttendanceToDiscipline = async (meetingId: string, token?: string): Promise<ApiResponse<any>> => {
-  return apiCall<any>(`/api/v1/discipline-records/sync-attendance/${meetingId}`, {
-    method: 'POST',
   }, token);
 };

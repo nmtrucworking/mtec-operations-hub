@@ -56,10 +56,8 @@ import {
 import { Copy, Check } from 'lucide-react';
 import { hasAnyRole } from '../lib/permissions';
 
-import {
-  getDisciplineRecords,
-  type DisciplineRecord
-} from '../services/discipline';
+import { getEvaluationQuickReviewMember } from '../services/evaluations';
+import type { EvaluationQuickReviewItem } from '../services/evaluations';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -99,8 +97,8 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<MembersImportResult | null>(null);
 
-  const [memberDiscipline, setMemberDiscipline] = useState<DisciplineRecord | null>(null);
-  const [isLoadingDiscipline, setIsLoadingDiscipline] = useState(false);
+  const [memberEvaluation, setMemberEvaluation] = useState<EvaluationQuickReviewItem | null>(null);
+  const [isLoadingEvaluation, setIsLoadingEvaluation] = useState(false);
 
   const handleImportSubmit = async () => {
     if (!canManageMembers) {
@@ -146,20 +144,22 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
 
     const fetchPerformanceData = async () => {
       if (activeDetailTab === 'performance') {
-        setIsLoadingDiscipline(true);
+        setIsLoadingEvaluation(true);
         try {
-          // Truy vấn bản ghi kỷ luật theo MSSV của thành viên
-          const res = await getDisciplineRecords({ search: selectedMember.mssv }, authToken);
-          if (res.data && res.data.records.length > 0) {
-            // Lấy bản ghi đầu tiên khớp với MSSV
-            setMemberDiscipline(res.data.records[0]);
+          // Try to fetch quick-review from active evaluation cycle.
+          // Frontend will need to know which cycle; backend members detail also provides evaluationSummary, so this is best-effort.
+          // If evaluationSummary not available on the selectedMember, we attempt a cycle quick-review call when possible.
+          if (selectedMember.evaluationSummary) {
+            setMemberEvaluation(selectedMember.evaluationSummary as EvaluationQuickReviewItem);
           } else {
-            setMemberDiscipline(null);
+            // attempt to find a cycle via evaluations API: we don't have cycleId here, so skip explicit call.
+            setMemberEvaluation(null);
           }
         } catch (error) {
-          console.error("Failed to fetch discipline data", error);
+          console.error('Failed to fetch evaluation quick-review', error);
+          setMemberEvaluation(null);
         } finally {
-          setIsLoadingDiscipline(false);
+          setIsLoadingEvaluation(false);
         }
       }
 
@@ -1092,7 +1092,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               </div>
             ) : activeDetailTab === 'performance' ? (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {isLoadingDiscipline ? (
+                {isLoadingEvaluation ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[1, 2, 3].map((i) => (
                       <Skeleton key={i} className="h-32 w-full rounded-xl" />
@@ -1105,36 +1105,36 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                         <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-2">
                           <Target size={24} />
                         </div>
-                        <span className="text-sm text-secondary font-medium">Điểm KPI</span>
+                        <span className="text-sm text-secondary font-medium">Tổng điểm</span>
                         <span className="text-3xl font-bold text-primary">
-                          {memberDiscipline?.kpi ?? 100}
+                          {memberEvaluation?.totalScore ?? '—'}
                         </span>
                       </div>
                       <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
                         <div className="w-12 h-12 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center mb-2">
                           <Calendar size={24} />
                         </div>
-                        <span className="text-sm text-secondary font-medium">Số buổi vắng</span>
+                        <span className="text-sm text-secondary font-medium">Tỷ lệ chuyên cần</span>
                         <span className="text-3xl font-bold text-primary">
-                          {memberDiscipline?.absents ?? 0}
+                          {memberEvaluation?.attendanceRate ?? '—'}
                         </span>
                       </div>
                       <div className="bg-card p-5 rounded-xl border border-border flex flex-col items-center justify-center text-center space-y-2">
                         <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-2">
                           <Star size={24} />
                         </div>
-                        <span className="text-sm text-secondary font-medium">Mức kỷ luật</span>
+                        <span className="text-sm text-secondary font-medium">Phân loại</span>
                         <span className="text-xl font-bold text-primary">
-                          {memberDiscipline?.disciplineLevel || 'Không'}
+                          {memberEvaluation?.finalClassification || 'Không'}
                         </span>
                       </div>
                     </div>
 
-                    {memberDiscipline?.note && (
+                    {memberEvaluation?.blockers && ( 
                       <div className="bg-brand-light p-5 rounded-xl border border-border">
-                        <h4 className="text-sm font-bold text-gold uppercase tracking-wider mb-2">Ghi chú kỷ luật</h4>
+                        <h4 className="text-sm font-bold text-gold uppercase tracking-wider mb-2">Warnings / Blockers</h4>
                         <p className="text-sm text-secondary leading-relaxed">
-                          {memberDiscipline.note}
+                          {JSON.stringify(memberEvaluation.blockers)}
                         </p>
                       </div>
                     )}

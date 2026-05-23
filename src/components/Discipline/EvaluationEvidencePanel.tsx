@@ -32,6 +32,7 @@ import {
   MemberCycleRole,
   getMemberCycleRoles
 } from '../../services/evaluations';
+import { createEvaluationAppeal } from '../../services/evaluations';
 import { EVALUATION_EVIDENCE_TYPES, EVALUATION_UNIT_CODES } from '../../data/evaluations';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
@@ -111,6 +112,10 @@ export const EvaluationEvidencePanel = ({
   // Bulk Approve State
   const [isBulkApproveModalOpen, setIsBulkApproveModalOpen] = useState(false);
   const [bulkApproveTarget, setBulkApproveTarget] = useState<EvaluationEvidence[]>([]);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [requestTargetMemberId, setRequestTargetMemberId] = useState<string | null>(null);
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [requestedMembers, setRequestedMembers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchCycleRoles = async () => {
@@ -210,6 +215,13 @@ export const EvaluationEvidencePanel = ({
   useEffect(() => {
     fetchCriteriaList();
   }, [authToken]);
+
+  const CheckingIndicator = ({ small = false }: { small?: boolean }) => (
+    <div className={`inline-flex items-center gap-2 ${small ? 'text-sm' : 'text-base'}`}>
+      <Loader2 size={small ? 14 : 18} className="animate-spin text-primary" />
+      <span className="text-secondary">Đang kiểm tra minh chứng...</span>
+    </div>
+  );
 
   // Create member mapping
   const memberMap = useMemo(() => {
@@ -398,6 +410,45 @@ export const EvaluationEvidencePanel = ({
     setIsBulkApproveModalOpen(true);
   };
 
+  const openRequestModalForMember = (memberId: string) => {
+    setRequestTargetMemberId(memberId);
+    setIsRequestModalOpen(true);
+  };
+
+  const handleConfirmRequest = async () => {
+    if (!requestTargetMemberId) return;
+    setIsRequesting(true);
+    try {
+      // Build a simple content listing missing criteria for the member
+      const missingForMember = missingEvents.filter(me => {
+        // scoreEvents have memberId field
+        return me.memberId === requestTargetMemberId;
+      });
+      const lines = missingForMember.map(m => `- ${m.criterionCode || m.criterionId} (sự kiện ${m.id})`);
+      const content = `Yêu cầu cung cấp minh chứng cho các tiêu chí sau:\n${lines.join('\n')}`;
+
+      const res = await createEvaluationAppeal(cycleId, {
+        memberId: requestTargetMemberId,
+        appealType: 'REQUEST_EVIDENCE',
+        content,
+      }, authToken);
+
+      if (!res.error) {
+        success('Đã gửi yêu cầu cung cấp minh chứng tới thành viên.');
+        setRequestedMembers(prev => new Set(prev).add(requestTargetMemberId));
+        setIsRequestModalOpen(false);
+        fetchEvidenceList();
+      } else {
+        error(fmtError(res.error) || 'Lỗi khi gửi yêu cầu minh chứng.');
+      }
+    } catch (err) {
+      console.error(err);
+      error('Đã xảy ra lỗi khi gửi yêu cầu.', 'Lỗi hệ thống');
+    } finally {
+      setIsRequesting(false);
+    }
+  };
+
   const handleBulkApproveSubmit = async () => {
     setIsSubmitting(true);
     let successCount = 0;
@@ -420,11 +471,11 @@ export const EvaluationEvidencePanel = ({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50 font-bold">Chờ duyệt</Badge>;
+        return <Badge variant="outline" className="text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 font-bold">Chờ duyệt</Badge>;
       case 'VERIFIED':
-        return <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 font-bold">Đã duyệt</Badge>;
+        return <Badge variant="outline" className="text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 font-bold">Đã duyệt</Badge>;
       case 'REJECTED':
-        return <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 font-bold">Đã từ chối</Badge>;
+        return <Badge variant="outline" className="text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 font-bold">Đã từ chối</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -470,7 +521,7 @@ export const EvaluationEvidencePanel = ({
 
       {/* Missing evidence requests panel */}
       {missingEvents.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
           <div className="flex justify-between items-start">
             <div>
               <h4 className="font-semibold">Yêu cầu cung cấp minh chứng còn thiếu</h4>
@@ -554,6 +605,12 @@ export const EvaluationEvidencePanel = ({
                         }
                       }}
                     >Tạo yêu cầu</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openRequestModalForMember(ev.memberId)}
+                      className="rounded-lg"
+                    >Yêu cầu (Thư)</Button>
                   </div>
                 </div>
               );
@@ -650,11 +707,11 @@ export const EvaluationEvidencePanel = ({
                       <div className="text-right">
                         <div className="text-xs text-secondary mb-0.5">{memberEvidence.length} minh chứng</div>
                         {pendingCount > 0 ? (
-                          <Badge variant="outline" className="font-bold text-yellow-600 bg-yellow-50 border-yellow-200">
+                          <Badge variant="outline" className="font-bold text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
                             {pendingCount} chờ duyệt
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="font-bold text-green-600 bg-green-50 border-green-200">
+                          <Badge variant="outline" className="font-bold text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                             Đã duyệt hết
                           </Badge>
                         )}
@@ -1038,6 +1095,31 @@ export const EvaluationEvidencePanel = ({
       )}
 
       {/* Bulk Approve Modal */}
+      <Modal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        title="Gửi yêu cầu minh chứng cho thành viên"
+      >
+        <div className="space-y-4 pt-2">
+          <div className="text-sm text-secondary">Kiểm tra các tiêu chí/sự kiện còn thiếu minh chứng cho thành viên dưới đây. Hệ thống sẽ gửi thông báo yêu cầu nộp minh chứng.</div>
+          <div className="p-3 bg-muted/20 rounded-lg border border-border">
+            <div className="text-xs text-secondary mb-1">Thành viên</div>
+            <div className="font-bold">{requestTargetMemberId ? (memberMap.get(requestTargetMemberId)?.name || requestTargetMemberId) : '-'}</div>
+          </div>
+          <div className="p-3 bg-muted/10 rounded-lg border border-border max-h-56 overflow-y-auto">
+            {(requestTargetMemberId ? missingEvents.filter(me => me.memberId === requestTargetMemberId) : []).map(me => (
+              <div key={me.id} className="text-sm py-1 border-b last:border-b-0">{me.criterionCode || me.criterionId} — Sự kiện {me.id}</div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setIsRequestModalOpen(false)}>Hủy</Button>
+            <Button onClick={handleConfirmRequest} disabled={isRequesting}>
+              {isRequesting ? <><Loader2 size={14} className="animate-spin mr-2"/> Đang gửi...</> : 'Gửi yêu cầu'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
       <ConfirmModal
         isOpen={isBulkApproveModalOpen}
         onClose={() => setIsBulkApproveModalOpen(false)}

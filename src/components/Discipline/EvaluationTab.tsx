@@ -6,6 +6,7 @@ import {
   Award, 
   FileCheck, 
   BarChart3, 
+  Activity,
   RefreshCw, 
   MessageSquare,
   AlertTriangle,
@@ -33,6 +34,7 @@ import EvaluationResultsPanel from './EvaluationResultsPanel';
 import EvaluationSyncPanel from './EvaluationSyncPanel';
 import EvaluationAppealsPanel from './EvaluationAppealsPanel';
 import EvaluationGuidePanel from './EvaluationGuidePanel';
+import EvaluationQuickReviewPanel from './EvaluationQuickReviewPanel';
 
 interface EvaluationTabProps {
   authToken?: string;
@@ -40,7 +42,7 @@ interface EvaluationTabProps {
   allMembers: Member[];
 }
 
-type InnerTabType = 'guide' | 'cycles' | 'criteria' | 'roles' | 'events' | 'evidence' | 'results' | 'sync' | 'appeals';
+type InnerTabType = 'guide' | 'cycles' | 'criteria' | 'roles' | 'events' | 'evidence' | 'quick-review' | 'results' | 'sync' | 'appeals';
 
 export const EvaluationTab = ({ authToken, currentUser, allMembers }: EvaluationTabProps) => {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
@@ -299,6 +301,21 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
             </button>
 
             <button
+              onClick={() => selectedCycleId && setInnerTab('quick-review')}
+              disabled={!selectedCycleId}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                !selectedCycleId 
+                  ? 'opacity-40 cursor-not-allowed text-secondary border-transparent'
+                  : innerTab === 'quick-review'
+                    ? 'bg-background text-primary shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-border/60'
+                    : 'text-secondary hover:text-foreground hover:bg-muted/50 border border-transparent'
+              }`}
+            >
+              <Activity size={16} />
+              Quick Review
+            </button>
+
+            <button
               onClick={() => selectedCycleId && setInnerTab('results')}
               disabled={!selectedCycleId}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all rounded-xl whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
@@ -391,6 +408,16 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
 
             {innerTab === 'evidence' && (
               <EvaluationEvidencePanel
+                authToken={authToken}
+                currentUser={currentUser}
+                cycleId={selectedCycleId}
+                cycle={selectedCycle}
+                allMembers={allMembers}
+              />
+            )}
+
+            {innerTab === 'quick-review' && (
+              <EvaluationQuickReviewPanel
                 authToken={authToken}
                 currentUser={currentUser}
                 cycleId={selectedCycleId}

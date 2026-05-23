@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Users,
   Calendar,
-  AlertCircle,
   Trophy,
   ClipboardCheck,
   ShieldCheck,
-  BookOpen,
-  Activity,
-  type LucideIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-
-import {
-  syncAttendanceToDiscipline,
-} from '../services/meetings_api';
 
 import { getMembers } from '../services/members';
 import { Member } from '../data/members';
@@ -84,16 +74,6 @@ export const parseListData = <T,>(response: any, fallbackKey?: string): T[] => {
 
     if (Array.isArray(response?.data?.data)) return response.data.data as T[];
     return [];
-  };
-
-export const handleSyncDiscipline = async (meetingId: string, authToken?: string, t?: any) => {
-    const confirmMsg = t ? t('discipline.syncConfirm', 'Đồng bộ dữ liệu vắng mặt sang hệ thống Kỷ luật?') : "Đồng bộ dữ liệu vắng mặt sang hệ thống Kỷ luật?";
-    if (!window.confirm(confirmMsg)) return;
-    const res = await syncAttendanceToDiscipline(meetingId, authToken);
-    if (res.success) {
-      alert(res.data?.message || (t ? t('common.success', 'Đồng bộ thành công.') : "Đồng bộ thành công."));
-    }
-    else alert((t ? t('discipline.syncError', 'Lỗi đồng bộ: ') : "Lỗi đồng bộ: ") + res.error);
   };
 
 export const DisciplineView = ({ authToken, currentUser }: DisciplineViewProps) => {

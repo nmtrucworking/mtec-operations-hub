@@ -24,7 +24,7 @@ interface EvaluationMemberRolesSpreadsheetProps {
   cycleId: string;
   authToken?: string;
   allMembers: Member[];
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
   isLocked: boolean;
 }
 
@@ -59,6 +59,25 @@ export const EvaluationMemberRolesSpreadsheet = ({
   const [quickTitle, setQuickTitle] = useState('Thành viên');
   const [quickWeight, setQuickWeight] = useState('1.0');
 
+  const fetchExistingRoles = async () => {
+    setIsLoading(true);
+    try {
+      const res = await getMemberCycleRoles(cycleId, { pageSize: 5000 }, authToken);
+      if (res.error) {
+        error(res.error, 'Không thể tải dữ liệu vai trò hiện tại');
+        setExistingRoles([]);
+        return;
+      }
+
+      setExistingRoles(res.data?.items || []);
+    } catch (err) {
+      console.error(err);
+      error('Không thể tải dữ liệu vai trò hiện tại.', 'Lỗi tải dữ liệu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredMembers = useMemo(() => {
     let list = allMembers;
     if (filterDept) {
@@ -72,21 +91,7 @@ export const EvaluationMemberRolesSpreadsheet = ({
   }, [allMembers, filterDept, searchQuery]);
 
   useEffect(() => {
-    const fetchRoles = async () => {
-      setIsLoading(true);
-      try {
-        const res = await getMemberCycleRoles(cycleId, { pageSize: 5000 }, authToken);
-        if (res?.data?.items) {
-          setExistingRoles(res.data.items);
-        }
-      } catch (err) {
-        console.error(err);
-        error('Không thể tải dữ liệu vai trò hiện tại.', 'Lỗi tải dữ liệu');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchRoles();
+    void fetchExistingRoles();
   }, [cycleId, authToken]);
 
   const cellMap = useMemo(() => {
@@ -205,7 +210,8 @@ export const EvaluationMemberRolesSpreadsheet = ({
       if (!res.error) {
         success(res?.data?.message || 'Đã cập nhật hàng loạt vai trò thành công!', 'Lưu thành công');
         setEdits({});
-        onSaved();
+        await fetchExistingRoles();
+        await Promise.resolve(onSaved());
       } else {
         error(res.error || 'Lỗi khi lưu dữ liệu vai trò.', 'Lưu thất bại');
       }

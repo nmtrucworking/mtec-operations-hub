@@ -24,7 +24,6 @@ import {
   createMeeting,
   updateMeeting,
   updateAttendance,
-  syncAttendanceToDiscipline,
   getMeetingAttendance,
   type Meeting,
   type Attendance
@@ -38,7 +37,7 @@ interface Props {
   allMembers: any[];
 }
 
-import { parseListData, handleSyncDiscipline } from "../../views/DisciplineView";
+import { parseListData } from "../../views/DisciplineView";
 
 interface NewMeetingState {
   title: string;
@@ -251,7 +250,10 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-card/80 backdrop-blur-md border border-border/50 shadow-sm p-5 rounded-2xl gap-4">
         <div>
           <h3 className="text-lg font-bold text-foreground">Điểm danh Cuộc họp</h3>
-          <p className="text-sm text-secondary mt-1">Quản lý lịch họp, điểm danh và đồng bộ dữ liệu vắng mặt tự động.</p>
+          <p className="text-sm text-secondary mt-1">Quản lý lịch họp và điểm danh thành viên.</p>
+          <p className="text-xs text-secondary mt-1">
+            Dữ liệu điểm danh được dùng làm nguồn cho Evaluation v2. Vui lòng đồng bộ tại Discipline → Evaluation v2 → Đồng bộ.
+          </p>
         </div>
         <Button onClick={() => setIsAddMeetingModalOpen(true)} className="flex items-center gap-2 rounded-xl shadow-md whitespace-nowrap">
           <Plus size={16} /> Tạo cuộc họp
@@ -324,10 +326,6 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline" size="sm" className="rounded-lg shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:border-orange-900/50" onClick={() => handleSyncDiscipline(meeting.id, authToken)}>
-                        <AlertCircle size={14} className="mr-1.5" /> Đồng bộ
-                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -434,7 +432,7 @@ const MeetingAttendanceTab = ({ authToken, allMembers }: Props) => {
             <div className="flex justify-between items-center p-5 border-b border-border/50">
               <div>
                 <h3 className="text-xl font-bold flex items-center gap-2"><Users className="text-primary" /> Điểm danh: <span className="text-primary">{attendanceModalMeeting.title}</span></h3>
-                <p className="text-sm text-secondary mt-1">Trạng thái mặc định: "Chưa ghi nhận". Chỉ các dòng chọn "Vắng không phép" mới được đồng bộ sang kỷ luật.</p>
+                <p className="text-sm text-secondary mt-1">Trạng thái mặc định: "Chưa ghi nhận". Dữ liệu này sẽ là nguồn cho đồng bộ Evaluation v2.</p>
               </div>
               <button onClick={() => setAttendanceModalMeeting(null)} className="text-secondary hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted"><X size={24} /></button>
             </div>

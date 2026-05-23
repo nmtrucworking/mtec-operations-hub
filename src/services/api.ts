@@ -133,6 +133,7 @@ export const apiCall = async <T = any>(
 
       return {
         status: response.status,
+        success: false,
         error: deriveError(),
         data: data as T
       };
@@ -140,12 +141,14 @@ export const apiCall = async <T = any>(
 
     return {
       status: response.status,
+      success: true,
       data: data as T
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return {
       status: 0,
+      success: false,
       error: `Network error: ${message}`
     };
   }

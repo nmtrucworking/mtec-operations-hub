@@ -89,6 +89,8 @@ const normalizeMember = (input: unknown): Member => {
     experience: pickString(record.experience),
     goal: pickString(record.goal),
     orientation: pickString(record.orientation)
+    ,
+    evaluationSummary: (record.evaluationSummary ?? record.evaluation_summary) as any
   };
 };
 

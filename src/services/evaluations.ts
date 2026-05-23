@@ -179,6 +179,41 @@ export interface EvaluationAppeal {
   updatedAt?: string;
 }
 
+export interface EvaluationQuickReviewItem {
+  cycleId: string;
+  memberId: string;
+  componentScores: {
+    I?: number;
+    II?: number;
+    III_A?: number;
+    III_B?: number;
+    [key: string]: number | undefined;
+  };
+  totalScore: number;
+  preliminaryClassification?: string | null;
+  finalClassification?: string | null;
+  attendanceRate?: number | null;
+  blockers: unknown[];
+  warnings: unknown[];
+  breakdowns: MemberEvaluationBreakdown[];
+  calculationVersion: string;
+}
+
+export interface EvaluationQuickReviewCycle {
+  cycleId: string;
+  totalMembers: number;
+  averageScore: number;
+  classificationDistribution: Record<string, number>;
+  items: EvaluationQuickReviewItem[];
+  errors: Array<{
+    memberId: string;
+    code: string;
+    message: string;
+  }>;
+  isTemporary: boolean;
+  persisted: boolean;
+}
+
 const unwrapList = <T>(response: ApiResponse<any>): ApiResponse<{ items: T[]; total: number }> => {
   if (response.status === 0 || !response.data) return response as ApiResponse<any>;
   const data = response.data?.data ?? response.data;
@@ -479,6 +514,53 @@ export const syncEvaluationCompetition = async (
 ): Promise<ApiResponse<{ message?: string }>> => {
   const res = await apiCall(`${BASE}/cycles/${cycleId}/sync/competition/${competitionId}`, { method: 'POST' }, token);
   return unwrapData<{ message?: string }>(res);
+};
+
+export const getEvaluationQuickReviewCycle = async (
+  cycleId: string,
+  params: { strict?: boolean; evidenceMode?: string } = {},
+  token?: string
+): Promise<ApiResponse<EvaluationQuickReviewCycle>> => {
+  const query = new URLSearchParams();
+
+  if (params.strict !== undefined) {
+    query.set('strict', String(params.strict));
+  }
+
+  if (params.evidenceMode) {
+    query.set('evidenceMode', params.evidenceMode);
+  }
+
+  const res = await apiCall(
+    `${BASE}/cycles/${cycleId}/quick-review${query.toString() ? `?${query.toString()}` : ''}`,
+    {},
+    token
+  );
+  return unwrapData<EvaluationQuickReviewCycle>(res);
+};
+
+export const getEvaluationQuickReviewMember = async (
+  cycleId: string,
+  memberId: string,
+  params: { strict?: boolean; evidenceMode?: string } = {},
+  token?: string
+): Promise<ApiResponse<EvaluationQuickReviewItem>> => {
+  const query = new URLSearchParams();
+
+  if (params.strict !== undefined) {
+    query.set('strict', String(params.strict));
+  }
+
+  if (params.evidenceMode) {
+    query.set('evidenceMode', params.evidenceMode);
+  }
+
+  const res = await apiCall(
+    `${BASE}/cycles/${cycleId}/members/${memberId}/quick-review${query.toString() ? `?${query.toString()}` : ''}`,
+    {},
+    token
+  );
+  return unwrapData<EvaluationQuickReviewItem>(res);
 };
 
 export const getEvaluationAppeals = async (

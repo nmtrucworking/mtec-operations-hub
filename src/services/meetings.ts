@@ -1,5 +1,5 @@
 import { apiCall, ApiResponse } from './api';
-import type { Member } from '../data/members';
+import { unwrapApiList } from './response';
 
 export interface Meeting {
   id: string;
@@ -26,7 +26,12 @@ export interface Attendance {
  * Lấy danh sách cuộc họp
  */
 export const getMeetings = async (token?: string): Promise<ApiResponse<Meeting[]>> => {
-  return apiCall<Meeting[]>('/api/v1/meetings', { method: 'GET' }, token);
+  const res = await apiCall<any>('/api/v1/meetings', { method: 'GET' }, token);
+
+  return {
+    ...res,
+    data: unwrapApiList<Meeting>(res),
+  };
 };
 
 /**
@@ -49,14 +54,6 @@ export const updateAttendance = async (meetingId: string, attendances: Attendanc
   }, token);
 };
 
-/**
- * Kích hoạt đồng bộ điểm danh sang hệ thống kỷ luật
- */
-export const syncAttendanceToDiscipline = async (meetingId: string, token?: string): Promise<ApiResponse<{ message: string, syncedCount: number }>> => {
-  return apiCall<any>(`/api/v1/discipline-records/sync-attendance/${meetingId}`, {
-    method: 'POST',
-  }, token);
-};
 /**
  * L?y chi ti?t cu?c h?p
  */
