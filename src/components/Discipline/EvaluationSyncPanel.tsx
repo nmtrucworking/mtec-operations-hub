@@ -105,7 +105,8 @@ export const EvaluationSyncPanel = ({
   };
 
   const isLocked = cycle.status === 'LOCKED';
-  const canSync = hasRole(['bcn', 'bvh_discipline', 'bvh_hr']) && !isLocked;
+  const canSyncAttendance = hasRole(['bcn', 'bvh_discipline']) && !isLocked;
+  const canSyncCompetition = hasRole(['bcn', 'bvh_discipline', 'bcm']) && !isLocked;
 
   const executeSyncAttendance = async () => {
     setIsSyncingAttendance(true);
@@ -246,7 +247,7 @@ export const EvaluationSyncPanel = ({
           <div className="pt-4 border-t border-border/40">
             <Button
               onClick={handleSyncAttendance}
-              disabled={isSyncingAttendance || !canSync || meetings.length === 0}
+              disabled={isSyncingAttendance || !canSyncAttendance || meetings.length === 0}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white font-bold rounded-xl shadow-md border-0 flex items-center justify-center gap-2"
             >
               {isSyncingAttendance ? (
@@ -299,7 +300,7 @@ export const EvaluationSyncPanel = ({
           <div className="pt-4 border-t border-border/40">
             <Button
               onClick={handleSyncCompetition}
-              disabled={isSyncingCompetition || !canSync || competitions.length === 0}
+              disabled={isSyncingCompetition || !canSyncCompetition || competitions.length === 0}
               className="w-full bg-gradient-to-r from-yellow-600 to-amber-600 hover:opacity-95 text-white font-bold rounded-xl shadow-md border-0 flex items-center justify-center gap-2"
             >
               {isSyncingCompetition ? (

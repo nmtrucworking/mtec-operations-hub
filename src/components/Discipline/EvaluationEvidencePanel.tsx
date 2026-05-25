@@ -530,7 +530,7 @@ export const EvaluationEvidencePanel = ({
             <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  disabled={isLoadingMissing}
+                  isLoading={isLoadingMissing}
                   onClick={async () => {
                     // bulk create evidence requests - skip events that already have evidence to avoid duplicates
                     setIsLoadingMissing(true);
@@ -577,7 +577,7 @@ export const EvaluationEvidencePanel = ({
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      disabled={isLoadingMissing}
+                      isLoading={isLoadingMissing}
                       onClick={async () => {
                         try {
                           // check if evidence already exists for this event to avoid duplicate
@@ -658,9 +658,10 @@ export const EvaluationEvidencePanel = ({
           >
             Xóa bộ lọc
           </Button>
-          {canVerifyEvidence && (
+            {canVerifyEvidence && (
             <Button
               variant="outline"
+              isLoading={isSubmitting}
               className="w-full sm:w-auto rounded-xl border-green-200 text-green-700 bg-green-50 hover:bg-green-100 font-bold shadow-sm"
               onClick={handleOpenBulkApproveModal}
             >
@@ -775,6 +776,7 @@ export const EvaluationEvidencePanel = ({
                                         <Button 
                                           variant="outline" 
                                           size="sm" 
+                                          isLoading={isSubmitting && reviewingEvidenceId === ev.id}
                                           className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-green-600 border-green-200 hover:bg-green-50"
                                           onClick={() => handleOpenReviewModal(ev.id, 'verify')}
                                         >
@@ -783,6 +785,7 @@ export const EvaluationEvidencePanel = ({
                                         <Button 
                                           variant="outline" 
                                           size="sm" 
+                                          isLoading={isSubmitting && reviewingEvidenceId === ev.id}
                                           className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
                                           onClick={() => handleOpenReviewModal(ev.id, 'reject')}
                                         >
@@ -1069,6 +1072,7 @@ export const EvaluationEvidencePanel = ({
                     <>
                       <Button 
                         className="bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-md border-0"
+                        isLoading={isSubmitting && reviewingEvidenceId === ev.id}
                         onClick={() => {
                           setDetailsEvidenceId(null);
                           handleOpenReviewModal(ev.id, 'verify');
@@ -1078,6 +1082,7 @@ export const EvaluationEvidencePanel = ({
                       </Button>
                       <Button 
                         className="bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md border-0"
+                        isLoading={isSubmitting && reviewingEvidenceId === ev.id}
                         onClick={() => {
                           setDetailsEvidenceId(null);
                           handleOpenReviewModal(ev.id, 'reject');
@@ -1114,8 +1119,8 @@ export const EvaluationEvidencePanel = ({
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setIsRequestModalOpen(false)}>Hủy</Button>
-            <Button onClick={handleConfirmRequest} disabled={isRequesting}>
-              {isRequesting ? <><Loader2 size={14} className="animate-spin mr-2"/> Đang gửi...</> : 'Gửi yêu cầu'}
+            <Button onClick={handleConfirmRequest} isLoading={isRequesting}>
+              Gửi yêu cầu
             </Button>
           </div>
         </div>
@@ -1128,6 +1133,7 @@ export const EvaluationEvidencePanel = ({
         message={`Bạn có chắc chắn muốn duyệt tự động ${bulkApproveTarget.length} minh chứng đang chờ trong bộ lọc hiện tại? Hành động này sẽ thay đổi trạng thái của tất cả minh chứng được chọn thành "Đã duyệt".`}
         confirmText="Duyệt tất cả"
         cancelText="Hủy"
+        isLoading={isSubmitting}
       />
     </div>
   );

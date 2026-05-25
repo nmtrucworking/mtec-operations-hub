@@ -273,6 +273,27 @@ export const EvaluationMemberRolesSpreadsheet = ({
     success(`Đã điền thông tin nhanh cho ${roleRows.length} dòng vai trò đang hiển thị.`, 'Điền nhanh');
   };
 
+  const handleClearEntries = () => {
+    if (isLocked) {
+      warning('Chu kỳ đã khóa.', 'Không hợp lệ');
+      return;
+    }
+    // Ask for confirmation before clearing unsaved edits
+    // eslint-disable-next-line no-restricted-globals
+    const ok = confirm('Xác nhận xóa toàn bộ dữ liệu đang nhập (chưa lưu)? Hành động này không thể hoàn tác.');
+    if (!ok) return;
+
+    setEdits({});
+    setDraftRows([]);
+    setQuickUnit('');
+    setQuickRole('');
+    setQuickTitle('Thành viên');
+    setQuickWeight('1.0');
+    setFilterDept('');
+    setSearchQuery('');
+    success('Đã xóa nội dung điền danh tạm thời.', 'Đã xóa');
+  };
+
   const updateExistingRole = async (roleId: string, payload: Record<string, unknown>) => {
     return apiCall(`/api/v2/evaluations/member-roles/${roleId}`, {
       method: 'PATCH',
@@ -542,6 +563,18 @@ export const EvaluationMemberRolesSpreadsheet = ({
           )}
         </div>
       </div>
+
+      {!isLocked && (
+        <div className="flex justify-end mt-2">
+          <Button
+            onClick={handleClearEntries}
+            variant="outline"
+            className="flex items-center gap-2 text-sm rounded-lg h-9 px-3 text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <Trash2 size={14} /> Xóa nội dung điền danh
+          </Button>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-card border border-border/50 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
