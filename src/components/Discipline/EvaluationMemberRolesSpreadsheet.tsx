@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Loader2, Save, Filter, AlertTriangle } from 'lucide-react';
+import { Loader2, Save, Filter, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { Member } from '../../data/members';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
 import { useToast } from '../ui/toast';
-import { 
+import { apiCall } from '../../services/api';
+import {
   MemberCycleRole,
   createMemberCycleRolesBulk,
   getMemberCycleRoles
@@ -28,6 +29,54 @@ interface EvaluationMemberRolesSpreadsheetProps {
   isLocked: boolean;
 }
 
+type RoleDefaults = {
+  unitCode: string;
+  roleType: string;
+  roleTitle: string;
+  participationWeight: number;
+  isPrimary: boolean;
+  note?: string | null;
+};
+
+type DraftRoleRow = {
+  rowKey: string;
+  memberId: string;
+  defaults: RoleDefaults;
+};
+
+type RoleGridRow = {
+  rowKey: string;
+  member: Member;
+  role?: MemberCycleRole;
+  defaults: RoleDefaults;
+  indexInMember: number;
+  isPlaceholder: boolean;
+  isDraft: boolean;
+};
+
+const createDraftKey = () => `draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+const roleToDefaults = (role?: MemberCycleRole): RoleDefaults => ({
+  unitCode: role?.unitCode || '',
+  roleType: role?.roleType || 'MEMBER',
+  roleTitle: role?.roleTitle || 'Thành viên',
+  participationWeight: role?.participationWeight ?? 1.0,
+  isPrimary: role?.isPrimary ?? false,
+  note: role?.note || ''
+});
+
+const getRoleValue = (row: RoleGridRow, edits: Record<string, any>, field: keyof RoleDefaults) => {
+  if (edits[row.rowKey] !== undefined && edits[row.rowKey][field] !== undefined) {
+    return edits[row.rowKey][field];
+  }
+  return (row.defaults as any)[field];
+};
+
+const normalizeWeight = (value: unknown) => {
+  const parsed = parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : 1.0;
+};
+
 export const EvaluationMemberRolesSpreadsheet = ({
   cycleId,
   authToken,
@@ -36,18 +85,20 @@ export const EvaluationMemberRolesSpreadsheet = ({
   isLocked
 }: EvaluationMemberRolesSpreadsheetProps) => {
   const { success, error, warning } = useToast();
-  
   const { t } = useTranslation();
   const roleTypesList = EVALUATION_ROLE_TYPES(t);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // existing roles
+
+  // Existing roles fetched from API. A member can have multiple rows in one cycle.
   const [existingRoles, setExistingRoles] = useState<MemberCycleRole[]>([]);
-  
-  // edits state: key = memberId, value = partial role data
+
+  // Edits state: key = role row key, value = partial role data.
   const [edits, setEdits] = useState<Record<string, any>>({});
+
+  // Draft rows represent additional Ban/Tổ roles before they are saved.
+  const [draftRows, setDraftRows] = useState<DraftRoleRow[]>([]);
 
   // Filter states
   const [filterDept, setFilterDept] = useState('');
@@ -94,53 +145,215 @@ export const EvaluationMemberRolesSpreadsheet = ({
     void fetchExistingRoles();
   }, [cycleId, authToken]);
 
-  const cellMap = useMemo(() => {
-    const map = new Map<string, MemberCycleRole>();
+  const roleRows = useMemo<RoleGridRow[]>(() => {
+    const rolesByMember = new Map<string, MemberCycleRole[]>();
     for (const role of existingRoles) {
-      if (role.isPrimary || !map.has(role.memberId)) {
-        map.set(role.memberId, role);
-      }
+      const list = rolesByMember.get(role.memberId) || [];
+      list.push(role);
+      rolesByMember.set(role.memberId, list);
     }
-    return map;
-  }, [existingRoles]);
 
-  const handleInputChange = (memberId: string, field: string, value: any) => {
+    const draftsByMember = new Map<string, DraftRoleRow[]>();
+    for (const draft of draftRows) {
+      const list = draftsByMember.get(draft.memberId) || [];
+      list.push(draft);
+      draftsByMember.set(draft.memberId, list);
+    }
+
+    const rows: RoleGridRow[] = [];
+    for (const member of filteredMembers) {
+      const memberRoles = (rolesByMember.get(member.id) || []).sort((a, b) => {
+        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+        return a.unitCode.localeCompare(b.unitCode);
+      });
+      const memberDrafts = draftsByMember.get(member.id) || [];
+
+      if (memberRoles.length === 0 && memberDrafts.length === 0) {
+        rows.push({
+          rowKey: `placeholder:${member.id}`,
+          member,
+          defaults: {
+            unitCode: '',
+            roleType: 'MEMBER',
+            roleTitle: 'Thành viên',
+            participationWeight: 1.0,
+            isPrimary: true,
+            note: ''
+          },
+          indexInMember: 0,
+          isPlaceholder: true,
+          isDraft: true
+        });
+        continue;
+      }
+
+      memberRoles.forEach((role, index) => {
+        rows.push({
+          rowKey: role.id,
+          member,
+          role,
+          defaults: roleToDefaults(role),
+          indexInMember: index,
+          isPlaceholder: false,
+          isDraft: false
+        });
+      });
+
+      memberDrafts.forEach((draft, index) => {
+        rows.push({
+          rowKey: draft.rowKey,
+          member,
+          defaults: draft.defaults,
+          indexInMember: memberRoles.length + index,
+          isPlaceholder: false,
+          isDraft: true
+        });
+      });
+    }
+
+    return rows;
+  }, [existingRoles, draftRows, filteredMembers]);
+
+  const handleInputChange = (rowKey: string, field: string, value: any) => {
     if (isLocked) return;
     setEdits(prev => {
-      const currentEdit = prev[memberId] || {};
+      const currentEdit = prev[rowKey] || {};
       return {
         ...prev,
-        [memberId]: { ...currentEdit, [field]: value }
+        [rowKey]: { ...currentEdit, [field]: value }
       };
     });
   };
 
-  const getValue = (memberId: string, field: string, defaultVal: any = '') => {
-    if (edits[memberId] !== undefined && edits[memberId][field] !== undefined) {
-      return edits[memberId][field];
-    }
-    const role = cellMap.get(memberId);
-    if (role) {
-      return (role as any)[field];
-    }
-    return defaultVal;
+  const handleAddRoleRow = (member: Member) => {
+    if (isLocked) return;
+    setDraftRows(prev => [
+      ...prev,
+      {
+        rowKey: createDraftKey(),
+        memberId: member.id,
+        defaults: {
+          unitCode: '',
+          roleType: 'MEMBER',
+          roleTitle: 'Vai trò bổ sung',
+          participationWeight: 0.5,
+          isPrimary: false,
+          note: ''
+        }
+      }
+    ]);
+  };
+
+  const handleRemoveDraftRow = (rowKey: string) => {
+    if (isLocked) return;
+    setDraftRows(prev => prev.filter(row => row.rowKey !== rowKey));
+    setEdits(prev => {
+      const next = { ...prev };
+      delete next[rowKey];
+      return next;
+    });
   };
 
   const handleQuickFill = () => {
+    if (isLocked) return;
+
     setEdits(prev => {
       const newEdits = { ...prev };
-      for (const m of filteredMembers) {
-        newEdits[m.id] = {
-           ...(newEdits[m.id] || {}),
-           ...(quickUnit ? { unitCode: quickUnit } : {}),
-           ...(quickRole ? { roleType: quickRole } : {}),
-           ...(quickTitle !== '' ? { roleTitle: quickTitle } : {}),
-           ...(quickWeight !== '' && !isNaN(parseFloat(quickWeight)) ? { participationWeight: Math.max(0, Math.min(1, parseFloat(quickWeight))) } : {})
+      for (const row of roleRows) {
+        newEdits[row.rowKey] = {
+          ...(newEdits[row.rowKey] || {}),
+          ...(quickUnit ? { unitCode: quickUnit } : {}),
+          ...(quickRole ? { roleType: quickRole } : {}),
+          ...(quickTitle !== '' ? { roleTitle: quickTitle } : {}),
+          ...(quickWeight !== '' && !isNaN(parseFloat(quickWeight)) ? { participationWeight: Math.max(0, Math.min(1, parseFloat(quickWeight))) } : {})
         };
       }
       return newEdits;
     });
-    success(`Đã điền thông tin nhanh cho ${filteredMembers.length} thành viên.`, 'Điền nhanh');
+    success(`Đã điền thông tin nhanh cho ${roleRows.length} dòng vai trò đang hiển thị.`, 'Điền nhanh');
+  };
+
+  const updateExistingRole = async (roleId: string, payload: Record<string, unknown>) => {
+    return apiCall(`/api/v2/evaluations/member-roles/${roleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    }, authToken);
+  };
+
+  const buildPayload = (row: RoleGridRow) => {
+    const participationWeight = normalizeWeight(getRoleValue(row, edits, 'participationWeight'));
+    return {
+      memberId: row.member.id,
+      unitCode: String(getRoleValue(row, edits, 'unitCode') || '').trim(),
+      roleType: String(getRoleValue(row, edits, 'roleType') || '').trim(),
+      roleTitle: String(getRoleValue(row, edits, 'roleTitle') || 'Thành viên').trim(),
+      participationWeight,
+      isPrimary: Boolean(getRoleValue(row, edits, 'isPrimary'))
+    };
+  };
+
+  const rowHasChanges = (row: RoleGridRow) => {
+    const edited = edits[row.rowKey];
+    if (!edited) return false;
+    if (!row.role) {
+      const payload = buildPayload(row);
+      return Boolean(payload.unitCode || payload.roleType || payload.roleTitle !== 'Thành viên' || payload.participationWeight !== 1.0);
+    }
+    const payload = buildPayload(row);
+    return payload.unitCode !== row.role.unitCode
+      || payload.roleType !== row.role.roleType
+      || payload.roleTitle !== (row.role.roleTitle || 'Thành viên')
+      || payload.participationWeight !== row.role.participationWeight
+      || payload.isPrimary !== row.role.isPrimary;
+  };
+
+  const validateRowsBeforeSave = () => {
+    const validRoleKeys = new Set<string>();
+    const primaryCountByMember = new Map<string, number>();
+    const unitKeySet = new Set<string>();
+
+    for (const row of roleRows) {
+      const payload = buildPayload(row);
+      const hasAnyData = Boolean(row.role || payload.unitCode || payload.roleType || edits[row.rowKey]);
+
+      if (!hasAnyData) continue;
+
+      if (row.role && (!payload.unitCode || !payload.roleType)) {
+        warning(`Vai trò hiện có của ${row.member.name} không được để trống Ban/Tổ hoặc Loại vai trò. Nếu cần xóa, dùng chế độ Danh sách.`, 'Dòng không hợp lệ');
+        return false;
+      }
+
+      if (!payload.unitCode || !payload.roleType) {
+        continue;
+      }
+
+      if (payload.participationWeight < 0 || payload.participationWeight > 1) {
+        warning(`Thành viên ${row.member.name} có trọng số không hợp lệ (${payload.participationWeight}). Trọng số phải từ 0 đến 1.`, 'Trọng số không hợp lệ');
+        return false;
+      }
+
+      const unitKey = `${payload.memberId}:${payload.unitCode}`;
+      if (unitKeySet.has(unitKey)) {
+        warning(`${row.member.name} đang có nhiều dòng cùng Ban/Tổ ${payload.unitCode}. Mỗi thành viên chỉ nên có một vai trò trên một Ban/Tổ trong cùng chu kỳ.`, 'Trùng Ban/Tổ');
+        return false;
+      }
+      unitKeySet.add(unitKey);
+      validRoleKeys.add(row.rowKey);
+
+      if (payload.isPrimary) {
+        primaryCountByMember.set(payload.memberId, (primaryCountByMember.get(payload.memberId) || 0) + 1);
+      }
+    }
+
+    for (const [memberId, count] of primaryCountByMember.entries()) {
+      if (count > 1) {
+        const member = allMembers.find(m => m.id === memberId);
+        warning(`${member?.name || memberId} có ${count} vai trò chính. Mỗi thành viên chỉ được có một Ban chính trong một chu kỳ.`, 'Trùng Ban chính');
+        return false;
+      }
+    }
+
+    return validRoleKeys;
   };
 
   const handleSaveAll = async () => {
@@ -149,72 +362,58 @@ export const EvaluationMemberRolesSpreadsheet = ({
       return;
     }
 
-    const payloadRoles = [];
-    let hasChanges = false;
+    const validRoleKeys = validateRowsBeforeSave();
+    if (!validRoleKeys) return;
 
-    for (const m of allMembers) {
-      const edit = edits[m.id];
-      const role = cellMap.get(m.id);
-      
-      // If no edit and no role, skip
-      if (!edit && !role) continue;
-      
-      // We send what's in the state (merging edit over existing role over defaults)
-      const unitCode = edit?.unitCode !== undefined ? edit.unitCode : (role?.unitCode || '');
-      const roleType = edit?.roleType !== undefined ? edit.roleType : (role?.roleType || '');
-      const roleTitle = edit?.roleTitle !== undefined ? edit.roleTitle : (role?.roleTitle || 'Thành viên');
-      const participationWeight = edit?.participationWeight !== undefined ? edit.participationWeight : (role?.participationWeight ?? 1.0);
-      const isPrimary = edit?.isPrimary !== undefined ? edit.isPrimary : (role?.isPrimary ?? true);
+    const changedExistingRows = roleRows
+      .filter(row => row.role && validRoleKeys.has(row.rowKey) && rowHasChanges(row));
+    const newRows = roleRows
+      .filter(row => !row.role && validRoleKeys.has(row.rowKey) && rowHasChanges(row));
 
-      // If they selected a unit code and role type, it's valid
-      if (unitCode && roleType) {
-        // Did it change?
-        const changed = !role || 
-                        unitCode !== role.unitCode || 
-                        roleType !== role.roleType || 
-                        roleTitle !== role.roleTitle || 
-                        participationWeight !== role.participationWeight ||
-                        isPrimary !== role.isPrimary;
-                        
-        if (changed) {
-          hasChanges = true;
-        }
-
-        let parsedWeight = parseFloat(String(participationWeight));
-        if (isNaN(parsedWeight)) {
-          parsedWeight = 1.0;
-        } else if (parsedWeight < 0 || parsedWeight > 1) {
-          warning(`Thành viên ${m.name} có trọng số không hợp lệ (${parsedWeight}). Trọng số phải từ 0 đến 1.`, 'Trọng số không hợp lệ');
-          return;
-        }
-
-        payloadRoles.push({
-          memberId: m.id,
-          unitCode,
-          roleType,
-          roleTitle,
-          participationWeight: parsedWeight,
-          isPrimary
-        });
-      }
-    }
-
-    if (!hasChanges) {
+    if (changedExistingRows.length === 0 && newRows.length === 0) {
       warning('Không có thay đổi nào để lưu.', 'Chưa có thay đổi');
       return;
     }
 
     setIsSaving(true);
     try {
-      const res = await createMemberCycleRolesBulk(cycleId, payloadRoles, authToken);
-      if (!res.error) {
-        success(res?.data?.message || 'Đã cập nhật hàng loạt vai trò thành công!', 'Lưu thành công');
-        setEdits({});
-        await fetchExistingRoles();
-        await Promise.resolve(onSaved());
-      } else {
-        error(res.error || 'Lỗi khi lưu dữ liệu vai trò.', 'Lưu thất bại');
+      const nonPrimaryUpdates = changedExistingRows.filter(row => !buildPayload(row).isPrimary);
+      const primaryUpdates = changedExistingRows.filter(row => buildPayload(row).isPrimary);
+
+      let updatedCount = 0;
+      for (const row of [...nonPrimaryUpdates, ...primaryUpdates]) {
+        if (!row.role) continue;
+        const payload = buildPayload(row);
+        const res = await updateExistingRole(row.role.id, {
+          unitCode: payload.unitCode,
+          roleType: payload.roleType,
+          roleTitle: payload.roleTitle,
+          participationWeight: payload.participationWeight,
+          isPrimary: payload.isPrimary
+        });
+        if (res.error) {
+          error(res.error || 'Lỗi khi cập nhật vai trò hiện có.', 'Lưu thất bại');
+          return;
+        }
+        updatedCount += 1;
       }
+
+      let createdCount = 0;
+      if (newRows.length > 0) {
+        const createPayload = newRows.map(row => buildPayload(row));
+        const res = await createMemberCycleRolesBulk(cycleId, createPayload, authToken);
+        if (res.error) {
+          error(res.error || 'Lỗi khi tạo vai trò bổ sung.', 'Lưu thất bại');
+          return;
+        }
+        createdCount = res.data?.createdCount ?? createPayload.length;
+      }
+
+      success(`Đã cập nhật vai trò đa ban. Tạo mới: ${createdCount}, cập nhật: ${updatedCount}.`, 'Lưu thành công');
+      setEdits({});
+      setDraftRows([]);
+      await fetchExistingRoles();
+      await Promise.resolve(onSaved());
     } catch (err) {
       console.error(err);
       error('Đã xảy ra lỗi hệ thống.', 'Lỗi hệ thống');
@@ -235,14 +434,21 @@ export const EvaluationMemberRolesSpreadsheet = ({
         </div>
       )}
 
+      <div className="bg-blue-50/80 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 text-blue-900 dark:text-blue-200 p-4 rounded-xl">
+        <h4 className="font-bold text-sm">Cơ chế đa ban trong chu kỳ đánh giá</h4>
+        <p className="text-sm mt-1 leading-relaxed">
+          Mỗi thành viên có thể có nhiều dòng vai trò theo Ban/Tổ. Chỉ một dòng được đánh dấu là Ban chính; các dòng còn lại là vai trò phụ và được tính theo trọng số tham gia.
+        </p>
+      </div>
+
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 bg-card/45 p-4 rounded-xl border border-border/30">
         <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
           <div className="w-full sm:w-48">
             <label className="block text-xs font-bold text-secondary uppercase mb-1.5 flex items-center gap-1">
               <Filter size={12} /> Lọc Ban/Tổ
             </label>
-            <Select 
-              value={filterDept} 
+            <Select
+              value={filterDept}
               onChange={e => setFilterDept(e.target.value)}
               className="w-full rounded-lg text-sm"
             >
@@ -256,9 +462,9 @@ export const EvaluationMemberRolesSpreadsheet = ({
             <label className="block text-xs font-bold text-secondary uppercase mb-1.5 flex items-center gap-1">
               Tìm kiếm
             </label>
-            <Input 
-              placeholder="Tên, MSSV..." 
-              value={searchQuery} 
+            <Input
+              placeholder="Tên, MSSV..."
+              value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full rounded-lg text-sm"
             />
@@ -307,6 +513,8 @@ export const EvaluationMemberRolesSpreadsheet = ({
                 <Input
                   type="number"
                   step="0.1"
+                  min="0"
+                  max="1"
                   value={quickWeight}
                   onChange={e => setQuickWeight(e.target.value)}
                   className="w-16 h-8 text-xs rounded-md"
@@ -323,7 +531,7 @@ export const EvaluationMemberRolesSpreadsheet = ({
           )}
 
           {!isLocked && (
-            <Button 
+            <Button
               onClick={handleSaveAll}
               disabled={isSaving || isLoading}
               className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white rounded-lg shadow-sm border-0 h-10 px-4 whitespace-nowrap"
@@ -346,10 +554,10 @@ export const EvaluationMemberRolesSpreadsheet = ({
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-20 bg-muted/95 backdrop-blur shadow-sm">
                 <tr>
-                  <th className="sticky left-0 z-30 bg-muted/95 p-3 text-left font-bold border-b border-r border-border/50 w-[200px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <th className="sticky left-0 z-30 bg-muted/95 p-3 text-left font-bold border-b border-r border-border/50 w-[220px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     {t('common.member', 'Thành viên')}
                   </th>
-                  <th className="p-3 text-left font-semibold border-b border-r border-border/50 min-w-[150px]">
+                  <th className="p-3 text-left font-semibold border-b border-r border-border/50 min-w-[160px]">
                     {t('discipline.roles.unit', 'Ban/Tổ (Unit)')}
                   </th>
                   <th className="p-3 text-left font-semibold border-b border-r border-border/50 min-w-[150px]">
@@ -361,65 +569,115 @@ export const EvaluationMemberRolesSpreadsheet = ({
                   <th className="p-3 text-center font-semibold border-b border-r border-border/50 w-[100px]">
                     {t('discipline.roles.weight', 'Trọng số')}
                   </th>
+                  <th className="p-3 text-center font-semibold border-b border-r border-border/50 w-[110px]">
+                    Ban chính
+                  </th>
+                  <th className="p-3 text-center font-semibold border-b border-border/50 w-[130px]">
+                    Thao tác
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredMembers.map((m, idx) => {
+                {roleRows.map((row, idx) => {
                   const bgClass = idx % 2 === 0 ? 'bg-background' : 'bg-muted/10';
+                  const isSupplementary = row.indexInMember > 0;
                   return (
-                  <tr key={m.id} className={`${bgClass} hover:bg-muted/30 transition-colors`}>
-                    <td className={`sticky left-0 z-10 p-3 border-b border-r border-border/50 font-medium ${bgClass} shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>
-                      <div className="truncate font-bold">{m.name}</div>
-                      <div className="text-xs text-secondary">{m.mssv}</div>
-                    </td>
-                    <td className="p-2 border-b border-r border-border/50">
-                      <Select 
-                        value={getValue(m.id, 'unitCode')}
-                        onChange={e => handleInputChange(m.id, 'unitCode', e.target.value)}
-                        disabled={isLocked}
-                        className="w-full h-8 text-sm bg-transparent border-transparent hover:border-border/50"
-                      >
-                        <option value="">-- Bỏ trống --</option>
-                        {EVALUATION_UNIT_CODES.map(u => (
-                          <option key={u.value} value={u.value}>{u.label}</option>
-                        ))}
-                      </Select>
-                    </td>
-                    <td className="p-2 border-b border-r border-border/50">
-                      <Select 
-                        value={getValue(m.id, 'roleType')}
-                        onChange={e => handleInputChange(m.id, 'roleType', e.target.value)}
-                        disabled={isLocked}
-                        className="w-full h-8 text-sm bg-transparent border-transparent hover:border-border/50"
-                      >
-                        <option value="">-- Bỏ trống --</option>
-                        {EVALUATION_ROLE_TYPES(t).map((r: { value: string; label: string }) => (
-                          <option key={r.value} value={r.value}>{r.label}</option>
-                        ))}
-                      </Select>
-                    </td>
-                    <td className="p-2 border-b border-r border-border/50">
-                      <Input
-                        type="text"
-                        value={getValue(m.id, 'roleTitle', 'Thành viên')}
-                        onChange={e => handleInputChange(m.id, 'roleTitle', e.target.value)}
-                        disabled={isLocked}
-                        className="w-full h-8 text-sm bg-transparent border-transparent hover:border-border/50 px-2"
-                      />
-                    </td>
-                    <td className="p-2 border-b border-r border-border/50 text-center">
-                      <Input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="1"
-                        value={getValue(m.id, 'participationWeight', 1.0)}
-                        onChange={e => handleInputChange(m.id, 'participationWeight', e.target.value)}
-                        disabled={isLocked}
-                        className="w-full h-8 text-sm text-center bg-transparent border-transparent hover:border-border/50 px-1"
-                      />
-                    </td>
-                  </tr>
+                    <tr key={row.rowKey} className={`${bgClass} hover:bg-muted/30 transition-colors`}>
+                      <td className={`sticky left-0 z-10 p-3 border-b border-r border-border/50 font-medium ${bgClass} shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>
+                        <div className="truncate font-bold">{row.member.name}</div>
+                        <div className="text-xs text-secondary">{row.member.mssv}</div>
+                        {isSupplementary ? (
+                          <div className="mt-1 text-[11px] font-semibold text-indigo-600">Vai trò bổ sung #{row.indexInMember + 1}</div>
+                        ) : (
+                          <div className="mt-1 text-[11px] font-semibold text-emerald-700">Dòng vai trò chính/đầu tiên</div>
+                        )}
+                      </td>
+                      <td className="p-2 border-b border-r border-border/50">
+                        <Select
+                          value={getRoleValue(row, edits, 'unitCode') as string}
+                          onChange={e => handleInputChange(row.rowKey, 'unitCode', e.target.value)}
+                          disabled={isLocked}
+                          className="w-full h-8 text-sm bg-transparent border-transparent hover:border-border/50"
+                        >
+                          <option value="">-- Bỏ trống --</option>
+                          {EVALUATION_UNIT_CODES.map(u => (
+                            <option key={u.value} value={u.value}>{u.label}</option>
+                          ))}
+                        </Select>
+                      </td>
+                      <td className="p-2 border-b border-r border-border/50">
+                        <Select
+                          value={getRoleValue(row, edits, 'roleType') as string}
+                          onChange={e => handleInputChange(row.rowKey, 'roleType', e.target.value)}
+                          disabled={isLocked}
+                          className="w-full h-8 text-sm bg-transparent border-transparent hover:border-border/50"
+                        >
+                          <option value="">-- Bỏ trống --</option>
+                          {EVALUATION_ROLE_TYPES(t).map((r: { value: string; label: string }) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </Select>
+                      </td>
+                      <td className="p-2 border-b border-r border-border/50">
+                        <Input
+                          type="text"
+                          value={getRoleValue(row, edits, 'roleTitle') as string}
+                          onChange={e => handleInputChange(row.rowKey, 'roleTitle', e.target.value)}
+                          disabled={isLocked}
+                          className="w-full h-8 text-sm bg-transparent border-transparent hover:border-border/50 px-2"
+                        />
+                      </td>
+                      <td className="p-2 border-b border-r border-border/50 text-center">
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="1"
+                          value={String(getRoleValue(row, edits, 'participationWeight'))}
+                          onChange={e => handleInputChange(row.rowKey, 'participationWeight', e.target.value)}
+                          disabled={isLocked}
+                          className="w-full h-8 text-sm text-center bg-transparent border-transparent hover:border-border/50 px-1"
+                        />
+                      </td>
+                      <td className="p-2 border-b border-r border-border/50 text-center">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(getRoleValue(row, edits, 'isPrimary'))}
+                          onChange={e => handleInputChange(row.rowKey, 'isPrimary', e.target.checked)}
+                          disabled={isLocked}
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                          aria-label="Đánh dấu là Ban chính"
+                        />
+                      </td>
+                      <td className="p-2 border-b border-border/50 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {!isLocked && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddRoleRow(row.member)}
+                              className="h-8 rounded-lg text-xs px-2 flex items-center gap-1"
+                              title="Thêm một vai trò Ban/Tổ khác cho thành viên này"
+                            >
+                              <Plus size={13} /> Thêm
+                            </Button>
+                          )}
+                          {!isLocked && row.isDraft && !row.isPlaceholder && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRemoveDraftRow(row.rowKey)}
+                              className="h-8 rounded-lg text-xs px-2 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                              title="Xóa dòng vai trò bổ sung chưa lưu"
+                            >
+                              <Trash2 size={13} /> Xóa
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
