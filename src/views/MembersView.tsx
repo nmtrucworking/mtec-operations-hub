@@ -56,8 +56,8 @@ import {
 import { Copy, Check } from 'lucide-react';
 import { hasAnyRole } from '../lib/permissions';
 
-import { getEvaluationQuickReviewMember } from '../services/evaluations';
-import type { EvaluationQuickReviewItem } from '../services/evaluations';
+import { getEvaluationCycles, getEvaluationQuickReviewMember } from '../services/evaluations';
+import type { EvaluationCycle, EvaluationQuickReviewItem } from '../services/evaluations';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -68,6 +68,14 @@ interface MembersViewProps {
 
 type SortField = keyof Member | 'stt';
 type SortOrder = 'asc' | 'desc';
+
+type MemberEvaluationHistoryItem = EvaluationQuickReviewItem & {
+  cycleName: string;
+  cycleCode: string;
+  cycleStatus: EvaluationCycle['status'];
+  cycleStartDate: string;
+  cycleEndDate: string;
+};
 
 export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const { t } = useTranslation();
@@ -89,7 +97,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   });
   const [memberLogs, setMemberLogs] = useState<ActivityLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'history' | 'performance'>('info');
+  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'history' | 'performance' | 'evaluation-history'>('info');
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -99,6 +107,8 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
 
   const [memberEvaluation, setMemberEvaluation] = useState<EvaluationQuickReviewItem | null>(null);
   const [isLoadingEvaluation, setIsLoadingEvaluation] = useState(false);
+  const [evaluationHistory, setEvaluationHistory] = useState<MemberEvaluationHistoryItem[]>([]);
+  const [isLoadingEvaluationHistory, setIsLoadingEvaluationHistory] = useState(false);
 
   const handleImportSubmit = async () => {
     if (!canManageMembers) {
@@ -172,6 +182,67 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
     };
 
     void fetchPerformanceData();
+  }, [selectedMember, activeDetailTab, authToken]);
+
+  useEffect(() => {
+    if (!selectedMember || !authToken || activeDetailTab !== 'evaluation-history') {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchEvaluationHistory = async () => {
+      setIsLoadingEvaluationHistory(true);
+      try {
+        const cyclesRes = await getEvaluationCycles({ pageSize: 1000 }, authToken);
+        const cycles = cyclesRes?.data?.items ?? [];
+
+        const historyResults = await Promise.allSettled(
+          cycles.map(async (cycle) => {
+            const res = await getEvaluationQuickReviewMember(
+              cycle.id,
+              selectedMember.id,
+              { strict: false, evidenceMode: 'draft' },
+              authToken
+            );
+
+            if (!res?.data) return null;
+
+            return {
+              ...res.data,
+              cycleName: cycle.name,
+              cycleCode: cycle.code,
+              cycleStatus: cycle.status,
+              cycleStartDate: cycle.startDate,
+              cycleEndDate: cycle.endDate,
+            } satisfies MemberEvaluationHistoryItem;
+          })
+        );
+
+        const nextHistory = historyResults
+          .flatMap((result) => (result.status === 'fulfilled' && result.value ? [result.value] : []))
+          .sort((left, right) => right.cycleEndDate.localeCompare(left.cycleEndDate));
+
+        if (!isCancelled) {
+          setEvaluationHistory(nextHistory);
+        }
+      } catch (error) {
+        console.error('Failed to fetch evaluation history', error);
+        if (!isCancelled) {
+          setEvaluationHistory([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingEvaluationHistory(false);
+        }
+      }
+    };
+
+    void fetchEvaluationHistory();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedMember, activeDetailTab, authToken]);
 
   type MemberFormData = Omit<Member, 'id'>;
@@ -987,6 +1058,13 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                 {activeDetailTab === 'performance' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
               <button
+                onClick={() => setActiveDetailTab('evaluation-history')}
+                className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'evaluation-history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
+              >
+                Lịch sử evaluation
+                {activeDetailTab === 'evaluation-history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
+              </button>
+              <button
                 onClick={() => setActiveDetailTab('history')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
@@ -1147,6 +1225,90 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                     Dữ liệu kỷ luật và KPI được tổng hợp định kỳ từ hệ thống điểm danh và quản lý hoạt động.
                   </p>
                 </div>
+              </div>
+            ) : activeDetailTab === 'evaluation-history' ? (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="bg-brand-light p-5 rounded-xl border border-border">
+                  <h4 className="text-sm font-bold text-gold uppercase tracking-wider mb-2">Lịch sử evaluation theo chu kỳ</h4>
+                  <p className="text-sm text-secondary">
+                    Danh sách này lấy từ quick-review theo từng chu kỳ để bạn đối chiếu điểm và phân loại của thành viên qua thời gian.
+                  </p>
+                </div>
+
+                {isLoadingEvaluationHistory ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-28 w-full rounded-xl" />
+                    <Skeleton className="h-28 w-full rounded-xl" />
+                    <Skeleton className="h-28 w-full rounded-xl" />
+                  </div>
+                ) : evaluationHistory.length > 0 ? (
+                  <div className="space-y-3">
+                    {evaluationHistory.map((item) => (
+                      <div key={item.cycleId} className="rounded-xl border border-border bg-card/60 p-4 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h5 className="font-bold text-foreground">{item.cycleName}</h5>
+                              <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                                {item.cycleCode}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  item.cycleStatus === 'LOCKED'
+                                    ? 'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                                    : 'bg-green-500/10 text-green-600 border-green-500/20'
+                                }
+                              >
+                                {item.cycleStatus}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-secondary">
+                              {formatDate(item.cycleStartDate)} - {formatDate(item.cycleEndDate)}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full sm:w-auto">
+                            <div className="rounded-lg bg-background/70 border border-border/60 px-3 py-2 text-center">
+                              <div className="text-[10px] uppercase tracking-wider text-secondary">Tổng điểm</div>
+                              <div className="text-sm font-bold text-primary">{item.totalScore}</div>
+                            </div>
+                            <div className="rounded-lg bg-background/70 border border-border/60 px-3 py-2 text-center">
+                              <div className="text-[10px] uppercase tracking-wider text-secondary">Chuyên cần</div>
+                              <div className="text-sm font-bold text-primary">{item.attendanceRate ?? '—'}</div>
+                            </div>
+                            <div className="rounded-lg bg-background/70 border border-border/60 px-3 py-2 text-center">
+                              <div className="text-[10px] uppercase tracking-wider text-secondary">Phân loại</div>
+                              <div className="text-sm font-bold text-primary">{item.finalClassification || 'Không'}</div>
+                            </div>
+                            <div className="rounded-lg bg-background/70 border border-border/60 px-3 py-2 text-center">
+                              <div className="text-[10px] uppercase tracking-wider text-secondary">Trạng thái</div>
+                              <div className="text-sm font-bold text-primary">{item.persisted ? 'Đã lưu' : 'Tạm tính'}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          <div className="rounded-lg bg-background/50 border border-border/50 p-3">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-secondary mb-1">Blockers</div>
+                            <div className="text-secondary">
+                              {item.blockers && item.blockers.length > 0 ? JSON.stringify(item.blockers) : 'Không có'}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-background/50 border border-border/50 p-3">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-secondary mb-1">Warnings</div>
+                            <div className="text-secondary">
+                              {item.warnings && item.warnings.length > 0 ? JSON.stringify(item.warnings) : 'Không có'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border bg-card/40 p-6 text-center text-sm text-secondary">
+                    Chưa có lịch sử evaluation nào cho thành viên này.
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-brand-light p-5 rounded-xl border border-border min-h-[300px]">
