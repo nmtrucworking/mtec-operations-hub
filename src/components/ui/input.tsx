@@ -25,7 +25,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={isPassword ? (showPassword ? 'text' : 'password') : type}
           className={cn(
-            'flex h-9 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-primary placeholder:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all',
+            'flex h-9 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all dark:[color-scheme:dark]',
             icon && 'pl-10',
             isPassword && 'pr-10',
             className
