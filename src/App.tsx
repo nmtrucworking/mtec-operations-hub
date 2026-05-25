@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
+import { HelperCenterView } from './views/HelperCenterView';
 import { LoginView } from './views/LoginView';
 import { ToastProvider } from './components/ui/toast';
 import { Button } from './components/ui/button';
@@ -11,6 +13,7 @@ import type { AppTab, UserAccount, UserRole } from './types/app';
 import { useTranslation } from 'react-i18next';
 
 const SESSION_STORAGE_KEY = 'mtec-operations-hub.session';
+const PUBLIC_HELPER_CENTER_PATH = '/helper-center';
 
 interface StoredSession {
   token: string;
@@ -19,6 +22,8 @@ interface StoredSession {
 
 const App = () => {
   const { t } = useTranslation(); // Khởi tạo hook Translation
+  const location = useLocation();
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [authToken, setAuthToken] = useState('');
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
@@ -90,6 +95,9 @@ const App = () => {
   const handleLogin = (user: UserAccount, token?: string) => {
     const nextUser = normalizeUser(user);
     setCurrentUser(nextUser);
+    if (location.pathname === PUBLIC_HELPER_CENTER_PATH) {
+      navigate('/', { replace: true });
+    }
     if (token) {
       setAuthToken(token);
       localStorage.setItem('authToken', token);
@@ -104,6 +112,14 @@ const App = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem(SESSION_STORAGE_KEY);
     setActiveTab('dashboard');
+  };
+
+  const openHelperCenter = () => {
+    navigate(PUBLIC_HELPER_CENTER_PATH);
+  };
+
+  const closeHelperCenter = () => {
+    navigate('/');
   };
 
   const renderActiveView = () => {
@@ -153,7 +169,11 @@ const App = () => {
           </div>
         </div>
       ) : !currentUser ? (
-        <LoginView onLogin={handleLogin} />
+        location.pathname === PUBLIC_HELPER_CENTER_PATH ? (
+          <HelperCenterView onBackToLogin={closeHelperCenter} />
+        ) : (
+          <LoginView onLogin={handleLogin} onOpenHelperCenter={openHelperCenter} />
+        )
       ) : (
         <AppShell activeTab={normalizedActiveTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
           {renderActiveView()}

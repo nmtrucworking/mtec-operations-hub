@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Lock, LogIn, Mail, Languages, Sun, Moon } from 'lucide-react';
+import { HelpCircle, Lock, LogIn, Mail, Languages, Sun, Moon } from 'lucide-react';
 import { login as loginRequest } from '../services/auth';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -12,11 +12,12 @@ import type { UserAccount, UserRole } from '../types/app';
 import logoImg from '../assets/mtec_logo.svg';
 interface LoginViewProps {
   onLogin: (user: UserAccount, token?: string) => void;
+  onOpenHelperCenter?: () => void;
 }
 
 import { useToast } from '../components/ui/toast';
 
-export const LoginView = ({ onLogin }: LoginViewProps) => {
+export const LoginView = ({ onLogin, onOpenHelperCenter }: LoginViewProps) => {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { error: toastError } = useToast();
@@ -143,6 +144,19 @@ export const LoginView = ({ onLogin }: LoginViewProps) => {
                 {t('login.loginButton')}
               </Button>
             </div>
+
+            {onOpenHelperCenter ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={onOpenHelperCenter}
+                disabled={isLoading}
+              >
+                <HelpCircle size={18} className="mr-2" />
+                Helper Center cho thành viên
+              </Button>
+            ) : null}
           </form>
         </CardContent>
 
