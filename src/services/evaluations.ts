@@ -168,13 +168,24 @@ export interface EvaluationAppeal {
   id: string;
   cycleId: string;
   memberId: string;
-  title?: string;
-  description?: string;
-  appealType?: string;
-  content?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  resolverNote?: string | null;
+  memberEvaluationId?: string | null;
+  criterionId?: string | null;
+  criterionCode?: string | null;
+  appealType?: string | null;
+  content?: string | null;
+  requestedScore?: number | null;
+  status:
+    | 'PENDING'
+    | 'IN_REVIEW'
+    | 'NEEDS_MORE_EVIDENCE'
+    | 'ACCEPTED'
+    | 'PARTIALLY_ACCEPTED'
+    | 'REJECTED'
+    | 'CANCELLED';
+  resolvedByUserId?: string | null;
+  resolvedAt?: string | null;
   resolutionNote?: string | null;
+  metadata?: Record<string, any> | null;
   createdAt?: string;
   updatedAt?: string;
 }

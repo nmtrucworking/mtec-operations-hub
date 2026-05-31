@@ -26,6 +26,7 @@ import {
   getMemberCycleRoles
 } from '../../services/evaluations';
 import { EVALUATION_UNIT_CODES } from '../../data/evaluations';
+import { canCreateAppeal, isManager as isManagerHelper } from '../../utils/evaluationPermissions';
 import { Select } from '../ui/select';
 
 interface EvaluationAppealsPanelProps {
@@ -127,13 +128,7 @@ export const EvaluationAppealsPanel = ({
     );
   }, [allMembers, currentUser]);
 
-  const hasRole = (allowedRoles: UserRole[]) => {
-    if (currentUser.roles && currentUser.roles.length > 0) {
-      return currentUser.roles.some(r => allowedRoles.includes(r));
-    }
-    return allowedRoles.includes(currentUser.role);
-  };
-  const isManager = hasRole(['bcn', 'bvh_discipline', 'bvh_hr', 'bcm']);
+  const isManager = isManagerHelper(currentUser);
 
   // Sync selected member ID with filters
   useEffect(() => {
@@ -199,10 +194,18 @@ export const EvaluationAppealsPanel = ({
     switch (status) {
       case 'PENDING':
         return <Badge variant="outline" className="text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 font-bold">Đang chờ giải quyết</Badge>;
-      case 'APPROVED':
+      case 'IN_REVIEW':
+        return <Badge variant="outline" className="text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 font-bold">Đang xem xét</Badge>;
+      case 'NEEDS_MORE_EVIDENCE':
+        return <Badge variant="outline" className="text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 font-bold">Yêu cầu thêm chứng cứ</Badge>;
+      case 'ACCEPTED':
         return <Badge variant="outline" className="text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 font-bold">Chấp thuận</Badge>;
+      case 'PARTIALLY_ACCEPTED':
+        return <Badge variant="outline" className="text-lime-700 dark:text-lime-300 border-lime-200 dark:border-lime-800 bg-lime-50 dark:bg-lime-900/20 font-bold">Chấp nhận một phần</Badge>;
       case 'REJECTED':
         return <Badge variant="outline" className="text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 font-bold">Từ chối</Badge>;
+      case 'CANCELLED':
+        return <Badge variant="outline" className="text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/20 font-bold">Đã huỷ</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -215,12 +218,14 @@ export const EvaluationAppealsPanel = ({
           <h3 className="text-lg font-bold text-foreground">Khiếu nại / Phúc khảo điểm số</h3>
           <p className="text-sm text-secondary mt-1">Gửi yêu cầu xem xét lại điểm số hoặc phân loại xếp loại nếu có sai sót.</p>
         </div>
-        <Button 
-          onClick={handleOpenAddModal} 
-          className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
-        >
-          <Plus size={16} /> Gửi đơn khiếu nại
-        </Button>
+        {canCreateAppeal(currentUser, !!currentUserMember) && (
+          <Button 
+            onClick={handleOpenAddModal} 
+            className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
+          >
+            <Plus size={16} /> Gửi đơn khiếu nại
+          </Button>
+        )}
       </div>
 
       <div className="bg-card/45 border border-border/30 rounded-xl shadow-sm overflow-hidden">
