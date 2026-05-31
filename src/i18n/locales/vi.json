@@ -223,6 +223,7 @@
     "profileUpdateFailed": "Kh?ng th? c?p nh?t h? s?",
     "tabVersionHistory": "L?ch s? c?p nh?t",
     "versionTitle": "L?ch s? c?p nh?t h? th?ng",
+    "appVersionLabel": "Phiên bản {{version}}",
     "versionLabel": "Phi?n b?n {{version}}",
     "notiSubtitle": "Ch?n k?nh nh?n th?ng b?o. Email v? SMS ?ang ???c kh?a cho ??n khi h? th?ng h? tr?.",
     "pushBrowserStatus": "Tr?ng th?i tr?nh duy?t",

@@ -9,6 +9,14 @@
 
 export const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: '2.1.2',
+    date: '2026-06-01',
+    changes: [
+      { type: 'feature', description: 'Tích hợp tính năng xuất báo cáo đánh giá (DOCX/XLSX) — endpoint backend và nút tải xuống trên giao diện.' },
+      { type: 'improvement', description: 'Cập nhật phân quyền RBAC cho phép xuất báo cáo theo vai trò.' }
+    ]
+  },
+  {
     version: '2.1.1',
     date: '2026-05-23',
     changes: [

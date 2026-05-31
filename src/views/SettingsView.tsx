@@ -22,6 +22,7 @@ import {
   type BrowserPushPermission
 } from '../services/pushNotifications';
 import { VERSION_HISTORY } from '../config/versionHistory';
+import { APP_VERSION } from '../config/appVersion';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
@@ -656,7 +657,10 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           {activeTab === 'version' && (
             <div className="p-6 space-y-6 animate-in fade-in duration-300 overflow-y-auto max-h-[70vh] custom-scrollbar">
               <div className="flex items-center justify-between border-b border-border pb-4">
-                <h3 className="text-lg font-bold">{t('settings.versionTitle')}</h3>
+                <div>
+                  <h3 className="text-lg font-bold">{t('settings.versionTitle')}</h3>
+                  <p className="text-xs text-secondary mt-1">{t('settings.appVersionLabel', { version: APP_VERSION })}</p>
+                </div>
                 <Badge variant="outline" className="border-gold text-gold">v{VERSION_HISTORY[0].version}</Badge>
               </div>
 

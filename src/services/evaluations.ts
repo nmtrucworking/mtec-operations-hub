@@ -506,7 +506,8 @@ export const getEvaluationMemberBreakdowns = async (cycleId: string, memberId: s
 
 export const exportMemberEvaluationReportUrl = (cycleId: string, memberId: string) => {
   const API_BASE = getBaseUrl();
-  return `${API_BASE}/api/v2/evaluations/cycles/${cycleId}/members/${memberId}/exports/report.docx`;
+  // use the reports router path on the backend
+  return `${API_BASE}/api/v2/evaluations/reports/cycles/${cycleId}/members/${memberId}/exports/report.docx`;
 };
 
 export const getEvaluationCycleSummary = async (cycleId: string, token?: string) => {

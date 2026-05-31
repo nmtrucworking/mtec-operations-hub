@@ -1,7 +1,7 @@
 {
   "name": "mtec-operations-hub",
   "private": true,
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Hệ thống quản trị vận hành và nhân sự toàn diện dành cho CLB MTEC NTTU",
   "author": "MTEC Executive Board",
   "license": "MIT",

@@ -223,6 +223,7 @@
     "profileUpdateFailed": "Unable to update profile",
     "tabVersionHistory": "Version history",
     "versionTitle": "System version history",
+    "appVersionLabel": "App version: v{{version}}",
     "versionLabel": "Version {{version}}",
     "notiSubtitle": "Choose how you receive notifications. Email and SMS are locked until support is available.",
     "pushBrowserStatus": "Browser status",
