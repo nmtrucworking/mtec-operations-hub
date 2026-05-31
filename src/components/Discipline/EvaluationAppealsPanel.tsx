@@ -261,13 +261,13 @@ export const EvaluationAppealsPanel = ({
                         <div className="font-bold text-foreground">{memberName}</div>
                         <div className="text-xs text-secondary">{m?.mssv || appeal.memberId}</div>
                       </TableCell>
-                      <TableCell className="font-semibold">{appeal.appealType || appeal.title}</TableCell>
+                      <TableCell className="font-semibold">{appeal.appealType || '-'}</TableCell>
                       <TableCell className="max-w-[250px]">
-                        <p className="text-sm text-secondary-foreground">{appeal.content || appeal.description}</p>
+                        <p className="text-sm text-secondary-foreground">{appeal.content || '-'}</p>
                       </TableCell>
                       <TableCell className="text-center">{getStatusBadge(appeal.status)}</TableCell>
-                      <TableCell className="text-sm italic text-secondary-foreground max-w-[200px] truncate" title={appeal.resolutionNote || appeal.resolverNote || ''}>
-                        {appeal.resolutionNote || appeal.resolverNote || '-'}
+                      <TableCell className="text-sm italic text-secondary-foreground max-w-[200px] truncate" title={appeal.resolutionNote || ''}>
+                        {appeal.resolutionNote || '-'}
                       </TableCell>
                       <TableCell className="text-right text-xs text-secondary">
                         {appeal.createdAt ? new Date(appeal.createdAt).toLocaleDateString('vi-VN') : '-'}
