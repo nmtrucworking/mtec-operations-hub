@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const BACKEND_ORIGIN = 'https://mtec-operations-hub-backend.onrender.com';
+const BACKEND_ORIGIN = 'http://localhost:8000';
 const BACKEND_API_V1 = `${BACKEND_ORIGIN}/api/v1`;
 
 export default defineConfig({

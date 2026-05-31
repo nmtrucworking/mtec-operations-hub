@@ -49,8 +49,8 @@ export default {
         }
       },
       textColor: {
-        primary: 'var(--text-primary)',
-        secondary: 'var(--text-secondary)'
+        primary: 'var(--foreground)',
+        secondary: 'var(--secondary-foreground)'
       },
       spacing: {
         'compact': '0.5rem',  // 8px

@@ -163,7 +163,7 @@ const App = () => {
   return (
     <ToastProvider>
       {isBootstrapping ? (
-        <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-primary relative overflow-hidden">
+        <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-foreground relative overflow-hidden">
           <div className="z-10 text-center space-y-6 max-w-sm px-6">
             <div className="relative mx-auto w-20 h-20">
               <div className="absolute inset-0 border border-border rounded-full animate-pulse" />

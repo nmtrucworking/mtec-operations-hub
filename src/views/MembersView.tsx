@@ -1282,7 +1282,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                             </div>
                             <div className="rounded-lg bg-background/70 border border-border/60 px-3 py-2 text-center">
                               <div className="text-[10px] uppercase tracking-wider text-secondary">Trạng thái</div>
-                              <div className="text-sm font-bold text-primary">{item.persisted ? 'Đã lưu' : 'Tạm tính'}</div>
+                              <div className="text-sm font-bold text-primary">Tạm tính</div>
                             </div>
                           </div>
                         </div>

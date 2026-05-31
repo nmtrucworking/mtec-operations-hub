@@ -6,14 +6,7 @@
 const RAW_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim();
 const FALLBACK_BASE_URL = 'http://localhost:8000';
 const CONFIGURED_BASE_URL = (RAW_BASE_URL || FALLBACK_BASE_URL).replace(/\/$/, '');
-
-const shouldUseDevProxy =
-  import.meta.env.DEV &&
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-  CONFIGURED_BASE_URL.includes('onrender.com');
-
-export const API_BASE_URL = shouldUseDevProxy ? '' : CONFIGURED_BASE_URL;
+export const API_BASE_URL = CONFIGURED_BASE_URL;
 
 /**
  * Get a clean base URL without /api/v1 suffix

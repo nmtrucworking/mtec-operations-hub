@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { BarChart3, Settings, Users, FileText, DollarSign, ShieldCheck, Box, Wand2, History } from 'lucide-react';
+import { BarChart3, Settings, Users, FileText, DollarSign, ShieldCheck, Box, History } from 'lucide-react';
 import { DashboardView } from '../views/DashboardView';
 import { MembersView } from '../views/MembersView';
 import { SettingsView } from '../views/SettingsView';
@@ -7,7 +7,6 @@ import { RequestsView } from '../views/RequestsView';
 import { FinanceView } from '../views/FinanceView';
 import { DisciplineView } from '../views/DisciplineView';
 import { LogisticsView } from '../views/LogisticsView';
-import { GeneratorView } from '../views/GeneratorView';
 import { LogsView } from '../views/LogsView';
 import { getRequests, reviewRequest as reviewRequestApi, createRequest, updateRequest } from '../services/requests';
 import { getTransactions, getPendingTransactions, reviewTransaction as reviewTransactionApi, deleteTransaction as deleteTransactionApi, createTransaction, updateTransaction } from '../services/finance';
@@ -25,7 +24,6 @@ export const APP_VISIBLE_TABS: AppTab[] = [
   'finance', 
   'discipline', 
   'logistics', 
-  'generator', 
   'settings',
   'logs'
 ];
@@ -37,7 +35,6 @@ export const APP_TAB_PATHS: Record<AppTab, string> = {
   finance: '/finance',
   discipline: '/discipline',
   logistics: '/logistics',
-  generator: '/generator',
   settings: '/settings',
   logs: '/logs'
 };
@@ -246,14 +243,6 @@ export const APP_TAB_DEFINITIONS: AppTabDefinition[] = [
     minVersion: '1.0.0',
     allowedRoles: ['bcn', 'bvh_finance', 'bvh_logistics', 'bcm'],
     render: ({ authToken }) => React.createElement(LogisticsView, { authToken })
-  },
-  {
-    tab: 'generator',
-    labelKey: 'appShell.navGenerator',
-    icon: React.createElement(Wand2, { size: 20 }),
-    minVersion: '1.0.0',
-    allowedRoles: ['bcn'],
-    render: ({ authToken }) => React.createElement(GeneratorView, { authToken })
   },
   {
     tab: 'logs',

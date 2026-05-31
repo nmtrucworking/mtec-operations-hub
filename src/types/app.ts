@@ -5,7 +5,6 @@ export type AppTab =
   | 'finance'
   | 'discipline'
   | 'logistics'
-  | 'generator'
   | 'settings'
   | 'logs';
 

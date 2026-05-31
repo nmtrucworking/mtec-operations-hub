@@ -1,4 +1,4 @@
-export interface VersionEntry {
+﻿export interface VersionEntry {
   version: string;
   date: string;
   changes: {
@@ -12,8 +12,8 @@ export const VERSION_HISTORY: VersionEntry[] = [
     version: '2.1.1',
     date: '2026-05-23',
     changes: [
-      { type: 'improvement', description: 'Nâng cấp tổng thể giao diện và trải nghiệm (UI/UX) của phân hệ Kỷ luật & Đánh giá.' },
-      { type: 'improvement', description: 'Trực quan hoá quy trình đánh giá thành Flowchart và hiển thị rõ ràng bảng điều kiện chặn xếp loại.' },
+      { type: 'improvement', description: 'Nâng cấp tổng thể giao diện (UI/UX) của phân hệ Kỷ luật & Đánh giá.' },
+      { type: 'improvement', description: 'Trực quan hoá quy trình đánh giá thành Flowchart và hiển thị rõ ràng bằng điều kiện chặn xếp loại.' },
       { type: 'improvement', description: 'Thay thế toàn bộ cảnh báo gốc trình duyệt (alert, confirm) thành Modal xác nhận và Toast đồng bộ.' },
       { type: 'fix', description: 'Sửa lỗi đếm sai số thành viên tham gia trong thống kê chung của chu kỳ đánh giá (Backend).' }
     ]
@@ -52,7 +52,6 @@ export const VERSION_HISTORY: VersionEntry[] = [
     date: '2026-05-01',
     changes: [
       { type: 'feature', description: 'Triển khai hệ thống Nhật ký hoạt động (Activity Logs) toàn diện.' },
-      { type: 'feature', description: 'Nâng cấp AI Generator: hỗ trợ template văn bản hành chính, trích xuất ngữ cảnh và xuất file DOCX.' },
       { type: 'feature', description: 'Cập nhật Dashboard Logistics & Discipline với số liệu thống kê thời gian thực.' },
       { type: 'improvement', description: 'Bổ sung Audit Logs Coverage cho toàn bộ hệ thống (Members, Assets, Finance, Requests).' },
       { type: 'security', description: 'Cập nhật phân quyền: Role BCM có quyền xem và xuất nhật ký hệ thống.' }
@@ -75,7 +74,6 @@ export const VERSION_HISTORY: VersionEntry[] = [
       { type: 'feature', description: 'Phát hành phiên bản chính thức đầu tiên của MTEC Operations Hub.' },
       { type: 'feature', description: 'Hệ thống quản lý thành viên toàn diện.' },
       { type: 'feature', description: 'Quản lý tài chính và phê duyệt giao dịch.' },
-      { type: 'feature', description: 'Dashboard tổng quan tích hợp AI Insight.' },
       { type: 'feature', description: 'Hệ thống phân quyền chi tiết (BCN, BVH, Member).' },
       { type: 'improvement', description: 'Giao diện Responsive hoàn chỉnh cho Mobile và Tablet.' },
       { type: 'improvement', description: 'Tối ưu hóa hiệu suất tải dữ liệu với Skeleton Loading.' }
@@ -98,3 +96,4 @@ export const VERSION_HISTORY: VersionEntry[] = [
     ]
   }
 ];
+

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, Bot, Clock, Loader2, Sparkles, Users, DollarSign, Package, AlertTriangle, ArrowRight, CheckCircle2, Download, Star } from 'lucide-react';
+import { BarChart3, Clock, Loader2, Users, DollarSign, Package, AlertTriangle, ArrowRight, CheckCircle2, Download, Star } from 'lucide-react';
 import { ActivityItem, ProgressBar, StatCard, RequestCard } from '../components/shared/Widgets';
 import { formatCurrency } from '../data/finance';
 import { normalizeBanList, normalizeText, type Member } from '../data/members';
@@ -11,7 +11,6 @@ import { Input } from '../components/ui/input';
 import { DashboardOverviewData, DashboardActivity } from '../types/dashboard';
 import { getDashboardOverview } from '../services/dashboard';
 import { createMember, getMembers } from '../services/members';
-import { generateAIInsight } from '../services/ai';
 import { getLogs, type ActivityLog } from '../services/logs';
 import { createTransaction, getTransactions } from '../services/finance';
 import { getBaseUrl } from '../services/api';
@@ -97,8 +96,6 @@ export const DashboardView = ({ authToken, currentUser }: DashboardViewProps) =>
   }, [authToken]);
 
 
-  const [aiInsight, setAiInsight] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   const [addMemberForm, setAddMemberForm] = useState<{ name: string; mssv: string; email: string }>({
@@ -685,32 +682,6 @@ export const DashboardView = ({ authToken, currentUser }: DashboardViewProps) =>
     return 'info'; // Áp dụng mặc định cho các giao dịch 'Chi' hoặc đang 'Cho duyet'
   };
 
-  const handleGenerateInsight = async () => {
-    if (!dashboardData) return;
-    setIsAiLoading(true);
-
-    const prompt = `Với tư cách là chuyên gia Nhân sự và Quản lý của CLB MTEC. Hãy phân tích ngắn gọn (khoảng 3-4 dòng) về tình hình hiện tại của CLB dựa trên dữ liệu sau:
-    - Tổng thành viên: ${totalMembers}
-    - Đơn yêu cầu đang chờ duyệt: ${dashboardData.pendingRequestsCount}
-    - Số dư quỹ: ${formatCurrency(dashboardData.currentFund)} (Tổng thu: ${formatCurrency(dashboardData.totalIncome)}, Tổng chi: ${formatCurrency(dashboardData.totalExpense)})
-    - Thiết bị cần bảo trì: ${dashboardData.maintenanceCount}
-    Đưa ra nhận xét về sức khỏe tài chính và nhân sự, cùng 1 lời khuyên chiến lược.`;
-
-    try {
-      const response = await generateAIInsight({ prompt }, authToken);
-
-      if (response.status === 200 && response.data?.text) {
-        setAiInsight(response.data.text);
-      } else {
-        setAiInsight(t('dashboard.ai.unavailable', 'Hệ thống AI không thể xử lý yêu cầu vào lúc này.'));
-      }
-    } catch (err) {
-      setAiInsight(t('dashboard.ai.networkError', 'Lỗi kết nối đến máy chủ AI.'));
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-full w-full p-8 text-primary space-y-4">
@@ -746,32 +717,7 @@ export const DashboardView = ({ authToken, currentUser }: DashboardViewProps) =>
           <h2 className="text-2xl lg:text-3xl font-bold tracking-tight">{t('dashboard.title')}</h2>
           <p className="text-secondary mt-1">{t('dashboard.subtitle')}</p>
         </div>
-        <div className="flex space-x-3 w-full sm:w-auto">
-          <Button
-            onClick={handleGenerateInsight}
-            disabled={isAiLoading}
-            isLoading={isAiLoading}
-            className="flex-1 sm:flex-none shadow-none"
-          >
-            {!isAiLoading && <Sparkles size={16} className="mr-2" />}
-            {t('dashboard.aiInsightBtn')}
-          </Button>
-        </div>
       </div>
-
-      {aiInsight ? (
-        <div className="bg-card border border-border-highlight rounded-xl p-5 flex items-start space-x-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="p-3 bg-gold/10 rounded-lg text-gold shrink-0">
-            <Bot size={24} />
-          </div>
-          <div className="space-y-1">
-            <h4 className="font-bold text-primary flex items-center">
-              {t('dashboard.aiInsightTitle')} <Sparkles size={14} className="ml-2 text-gold" />
-            </h4>
-            <p className="text-sm text-secondary leading-relaxed">{aiInsight}</p>
-          </div>
-        </div>
-      ) : null}
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">

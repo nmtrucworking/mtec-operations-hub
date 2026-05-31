@@ -37,10 +37,10 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
         className
       )}>
         <div className="flex justify-between items-center p-4 border-b border-border bg-card">
-          <h3 className="font-semibold text-base text-primary">{title}</h3>
+          <h3 className="font-semibold text-base text-foreground">{title}</h3>
           <button 
             onClick={onClose} 
-            className="p-1.5 rounded-md text-secondary hover:text-primary hover:bg-brand-light transition-colors"
+            className="p-1.5 rounded-md text-secondary hover:text-foreground hover:bg-brand-light transition-colors"
             aria-label="Close modal"
           >
             <X size={20} />

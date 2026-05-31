@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Key, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle, Trash2, Plus, Clock } from 'lucide-react';
+import { Bell, BellRing, Key, Lock, Save, Shield, User, Users, Search, Filter, Pencil, RefreshCw, X, CheckCircle, Trash2, Plus, Clock } from 'lucide-react';
 import {
   changePassword,
   getProfile,
@@ -14,6 +14,13 @@ import {
   updateUser,
   deleteUser
 } from '../services/users';
+import {
+  getBrowserPushPermission,
+  isBrowserPushSupported,
+  requestBrowserPushPermission,
+  showBrowserPushNotification,
+  type BrowserPushPermission
+} from '../services/pushNotifications';
 import { VERSION_HISTORY } from '../config/versionHistory';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -64,6 +71,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
     smsNotifications: false
   });
   const [notiError, setNotiError] = useState('');
+  const [pushPermission, setPushPermission] = useState<BrowserPushPermission>(() => getBrowserPushPermission());
 
   // 4. Accounts Admin states
   const [accountsList, setAccountsList] = useState<UserAccount[]>([]);
@@ -97,10 +105,11 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         if (notiRes.status === 200 && notiRes.data) {
           const data = (notiRes.data as any).data || notiRes.data;
           setNotis({
-            emailNotifications: Boolean(data?.emailNotifications),
+            emailNotifications: false,
             pushNotifications: Boolean(data?.pushNotifications),
-            smsNotifications: Boolean(data?.smsNotifications)
+            smsNotifications: false
           });
+          setPushPermission(getBrowserPushPermission());
         }
 
         // 3. Fetch Accounts if Admin
@@ -192,14 +201,43 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
   const handleNotiChange = async (id: keyof NotificationSettings, checked: boolean) => {
     if (!authToken) return;
     setNotiError('');
+
+    if (id === 'emailNotifications' || id === 'smsNotifications') {
+      setNotiError(t('settings.notiLockedMessage'));
+      return;
+    }
+
+    if (id === 'pushNotifications' && checked) {
+      if (!isBrowserPushSupported()) {
+        setNotiError(t('settings.pushUnsupported'));
+        return;
+      }
+
+      const permission = await requestBrowserPushPermission();
+      setPushPermission(permission);
+      if (permission !== 'granted') {
+        setNotiError(permission === 'denied' ? t('settings.pushDenied') : t('settings.pushPermissionRequired'));
+        return;
+      }
+    }
+
     const previous = notis;
-    const updatedNotis = { ...notis, [id]: checked } as NotificationSettings;
+    const updatedNotis = {
+      ...notis,
+      emailNotifications: false,
+      smsNotifications: false,
+      [id]: checked
+    } as NotificationSettings;
     setNotis(updatedNotis);
     try {
-      const res = await updateNotificationSettings({ [id]: checked }, authToken);
+      const res = await updateNotificationSettings(updatedNotis, authToken);
       if (res.status < 200 || res.status >= 300) {
         setNotis(previous);
         setNotiError(res.error || t('common.error'));
+      } else if (id === 'pushNotifications' && checked) {
+        showBrowserPushNotification(t('settings.pushTestTitle'), {
+          body: t('settings.pushTestBody')
+        });
       }
     } catch (error) {
       console.error("Error updating notifications:", error);
@@ -441,24 +479,40 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
               <div className="space-y-4">
                 {[
-                  { id: 'emailNotifications', labelKey: 'settings.noti1Label', descKey: 'settings.noti1Desc' },
-                  { id: 'pushNotifications', labelKey: 'settings.noti2Label', descKey: 'settings.noti2Desc' },
-                  { id: 'smsNotifications', labelKey: 'settings.noti3Label', descKey: 'settings.noti3Desc' }
+                  { id: 'pushNotifications', labelKey: 'settings.noti2Label', descKey: 'settings.noti2Desc', locked: false },
+                  { id: 'emailNotifications', labelKey: 'settings.noti1Label', descKey: 'settings.noti1Desc', locked: true },
+                  { id: 'smsNotifications', labelKey: 'settings.noti3Label', descKey: 'settings.noti3Desc', locked: true }
                 ].map((item) => (
-                  <div key={item.id} className="flex items-start justify-between p-4 bg-background border border-border rounded-lg">
+                  <div key={item.id} className={cn(
+                    "flex items-start justify-between p-4 bg-background border border-border rounded-lg",
+                    item.locked && "opacity-70"
+                  )}>
                     <div>
-                      <h4 className="text-sm font-semibold text-primary">{t(item.labelKey)}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-semibold text-primary">{t(item.labelKey)}</h4>
+                        {item.locked ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-secondary">
+                            <Lock size={12} />
+                            {t('settings.notiLocked')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-secondary">
+                            <BellRing size={12} />
+                            {pushPermission === 'granted' ? t('settings.pushReady') : t('settings.pushRequiresPermission')}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-secondary mt-1">{t(item.descKey)}</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer mt-1">
+                    <label className={cn("relative inline-flex items-center mt-1", item.locked ? "cursor-not-allowed" : "cursor-pointer")}>
                       <input
                         type="checkbox"
-                        checked={notis[item.id as keyof NotificationSettings] || false}
+                        checked={!item.locked && (notis[item.id as keyof NotificationSettings] || false)}
                         onChange={(e) => handleNotiChange(item.id as keyof NotificationSettings, e.target.checked)}
-                        disabled={isLoading}
+                        disabled={isLoading || item.locked}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold"></div>
+                      <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-disabled:bg-border/60 peer-disabled:after:bg-secondary/40 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold"></div>
                     </label>
                   </div>
                 ))}

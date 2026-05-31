@@ -211,12 +211,31 @@ export const updateProfile = async (data: { fullName?: string; email?: string; p
 };
 
 export const getNotificationSettings = async (token: string): Promise<ApiResponse<any>> => {
-  return apiCall('/api/v1/settings/notifications', { method: 'GET' }, token);
+  const response = await apiCall('/api/v1/settings/notifications', { method: 'GET' }, token);
+  if (!response.data) return response;
+
+  const payload = ((response.data as any).data || response.data) as Record<string, unknown>;
+  return {
+    ...response,
+    data: {
+      ...payload,
+      emailNotifications: Boolean(payload.emailNotifications ?? payload.noti1),
+      pushNotifications: Boolean(payload.pushNotifications ?? payload.noti2),
+      smsNotifications: Boolean(payload.smsNotifications ?? payload.noti3)
+    }
+  };
 };
 
 export const updateNotificationSettings = async (data: any, token: string): Promise<ApiResponse<any>> => {
+  const payload = {
+    ...data,
+    noti1: data.emailNotifications,
+    noti2: data.pushNotifications,
+    noti3: data.smsNotifications
+  };
+
   return apiCall('/api/v1/settings/notifications', {
     method: 'PATCH',
-    body: JSON.stringify(data)
+    body: JSON.stringify(payload)
   }, token);
 };

@@ -132,7 +132,7 @@ export const LoginView = ({ onLogin, onOpenHelperCenter }: LoginViewProps) => {
             <div className="pt-2">
               <Button
                 type="submit"
-                className="w-full font-semibold"
+                className="w-full font-semibold text-white"
                 size="lg"
                 isLoading={isLoading}
               >

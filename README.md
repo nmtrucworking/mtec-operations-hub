@@ -92,18 +92,6 @@ Yêu cầu môi trường:
 
 ---
 
-## 🚀 Triển khai trên Vercel
-
-Khi triển khai trên Vercel, hãy đảm bảo bạn đã cấu hình đầy đủ các biến môi trường (Environment Variables) trong Dashboard của Vercel:
-
-1. **VITE_API_BASE_URL**: URL của Backend API (ví dụ: `https://mtec-operations-hub-backend.onrender.com/api/v1`).
-2. **VITE_GEMINI_API_KEY**: API Key cho tính năng AI.
-
-**Lưu ý về lỗi 403 Forbidden:**
-Nếu bạn gặp lỗi 403 khi gọi API từ Vercel, hãy kiểm tra cấu hình CORS trên Backend để cho phép tên miền của Vercel (ví dụ: `*.vercel.app`). Dự án đã bao gồm tệp `vercel.json` để xử lý định tuyến phía Client (SPA Routing).
-
----
-
 ## 🤝 Đóng góp (Contributing)
 
 Chúng tôi hoan nghênh mọi sự đóng góp để cải thiện hệ thống. Vui lòng làm theo các bước:
@@ -136,8 +124,3 @@ mtec-operations-hub/
 ├── tsconfig.json        # Cấu hình TypeScript
 └── vite.config.ts       # Cấu hình Vite bundler
 ```
-
----
-
-## 📜 Giấy Phép & Bản Quyền
-Dự án được xây dựng và thiết kế nội bộ cho Câu lạc bộ Công nghệ (MTEC) - Đại học Nguyễn Tất Thành (NTTU). Mọi quyền về mặt logic, UI/UX và dữ liệu thuộc về Ban Điều Hành MTEC.

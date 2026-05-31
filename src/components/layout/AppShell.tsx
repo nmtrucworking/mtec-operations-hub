@@ -55,13 +55,13 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
   };
 
   return (
-    <div className="flex h-screen w-full bg-background text-primary font-sans overflow-hidden relative">
+    <div className="flex h-screen w-full bg-background text-foreground font-sans overflow-hidden relative">
       {/* Sidebar Desktop */}
       <aside className="hidden lg:flex w-64 bg-card flex-col border-r border-border">
         <div className="p-5 flex items-center justify-center border-b border-border">
           <div className="text-center flex flex-col items-center">
             <img src={logoSvg} alt="MTEC Logo" className="w-12 h-12 mb-3 object-contain" />
-            <h1 className="text-xl font-semibold text-primary">{t('appShell.title')}</h1>
+            <h1 className="text-xl font-semibold text-foreground">{t('appShell.title')}</h1>
             <p className="text-xs text-secondary mt-1">{t('appShell.subtitle')}</p>
             <p className="text-[11px] uppercase tracking-[0.18em] text-secondary mt-2">v{APP_VERSION}</p>
           </div>
@@ -102,7 +102,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
         <div className="p-5 flex items-center justify-between border-b border-border">
           <div className="flex items-center">
             <img src={logoSvg} alt="MTEC Logo" className="w-8 h-8 mr-3 object-contain" />
-            <h1 className="text-lg font-semibold text-primary">{t('appShell.title')}</h1>
+            <h1 className="text-lg font-semibold text-foreground">{t('appShell.title')}</h1>
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-brand-light rounded-md transition-colors">
             <X size={20} />
@@ -145,7 +145,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
               <input
                 type="text"
                 placeholder={t('appShell.searchPlaceholder')}
-                className="bg-transparent border-none outline-none text-sm text-primary ml-2 w-full placeholder:text-secondary"
+                className="bg-transparent border-none outline-none text-sm text-foreground ml-2 w-full placeholder:text-secondary"
               />
             </div>
           </div>
@@ -153,7 +153,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
           <div className="flex items-center space-x-2 lg:space-x-3">
             <button
               onClick={toggleTheme}
-              className="flex items-center gap-2 p-2 text-secondary hover:text-primary transition-colors bg-card rounded-md border border-border"
+              className="flex items-center gap-2 p-2 text-secondary hover:text-foreground transition-colors bg-card rounded-md border border-border"
               title={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -163,18 +163,18 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
             </button>
             <button
               onClick={toggleLanguage}
-              className="flex items-center p-2 text-secondary hover:text-primary transition-colors bg-card rounded-md border border-border"
+              className="flex items-center p-2 text-secondary hover:text-foreground transition-colors bg-card rounded-md border border-border"
               title={t('common.changeLanguage')}
             >
               <Globe size={18} className="lg:mr-2" />
               <span className="text-xs lg:text-sm font-medium uppercase">{currentLang}</span>
             </button>
-            <button className="relative p-2 text-secondary hover:text-primary transition-colors hidden sm:block">
+            <button className="relative p-2 text-secondary hover:text-foreground transition-colors hidden sm:block">
               <Bell size={20} />
               <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-danger-text rounded-full border-2 border-background" />
             </button>
             <div className="flex items-center pl-2 lg:pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleTabChange('settings')}>
-              <div className="w-8 h-8 rounded-md bg-brand-light border border-border flex items-center justify-center text-primary font-semibold text-sm">
+              <div className="w-8 h-8 rounded-md bg-brand-light border border-border flex items-center justify-center text-foreground font-semibold text-sm">
                 {currentUser.avatarInitials}
               </div>
               <div className="ml-3 hidden sm:block text-left">
