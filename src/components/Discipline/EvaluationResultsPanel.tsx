@@ -23,9 +23,11 @@ import { downloadFileWithAuth } from '../../lib/helpers';
 import { 
   MemberEvaluation, 
   MemberEvaluationBreakdown,
+  MemberCycleRole,
   EvaluationCycle, 
   getEvaluationMemberResults, 
   getEvaluationMemberBreakdowns,
+  getMemberCycleRoles,
   computeEvaluationCycle,
   computeEvaluationMember,
   exportMemberEvaluationReportUrl
@@ -53,6 +55,7 @@ export const EvaluationResultsPanel = ({
   const { success, error, warning } = useToast();
   const { t } = useTranslation();
   const [results, setResults] = useState<MemberEvaluation[]>([]);
+  const [cycleRoles, setCycleRoles] = useState<MemberCycleRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isComputing, setIsComputing] = useState(false);
   const [computingMemberId, setComputingMemberId] = useState<string | null>(null);
@@ -93,6 +96,21 @@ export const EvaluationResultsPanel = ({
   useEffect(() => {
     fetchResultsList();
   }, [authToken, cycleId, filterUnit, filterClassification]);
+
+  useEffect(() => {
+    const fetchCycleRoles = async () => {
+      try {
+        const res = await getMemberCycleRoles(cycleId, { pageSize: 1000 }, authToken);
+        if (res?.data?.items) {
+          setCycleRoles(res.data.items);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchCycleRoles();
+  }, [authToken, cycleId]);
 
   // Create member mapping
   const memberMap = useMemo(() => {
@@ -169,6 +187,26 @@ export const EvaluationResultsPanel = ({
       setIsLoadingBreakdowns(false);
     }
   };
+
+  const visibleBreakdowns = useMemo(() => {
+    if (!selectedMember) {
+      return breakdowns;
+    }
+
+    const memberUnitCodes = new Set(
+      cycleRoles
+        .filter(role => role.memberId === selectedMember.id)
+        .map(role => role.unitCode)
+    );
+
+    return breakdowns.filter(bd => {
+      if (bd.component !== 'III_B') {
+        return true;
+      }
+
+      return Boolean(bd.unitCode && memberUnitCodes.has(bd.unitCode));
+    });
+  }, [breakdowns, cycleRoles, selectedMember]);
 
   const handleDownloadMemberReport = async () => {
     if (!selectedMember || !selectedResult) {
@@ -405,7 +443,7 @@ export const EvaluationResultsPanel = ({
                 <Loader2 size={24} className="animate-spin text-primary mr-2" />
                 <span className="text-secondary text-sm">Đang tải bảng điểm chi tiết...</span>
               </div>
-            ) : breakdowns.length === 0 ? (
+            ) : visibleBreakdowns.length === 0 ? (
               <div className="text-center p-8 text-secondary text-sm">
                 Không tìm thấy dữ liệu điểm chi tiết tiêu chí của thành viên này.
               </div>
@@ -423,7 +461,7 @@ export const EvaluationResultsPanel = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {breakdowns.map(bd => (
+                    {visibleBreakdowns.map(bd => (
                       <TableRow key={bd.id} className="hover:bg-muted/30">
                         <TableCell className="py-2.5">
                           <span className="font-bold text-foreground block text-sm">{bd.criterionCode}</span>
