@@ -9,7 +9,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:reset": "psql \"$DATABASE_URL\" -v confirm_reset=1 -f scripts/database/reset_database.sql",
+    "db:seed:members": "psql \"$DATABASE_URL\" -f scripts/database/seed_members.sql",
+    "db:handover": "npm run db:reset && npm run db:seed:members"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",
