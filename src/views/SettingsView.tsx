@@ -121,7 +121,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
-        setErrorMsg("Không thể tải cài đặt");
+        setErrorMsg(t('settings.loadFailed'));
       } finally {
         setIsLoading(false);
       }
@@ -156,10 +156,10 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         setSuccessMsg(t('common.success'));
         setTimeout(() => setSuccessMsg(''), 3000);
       } else {
-        setErrorMsg(response.error || "Không thể cập nhật hồ sơ");
+        setErrorMsg(response.error || t('settings.profileUpdateFailed'));
       }
     } catch (error) {
-      setErrorMsg("Lỗi kết nối");
+      setErrorMsg(t('common.networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -192,7 +192,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         setPwdError(t('auth.passwordChangeFailed'));
       }
     } catch (error) {
-      setPwdError("Lỗi kết nối");
+      setPwdError(t('common.networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -282,10 +282,10 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         setSuccessMsg(t('common.success'));
         setTimeout(() => setSuccessMsg(''), 3000);
       } else {
-        setErrorMsg(response.error || "Thao tác thất bại");
+        setErrorMsg(response.error || t('common.actionFailed'));
       }
     } catch (error) {
-      setErrorMsg("Lỗi kết nối");
+      setErrorMsg(t('common.networkError'));
     } finally {
       setIsSaving(false);
     }
@@ -305,8 +305,27 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
       }
     } catch (error) {
       console.error("Error deleting account:", error);
-      setErrorMsg("Lỗi kết nối");
+      setErrorMsg(t('common.networkError'));
     }
+  };
+
+  const handleTestPushNotification = async () => {
+    if (!notis.pushNotifications) {
+      setNotiError(t('settings.pushEnableBeforeTest'));
+      return;
+    }
+
+    const permission = getBrowserPushPermission();
+    setPushPermission(permission);
+    if (permission !== 'granted') {
+      setNotiError(t('settings.pushPermissionRequired'));
+      return;
+    }
+
+    setNotiError('');
+    showBrowserPushNotification(t('settings.pushTestTitle'), {
+      body: t('settings.pushTestBody')
+    });
   };
 
   // Filter accounts
@@ -387,7 +406,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
               }`}
           >
             <Clock size={18} className="mr-3" />
-            Lịch sử cập nhật
+            {t('settings.tabVersionHistory')}
           </button>
         </div>
 
@@ -475,7 +494,30 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
 
           {activeTab === 'notifications' && (
             <div className="p-5 space-y-4 animate-in fade-in duration-300">
-              <h3 className="text-lg font-bold border-b border-border pb-4">{t('settings.notiTitle')}</h3>
+              <div className="border-b border-border pb-4">
+                <h3 className="text-lg font-bold">{t('settings.notiTitle')}</h3>
+                <p className="text-sm text-secondary mt-1">{t('settings.notiSubtitle')}</p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-primary">{t('settings.pushBrowserStatus')}</p>
+                  <p className="text-xs text-secondary">
+                    {isBrowserPushSupported()
+                      ? t(`settings.pushPermission.${pushPermission === 'unsupported' ? 'unsupported' : pushPermission}`)
+                      : t('settings.pushPermission.unsupported')}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTestPushNotification}
+                  disabled={!notis.pushNotifications || pushPermission !== 'granted'}
+                >
+                  <BellRing size={16} className="mr-2" />
+                  {t('settings.pushTestButton')}
+                </Button>
+              </div>
 
               <div className="space-y-4">
                 {[
@@ -614,7 +656,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           {activeTab === 'version' && (
             <div className="p-6 space-y-6 animate-in fade-in duration-300 overflow-y-auto max-h-[70vh] custom-scrollbar">
               <div className="flex items-center justify-between border-b border-border pb-4">
-                <h3 className="text-lg font-bold">Lịch sử cập nhật hệ thống</h3>
+                <h3 className="text-lg font-bold">{t('settings.versionTitle')}</h3>
                 <Badge variant="outline" className="border-gold text-gold">v{VERSION_HISTORY[0].version}</Badge>
               </div>
 
@@ -623,7 +665,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                   <div key={entry.version} className="relative pl-6 border-l-2 border-border pb-2">
                     <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gold border-4 border-card" />
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-bold text-primary">Phiên bản {entry.version}</h4>
+                      <h4 className="font-bold text-primary">{t('settings.versionLabel', { version: entry.version })}</h4>
                       <span className="text-xs text-secondary">{entry.date}</span>
                     </div>
                     <ul className="space-y-2">
@@ -636,7 +678,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                                 change.type === 'security' ? "bg-warning-text" : "bg-blue-400"
                           )} />
                           <span className="text-secondary leading-relaxed">
-                            <strong className="text-primary mr-1 capitalize">{change.type}:</strong>
+                            <strong className="text-primary mr-1 capitalize">{t(`settings.changeType.${change.type}`)}:</strong>
                             {change.description}
                           </span>
                         </li>
@@ -655,17 +697,17 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          title={editingAcc.id ? 'Sửa thông tin tài khoản' : 'Thêm tài khoản mới'}
+          title={editingAcc.id ? t('admin.editAccountTitle') : t('admin.addAccountTitle')}
           footer={
             <>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Hủy bỏ</Button>
-              <Button onClick={handleSaveAccount} isLoading={isSaving}>Lưu thông tin</Button>
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>{t('common.cancel')}</Button>
+              <Button onClick={handleSaveAccount} isLoading={isSaving}>{t('admin.saveAccountBtn')}</Button>
             </>
           }
         >
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-secondary">Tên đăng nhập</label>
+              <label className="text-sm font-medium text-secondary">{t('admin.usernameLabel')}</label>
               <Input
                 type="text"
                 value={editingAcc.username || ''}
@@ -675,16 +717,16 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
             </div>
             {!editingAcc.id && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-secondary">Mật khẩu</label>
+                <label className="text-sm font-medium text-secondary">{t('admin.passwordLabel')}</label>
                 <Input
                   type="password"
-                  placeholder="Nhập mật khẩu cho tài khoản mới"
+                  placeholder={t('admin.passwordPlaceholder')}
                   onChange={e => setEditingAcc({ ...editingAcc, password: e.target.value })}
                 />
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-secondary">Họ và tên</label>
+              <label className="text-sm font-medium text-secondary">{t('admin.fullNameLabel')}</label>
               <Input
                 type="text"
                 value={editingAcc.fullName || ''}
@@ -692,7 +734,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-secondary">Chức vụ (Phân quyền)</label>
+              <label className="text-sm font-medium text-secondary">{t('admin.rolesLabel')}</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg border border-border bg-background p-3">
                 {availableRoles.map((role) => {
                   const selectedRoles = normalizeRoles(editingAcc.roles, editingAcc.role);
@@ -710,7 +752,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                   );
                 })}
               </div>
-              <p className="text-xs text-secondary">Role chính sẽ được tự động chọn theo mức ưu tiên khi lưu.</p>
+              <p className="text-xs text-secondary">{t('admin.primaryRoleHint')}</p>
             </div>
           </div>
         </Modal>
