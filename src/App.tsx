@@ -7,8 +7,9 @@ import { ToastProvider } from './components/ui/toast';
 import { Button } from './components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
 import { getCurrentUser, normalizeUser } from './services/auth';
-import { APP_VISIBLE_TABS, getVisibleTabDefinitions } from './config/appRegistry';
-import type { AppTab, UserAccount, UserRole } from './types/app';
+import { getTabFromPath, getTabPath, getVisibleTabDefinitions } from './config/appRegistry';
+import type { AppTab, UserAccount } from './types/app';
+import { hasAnyRole } from './lib/permissions';
 
 import { useTranslation } from 'react-i18next';
 
@@ -26,7 +27,6 @@ const App = () => {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [authToken, setAuthToken] = useState('');
-  const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   useEffect(() => {
@@ -73,9 +73,36 @@ const App = () => {
     void restoreSession();
   }, []);
 
-  const visibleTabSet = new Set(APP_VISIBLE_TABS);
+  const pathActiveTab = getTabFromPath(location.pathname);
 
-  const normalizedActiveTab: AppTab = visibleTabSet.has(activeTab) ? activeTab : 'dashboard';
+  const canAccessTab = (tab: AppTab, user: UserAccount) => {
+    const definition = getVisibleTabDefinitions().find((item) => item.tab === tab);
+    if (!definition) return false;
+    if (definition.allowedRoles === 'all') return true;
+    return hasAnyRole(user.roles ?? [user.role], definition.allowedRoles);
+  };
+
+  const getFallbackTab = (user: UserAccount): AppTab => {
+    return getVisibleTabDefinitions().find((item) => canAccessTab(item.tab, user))?.tab ?? 'dashboard';
+  };
+
+  const normalizedActiveTab: AppTab = currentUser && pathActiveTab && canAccessTab(pathActiveTab, currentUser)
+    ? pathActiveTab
+    : currentUser
+      ? getFallbackTab(currentUser)
+      : 'dashboard';
+
+  useEffect(() => {
+    if (isBootstrapping || !currentUser) return;
+    if (location.pathname === '/' || location.pathname === PUBLIC_HELPER_CENTER_PATH) {
+      navigate(getTabPath(getFallbackTab(currentUser)), { replace: true });
+      return;
+    }
+
+    if (!pathActiveTab || !canAccessTab(pathActiveTab, currentUser)) {
+      navigate(getTabPath(getFallbackTab(currentUser)), { replace: true });
+    }
+  }, [currentUser, isBootstrapping, location.pathname, navigate, pathActiveTab]);
 
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -95,8 +122,8 @@ const App = () => {
   const handleLogin = (user: UserAccount, token?: string) => {
     const nextUser = normalizeUser(user);
     setCurrentUser(nextUser);
-    if (location.pathname === PUBLIC_HELPER_CENTER_PATH) {
-      navigate('/', { replace: true });
+    if (location.pathname === '/' || location.pathname === PUBLIC_HELPER_CENTER_PATH || !getTabFromPath(location.pathname)) {
+      navigate(getTabPath(getFallbackTab(nextUser)), { replace: true });
     }
     if (token) {
       setAuthToken(token);
@@ -111,7 +138,7 @@ const App = () => {
     setIsBootstrapping(false);
     localStorage.removeItem('authToken');
     localStorage.removeItem(SESSION_STORAGE_KEY);
-    setActiveTab('dashboard');
+    navigate('/', { replace: true });
   };
 
   const openHelperCenter = () => {
@@ -137,21 +164,17 @@ const App = () => {
     <ToastProvider>
       {isBootstrapping ? (
         <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-primary relative overflow-hidden">
-          {/* Background decorations */}
-          <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-
           <div className="z-10 text-center space-y-6 max-w-sm px-6">
             <div className="relative mx-auto w-20 h-20">
-              <div className="absolute inset-0 border-4 border-gold/20 rounded-full animate-pulse" />
-              <div className="absolute inset-0 border-t-4 border-gold rounded-full animate-spin" />
+              <div className="absolute inset-0 border border-border rounded-full animate-pulse" />
+              <div className="absolute inset-0 border-t-2 border-primary rounded-full animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-gold animate-pulse" />
+                <Loader2 className="w-8 h-8 text-primary animate-pulse" />
               </div>
             </div>
             
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-gold tracking-tight">{t('auth.restoringSession')}</h2>
+              <h2 className="text-2xl font-semibold text-primary tracking-tight">{t('auth.restoringSession')}</h2>
               <p className="text-secondary text-sm">{t('auth.pleaseWait')}</p>
             </div>
 
@@ -160,7 +183,7 @@ const App = () => {
                 variant="outline" 
                 size="sm"
                 onClick={handleLogout}
-                className="border-gold/30 text-gold hover:bg-gold/10 transition-all duration-300 group"
+                className="transition-colors duration-200 group"
               >
                 <LogOut size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" />
                 {t('login.logoutButton') || 'Đăng xuất'}
@@ -175,7 +198,7 @@ const App = () => {
           <LoginView onLogin={handleLogin} onOpenHelperCenter={openHelperCenter} />
         )
       ) : (
-        <AppShell activeTab={normalizedActiveTab} onTabChange={setActiveTab} onLogout={handleLogout} currentUser={currentUser}>
+        <AppShell activeTab={normalizedActiveTab} onTabChange={(tab) => navigate(getTabPath(tab))} onLogout={handleLogout} currentUser={currentUser}>
           {renderActiveView()}
         </AppShell>
       )}

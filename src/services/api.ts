@@ -20,6 +20,13 @@ export const API_BASE_URL = shouldUseDevProxy ? '' : CONFIGURED_BASE_URL;
  */
 export const getBaseUrl = () => API_BASE_URL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
 
+const API_CACHE_PREFIX = 'mtec-api-cache:v1:';
+const API_CACHE_TTL_MS = Number(import.meta.env.VITE_API_CACHE_TTL_MS || 5 * 60 * 1000);
+
+interface CachedApiResponse<T> extends ApiResponse<T> {
+  cachedAt: number;
+  expiresAt: number;
+}
 
 interface RequestOptions extends RequestInit {
   headers?: HeadersInit;
@@ -31,6 +38,78 @@ export interface ApiResponse<T> {
   error?: string;
   success?: boolean;
 }
+
+const canUseBrowserStorage = () => typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+
+const hashString = (value: string) => {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+  return (hash >>> 0).toString(36);
+};
+
+const isCacheableRequest = (method: string, endpoint: string, options: RequestOptions) => {
+  if (method !== 'GET' || options.body || API_CACHE_TTL_MS <= 0) return false;
+  if (endpoint.includes('/auth/') || endpoint === '/health') return false;
+  return true;
+};
+
+const getCacheKey = (url: string, token?: string | null) => {
+  const tokenScope = token ? hashString(token) : 'anonymous';
+  return `${API_CACHE_PREFIX}${tokenScope}:${url}`;
+};
+
+const readCachedResponse = <T>(key: string): ApiResponse<T> | undefined => {
+  if (!canUseBrowserStorage()) return undefined;
+
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return undefined;
+
+    const cached = JSON.parse(raw) as CachedApiResponse<T>;
+    if (!cached.expiresAt || cached.expiresAt < Date.now()) {
+      localStorage.removeItem(key);
+      return undefined;
+    }
+
+    return {
+      status: cached.status,
+      success: cached.success,
+      data: cached.data
+    };
+  } catch {
+    localStorage.removeItem(key);
+    return undefined;
+  }
+};
+
+const writeCachedResponse = <T>(key: string, response: ApiResponse<T>) => {
+  if (!canUseBrowserStorage() || response.status !== 200 || !response.success) return;
+
+  try {
+    const cached: CachedApiResponse<T> = {
+      ...response,
+      cachedAt: Date.now(),
+      expiresAt: Date.now() + API_CACHE_TTL_MS
+    };
+    localStorage.setItem(key, JSON.stringify(cached));
+  } catch {
+    // Storage can be full or disabled. The app should continue without cache.
+  }
+};
+
+const clearApiCache = () => {
+  if (!canUseBrowserStorage()) return;
+
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(API_CACHE_PREFIX))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Ignore cache cleanup failures.
+  }
+};
 
 /**
  * Make an authenticated API request
@@ -45,6 +124,7 @@ export const apiCall = async <T = any>(
   skipFallback = false
 ): Promise<ApiResponse<T>> => {
   try {
+    const method = (options.method || 'GET').toUpperCase();
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     
     // Logic to handle potential double prefixing
@@ -79,6 +159,18 @@ export const apiCall = async <T = any>(
       headers.set('Authorization', `Bearer ${effectiveToken}`);
     }
 
+    const cacheKey = getCacheKey(url, effectiveToken);
+    const cacheableRequest = isCacheableRequest(method, cleanEndpoint, options);
+    if (cacheableRequest) {
+      const cached = readCachedResponse<T>(cacheKey);
+      if (cached) {
+        if (import.meta.env.DEV) {
+          console.log(`[API Cache] HIT ${url}`);
+        }
+        return cached;
+      }
+    }
+
     if (!headers.has('Content-Type') && options.body) {
       headers.set('Content-Type', 'application/json');
     }
@@ -105,6 +197,7 @@ export const apiCall = async <T = any>(
 
     if (!response.ok) {
       if (response.status === 401) {
+        clearApiCache();
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('auth:expired'));
         }
@@ -139,11 +232,20 @@ export const apiCall = async <T = any>(
       };
     }
 
-    return {
+    const apiResponse = {
       status: response.status,
       success: true,
       data: data as T
     };
+    if (cacheableRequest) {
+      writeCachedResponse(cacheKey, apiResponse);
+    }
+
+    if (method !== 'GET') {
+      clearApiCache();
+    }
+
+    return apiResponse;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return {

@@ -111,7 +111,7 @@ const ToastItem = ({ type, title, message, leaving, onRemove }: Toast & { onRemo
   return (
     <div
       className={cn(
-        'pointer-events-auto w-full rounded-2xl border shadow-xl bg-card',
+        'pointer-events-auto w-full rounded-lg border shadow-md bg-card',
         leaving
           ? 'animate-out slide-out-to-right-2 fade-out duration-200'
           : 'animate-in slide-in-from-right-2 fade-in duration-300',
@@ -121,7 +121,7 @@ const ToastItem = ({ type, title, message, leaving, onRemove }: Toast & { onRemo
       <div className="flex items-start gap-3 p-4">
         <div
           className={cn(
-            'p-2 rounded-xl shrink-0',
+            'p-2 rounded-md shrink-0',
             type === 'success' && 'bg-success-bg',
             type === 'error' && 'bg-danger-bg',
             type === 'warning' && 'bg-warning-bg',

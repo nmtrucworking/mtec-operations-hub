@@ -32,12 +32,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           {message}
         </div>
         <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
-          <Button variant="outline" className="rounded-xl" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" className="rounded-md" onClick={onClose} disabled={isLoading}>
             {cancelText}
           </Button>
           <Button
             disabled={isLoading}
-            className={`rounded-xl shadow-md border-0 text-white flex items-center ${
+            className={`rounded-md shadow-none border-0 text-primary-foreground flex items-center ${
               isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'
             }`}
             onClick={() => {

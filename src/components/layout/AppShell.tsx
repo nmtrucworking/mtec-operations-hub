@@ -57,17 +57,17 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
   return (
     <div className="flex h-screen w-full bg-background text-primary font-sans overflow-hidden relative">
       {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex w-64 bg-card flex-col shadow-2xl border-r border-border">
-        <div className="p-6 flex items-center justify-center border-b border-border">
+      <aside className="hidden lg:flex w-64 bg-card flex-col border-r border-border">
+        <div className="p-5 flex items-center justify-center border-b border-border">
           <div className="text-center flex flex-col items-center">
-            <img src={logoSvg} alt="MTEC Logo" className="w-16 h-16 mb-3 object-contain" />
-            <h1 className="text-2xl font-bold text-gold tracking-wider">{t('appShell.title')}</h1>
+            <img src={logoSvg} alt="MTEC Logo" className="w-12 h-12 mb-3 object-contain" />
+            <h1 className="text-xl font-semibold text-primary">{t('appShell.title')}</h1>
             <p className="text-xs text-secondary mt-1">{t('appShell.subtitle')}</p>
-            <p className="text-[11px] uppercase tracking-[0.25em] text-secondary mt-2">v{APP_VERSION}</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-secondary mt-2">v{APP_VERSION}</p>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {getVisibleTabDefinitions()
             .filter((item) => checkTabAccess(item.tab, currentUser.roles, currentUser.role))
             .map((item) => (
@@ -82,7 +82,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
         </nav>
 
         <div className="p-4 border-t border-border">
-          <button onClick={onLogout} className="flex items-center w-full px-4 py-2 text-sm text-danger-text hover:bg-danger-bg rounded-lg transition-colors">
+          <button onClick={onLogout} className="flex items-center w-full px-4 py-2 text-sm text-danger-text hover:bg-danger-bg rounded-md transition-colors">
             <LogOut size={20} className="mr-3" />
             {t('appShell.logout')}
           </button>
@@ -92,24 +92,24 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Mobile Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-card flex flex-col z-50 transition-transform duration-300 lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 flex items-center justify-between border-b border-border">
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-card flex flex-col z-50 border-r border-border transition-transform duration-300 lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-5 flex items-center justify-between border-b border-border">
           <div className="flex items-center">
             <img src={logoSvg} alt="MTEC Logo" className="w-8 h-8 mr-3 object-contain" />
-            <h1 className="text-lg font-bold text-gold tracking-wider">{t('appShell.title')}</h1>
+            <h1 className="text-lg font-semibold text-primary">{t('appShell.title')}</h1>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-border rounded-full transition-colors">
+          <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-brand-light rounded-md transition-colors">
             <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {getVisibleTabDefinitions()
             .filter((item) => checkTabAccess(item.tab, currentUser.roles, currentUser.role))
             .map((item) => (
@@ -124,7 +124,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
         </nav>
 
         <div className="p-4 border-t border-border">
-          <button onClick={onLogout} className="flex items-center w-full px-4 py-2 text-sm text-danger-text hover:bg-danger-bg rounded-lg transition-colors">
+          <button onClick={onLogout} className="flex items-center w-full px-4 py-2 text-sm text-danger-text hover:bg-danger-bg rounded-md transition-colors">
             <LogOut size={20} className="mr-3" />
             {t('appShell.logout')}
           </button>
@@ -132,7 +132,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
       </aside>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden">
-        <header className="h-16 flex items-center justify-between px-4 lg:px-8 border-b border-border bg-background/80 backdrop-blur-sm z-10">
+        <header className="h-16 flex items-center justify-between px-4 lg:px-6 border-b border-border bg-card z-10">
           <div className="flex items-center">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
@@ -140,7 +140,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
             >
               <Menu size={24} />
             </button>
-            <div className="hidden md:flex items-center bg-card rounded-lg px-3 py-1.5 w-64 lg:w-96 border border-border">
+            <div className="hidden md:flex items-center bg-background rounded-md px-3 py-1.5 w-64 lg:w-96 border border-border">
               <Search size={18} className="text-secondary" />
               <input
                 type="text"
@@ -150,10 +150,10 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 lg:space-x-4">
+          <div className="flex items-center space-x-2 lg:space-x-3">
             <button
               onClick={toggleTheme}
-              className="flex items-center gap-2 p-2 text-secondary hover:text-primary transition-colors bg-card rounded-lg border border-border"
+              className="flex items-center gap-2 p-2 text-secondary hover:text-primary transition-colors bg-card rounded-md border border-border"
               title={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -163,7 +163,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
             </button>
             <button
               onClick={toggleLanguage}
-              className="flex items-center p-2 text-secondary hover:text-primary transition-colors bg-card rounded-lg border border-border"
+              className="flex items-center p-2 text-secondary hover:text-primary transition-colors bg-card rounded-md border border-border"
               title={t('common.changeLanguage')}
             >
               <Globe size={18} className="lg:mr-2" />
@@ -174,7 +174,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
               <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-danger-text rounded-full border-2 border-background" />
             </button>
             <div className="flex items-center pl-2 lg:pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleTabChange('settings')}>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-brand-gold to-orange-400 flex items-center justify-center text-brand-blue font-bold text-sm">
+              <div className="w-8 h-8 rounded-md bg-brand-light border border-border flex items-center justify-center text-primary font-semibold text-sm">
                 {currentUser.avatarInitials}
               </div>
               <div className="ml-3 hidden sm:block text-left">
@@ -185,7 +185,7 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8">{children}</div>
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
       </main>
     </div>
   );

@@ -26,21 +26,21 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/35 animate-in fade-in duration-200">
       <div 
         className="fixed inset-0" 
         onClick={onClose}
         aria-hidden="true"
       />
       <div className={cn(
-        "bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 slide-in-from-bottom-4 duration-300", 
+        "bg-card border border-border rounded-lg w-full max-w-lg max-h-[90vh] shadow-lg overflow-hidden flex flex-col relative animate-in zoom-in-95 slide-in-from-bottom-2 duration-200", 
         className
       )}>
         <div className="flex justify-between items-center p-4 border-b border-border bg-card">
-          <h3 className="font-bold text-lg text-primary">{title}</h3>
+          <h3 className="font-semibold text-base text-primary">{title}</h3>
           <button 
             onClick={onClose} 
-            className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-border/50 transition-all"
+            className="p-1.5 rounded-md text-secondary hover:text-primary hover:bg-brand-light transition-colors"
             aria-label="Close modal"
           >
             <X size={20} />

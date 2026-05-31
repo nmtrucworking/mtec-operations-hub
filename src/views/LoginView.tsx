@@ -57,17 +57,13 @@ export const LoginView = ({ onLogin, onOpenHelperCenter }: LoginViewProps) => {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background font-sans relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-      
+    <div className="min-h-screen w-full flex items-center justify-center bg-background font-sans relative overflow-hidden px-4">
       {/* Top Controls */}
       <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
         {/* Language Toggle */}
         <button
           onClick={() => i18n.changeLanguage(currentLang === 'vi' ? 'en' : 'vi')}
-          className="p-2 rounded-full bg-card border border-border text-primary hover:text-gold hover:border-gold transition-all shadow-sm flex items-center gap-2 px-3"
+          className="p-2 rounded-md bg-card border border-border text-primary hover:border-border-highlight transition-colors flex items-center gap-2 px-3"
           title={t('common.changeLanguage')}
         >
           <Languages size={18} />
@@ -77,20 +73,20 @@ export const LoginView = ({ onLogin, onOpenHelperCenter }: LoginViewProps) => {
         {/* Theme Toggle */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="p-2 rounded-full bg-card border border-border text-primary hover:text-gold hover:border-gold transition-all shadow-sm"
+          className="p-2 rounded-md bg-card border border-border text-primary hover:border-border-highlight transition-colors"
           title={theme === 'dark' ? t('common.switchToLight') : t('common.switchToDark')}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
 
-      <Card className="w-full max-w-md z-10 animate-in fade-in zoom-in duration-500 border-border shadow-2xl p-2 bg-card/80 backdrop-blur-sm">
+      <Card className="w-full max-w-md z-10 animate-in fade-in zoom-in duration-300 border-border shadow-none p-2 bg-card">
         <CardHeader className="text-center pb-4">
           {/* Logo */}
-          <div className="mx-auto flex items-center justify-center w-24 h-24 mb-4 drop-shadow-[0_0_15px_rgba(255,215,0,0.3)] hover:scale-110 transition-transform duration-300">
-            <img src={logoImg} alt="MTEC Logo" className="w-full h-full object-contain filter brightness-110 contrast-110" />
+          <div className="mx-auto flex items-center justify-center w-20 h-20 mb-4">
+            <img src={logoImg} alt="MTEC Logo" className="w-full h-full object-contain" />
           </div>
-          <CardTitle className="text-3xl font-bold text-gold tracking-wider drop-shadow-sm">{t('login.title')}</CardTitle>
+          <CardTitle className="text-2xl font-semibold text-primary">{t('login.title')}</CardTitle>
           <CardDescription className="text-sm mt-2 text-secondary">{t('login.subtitle')}</CardDescription>
         </CardHeader>
 
@@ -136,7 +132,7 @@ export const LoginView = ({ onLogin, onOpenHelperCenter }: LoginViewProps) => {
             <div className="pt-2">
               <Button
                 type="submit"
-                className="w-full font-bold"
+                className="w-full font-semibold"
                 size="lg"
                 isLoading={isLoading}
               >

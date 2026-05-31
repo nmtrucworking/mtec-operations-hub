@@ -105,7 +105,7 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
       .replace(/>/g, '&gt;');
 
     nextWindow.document.open();
-    nextWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>${safeTitle}</title><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="margin:0;background:#061932;color:#e6f0ff;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial"><div style="padding:20px;max-width:900px;margin:0 auto"><h1 style="font-size:16px;margin:0 0 12px;color:#ffc20e">${safeTitle}</h1><pre style="white-space:pre-wrap;line-height:1.5;margin:0;padding:16px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.04)">${escaped}</pre></div></body></html>`);
+    nextWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>${safeTitle}</title><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="margin:0;background:#f6f7f8;color:#14171f;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial"><div style="padding:20px;max-width:900px;margin:0 auto"><h1 style="font-size:16px;margin:0 0 12px;color:#14171f">${safeTitle}</h1><pre style="white-space:pre-wrap;line-height:1.5;margin:0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff">${escaped}</pre></div></body></html>`);
     nextWindow.document.close();
   };
 
@@ -113,10 +113,10 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
         <h2 className="text-2xl font-bold">{t('generator.title')}</h2>
-        <p className="text-blue-300 mt-1">{t('generator.subtitle')}</p>
+        <p className="text-secondary mt-1">{t('generator.subtitle')}</p>
       </div>
 
-      <div className={`bg-card rounded-xl p-8 border border-[#2a4d85]`}>
+      <div className={`bg-card rounded-xl p-8 border border-border`}>
         <input
           ref={fileInputRef}
           type="file"
@@ -148,7 +148,7 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
             <select 
               value={selectedTemplate}
               onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="w-full bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#ffc20e] transition-colors"
+              className="w-full bg-card border border-border rounded-md px-4 py-3 text-primary focus:outline-none focus:border-border-highlight transition-colors"
             >
               {templates.map(tmpl => (
                 <option key={tmpl.id} value={tmpl.id}>{tmpl.name} ({tmpl.code})</option>
@@ -172,15 +172,15 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessingContext}
                 className={`flex flex-col items-center justify-center p-5 border-2 border-dashed rounded-lg transition-all ${
-                  contextSource === 'upload' && context ? 'border-green-500 bg-green-500/5' : 'border-[#2a4d85] hover:border-[#ffc20e] hover:bg-[#ffc20e]/5'
+                  contextSource === 'upload' && context ? 'border-green-500 bg-green-500/5' : 'border-border hover:border-border-highlight hover:bg-brand-light'
                 }`}
               >
                 {isProcessingContext && contextSource === 'upload' ? (
-                  <Loader2 size={32} className="mb-2 text-blue-300 animate-spin" />
+                  <Loader2 size={32} className="mb-2 text-secondary animate-spin" />
                 ) : contextSource === 'upload' && context ? (
                   <Check size={32} className="mb-2 text-green-500" />
                 ) : (
-                  <UploadCloud size={32} className="mb-2 text-blue-300" />
+                  <UploadCloud size={32} className="mb-2 text-secondary" />
                 )}
                 <span className="text-sm font-medium">{t('generator.btnUpload')}</span>
               </button>
@@ -192,11 +192,11 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
                 }}
                 disabled={isProcessingContext}
                 className={`flex flex-col items-center justify-center p-5 border-2 rounded-lg transition-all ${
-                  contextSource === 'link' && context ? 'border-green-500 bg-green-500/5' : 'border-[#2a4d85] bg-[#0a1f3f] hover:border-blue-400'
+                  contextSource === 'link' && context ? 'border-green-500 bg-green-500/5' : 'border-border bg-card hover:border-border-highlight'
                 }`}
               >
                 {isProcessingContext && contextSource === 'link' ? (
-                  <Loader2 size={32} className="mb-2 text-blue-300 animate-spin" />
+                  <Loader2 size={32} className="mb-2 text-secondary animate-spin" />
                 ) : contextSource === 'link' && context ? (
                   <Check size={32} className="mb-2 text-green-500" />
                 ) : (
@@ -217,16 +217,16 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
               <div className="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg flex items-start gap-3">
                 <FileText size={18} className="text-blue-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-blue-300 uppercase tracking-wider">Ngữ cảnh đã trích xuất</p>
-                  <p className="text-sm text-blue-100 mt-1">{context.preview || context.message}</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-wider">Ngữ cảnh đã trích xuất</p>
+                  <p className="text-sm text-secondary mt-1">{context.preview || context.message}</p>
                 </div>
               </div>
             ) : null}
           </div>
 
           {/* AI Generation */}
-          <div className="bg-[#0a1f3f]/50 border border-purple-500/30 rounded-lg p-5">
-            <label className="flex items-center text-sm font-semibold mb-2 text-purple-300">
+          <div className="bg-card border border-border rounded-lg p-5">
+            <label className="flex items-center text-sm font-semibold mb-2 text-primary">
               <Wand2 size={16} className="mr-2" />
               {t('generator.aiTitle')}
             </label>
@@ -236,30 +236,30 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder={t('generator.aiPlaceholder')}
-                className="flex-1 bg-[#1a3c6d] border border-[#2a4d85] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors placeholder-blue-400"
+                className="flex-1 bg-card border border-border rounded-md px-4 py-2 text-sm text-primary focus:outline-none focus:border-border-highlight transition-colors placeholder:text-secondary"
               />
               <button
                 onClick={handleGenerateDraft}
                 disabled={isGenerating || !prompt.trim()}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white rounded-lg text-sm font-medium transition-colors flex items-center whitespace-nowrap"
+                className="px-4 py-2 bg-primary hover:bg-primary-focus disabled:opacity-50 text-primary-foreground rounded-md text-sm font-medium transition-colors flex items-center whitespace-nowrap"
               >
                 {isGenerating ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Sparkles size={16} className="mr-2" />}
                 {t('generator.btnDraft')}
               </button>
             </div>
             {aiDraft ? (
-              <div className="p-4 bg-purple-900/30 border border-purple-500/30 rounded-lg text-sm text-purple-100 whitespace-pre-wrap">
+              <div className="p-4 bg-background border border-border rounded-lg text-sm text-primary whitespace-pre-wrap">
                 {aiDraft}
               </div>
             ) : null}
           </div>
 
-          <div className="pt-6 border-t border-[#2a4d85] flex justify-end space-x-4">
+          <div className="pt-6 border-t border-border flex justify-end space-x-4">
             <button
               onClick={handlePreview}
               disabled={!aiDraft}
               title={!aiDraft ? 'Chưa có nội dung để xem trước' : undefined}
-              className="px-6 py-2.5 rounded-lg text-sm font-medium text-blue-200 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2.5 rounded-md text-sm font-medium text-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {t('generator.btnPreview')}
             </button>
@@ -267,7 +267,7 @@ export const GeneratorView = ({ authToken }: GeneratorViewProps) => {
               onClick={handleExport}
               disabled={!aiDraft}
               title={!aiDraft ? 'Chưa có nội dung để xuất file' : undefined}
-              className="px-6 py-2.5 rounded-lg text-sm font-bold bg-gold text-[#061932] hover:bg-gold-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors shadow-lg shadow-yellow-500/20"
+              className="px-6 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-focus disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors shadow-none"
             >
               <FileArchive size={18} className="mr-2" />
               {t('generator.btnExport')}

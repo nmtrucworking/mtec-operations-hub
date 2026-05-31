@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Plus, 
-  Loader2, 
-  Trash2, 
+import {
+  Plus,
+  Loader2,
+  Trash2,
   AlertTriangle,
   UserPlus,
   Edit2
@@ -14,19 +14,27 @@ import { Button } from '../ui/button';
 import { Select } from '../ui/select';
 import { Input } from '../ui/input';
 import { Modal } from '../ui/modal';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '../ui/table';
 import { useToast } from '../ui/toast';
-import { 
-  MemberCycleRole, 
-  EvaluationCycle, 
-  getMemberCycleRoles, 
-  createMemberCycleRole, 
-  deleteMemberCycleRole 
+import {
+  MemberCycleRole,
+  EvaluationCycle,
+  getMemberCycleRoles,
+  createMemberCycleRole,
+  deleteMemberCycleRole
 } from '../../services/evaluations';
 import { EVALUATION_UNIT_CODES } from '../../data/evaluations';
 import { EvaluationMemberRolesSpreadsheet } from './EvaluationMemberRolesSpreadsheet';
 import { createMemberCycleRolesBulk } from '../../services/evaluations';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { EvaluationMemberRolesGroupedList } from './EvaluationMemberRolesGroupedList';
 
 interface EvaluationMemberRolesPanelProps {
   authToken?: string;
@@ -36,12 +44,12 @@ interface EvaluationMemberRolesPanelProps {
   allMembers: Member[];
 }
 
-export const EvaluationMemberRolesPanel = ({ 
-  authToken, 
-  currentUser, 
-  cycleId, 
-  cycle, 
-  allMembers 
+export const EvaluationMemberRolesPanel = ({
+  authToken,
+  currentUser,
+  cycleId,
+  cycle,
+  allMembers
 }: EvaluationMemberRolesPanelProps) => {
   const { success, error, warning } = useToast();
   const [roles, setRoles] = useState<MemberCycleRole[]>([]);
@@ -80,6 +88,35 @@ export const EvaluationMemberRolesPanel = ({
     }
   }, [filteredMembers, formData.memberId]);
 
+  // Suggest role fields when a member is selected (quick-fill)
+  const suggestFromMember = (member?: Member) => {
+    if (!member) return { unitCode: 'BCNg', roleTitle: 'Thành viên', participationWeight: 1.0 };
+    const banText = (member.ban || []).join(' ').toLowerCase();
+    let unitCode = 'BCNg';
+    if (banText.includes('chu nhiem') || banText.includes('chủ nhiem')) unitCode = 'BCN';
+    else if (banText.includes('công nghệ') || banText.includes('cong nghe')) unitCode = 'BCNg';
+    else if (banText.includes('truyền thông') || banText.includes('truyen thong')) unitCode = 'BTT';
+    else if (banText.includes('vận hành') || banText.includes('van hanh')) unitCode = 'BVH-NS';
+
+    const roleTitle = member.role || 'Thành viên';
+    const participationWeight = 1.0;
+    return { unitCode, roleTitle, participationWeight };
+  };
+
+  useEffect(() => {
+    if (editingRole) return; // don't override when editing
+    if (!formData.memberId) return;
+    const member = allMembers.find(m => m.id === formData.memberId);
+    if (!member) return;
+    const suggestion = suggestFromMember(member);
+    setFormData(prev => ({
+      ...prev,
+      unitCode: suggestion.unitCode,
+      roleTitle: suggestion.roleTitle,
+      participationWeight: suggestion.participationWeight
+    }));
+  }, [formData.memberId, editingRole, allMembers]);
+
   const fetchRolesList = async () => {
     setIsLoading(true);
     try {
@@ -105,6 +142,18 @@ export const EvaluationMemberRolesPanel = ({
   const memberMap = useMemo(() => {
     return new Map(allMembers.map(m => [m.id, m]));
   }, [allMembers]);
+
+  // Count members without any assigned role in this cycle
+  const unassignedCount = useMemo(() => {
+    const assigned = new Set(roles.map(r => r.memberId));
+    return allMembers.filter(m => !assigned.has(m.id)).length;
+  }, [roles, allMembers]);
+
+  // List of members without assigned role (for suggestions)
+  const unassignedMembers = useMemo(() => {
+    const assigned = new Set(roles.map(r => r.memberId));
+    return allMembers.filter(m => !assigned.has(m.id));
+  }, [roles, allMembers]);
 
   // Helper check roles
   const hasRole = (allowedRoles: UserRole[]) => {
@@ -242,26 +291,27 @@ export const EvaluationMemberRolesPanel = ({
         <div>
           <h3 className="text-lg font-bold text-foreground">Vai trò Thành viên</h3>
           <p className="text-sm text-secondary mt-0.5">Phân quyền, phân ban và gán trọng số tham gia cho thành viên trong chu kỳ này.</p>
+          <p className="text-sm text-secondary mt-1">Thành viên chưa gán vai trò: <span className="font-semibold text-foreground">{unassignedCount}</span> / {allMembers.length}</p>
         </div>
         <div className="flex gap-2">
           <div className="flex items-center bg-muted/50 p-1 rounded-lg border border-border/50">
-            <button 
+            <button
               onClick={() => setViewMode('list')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-secondary hover:text-foreground'}`}
             >
               Danh sách
             </button>
-            <button 
+            <button
               onClick={() => setViewMode('spreadsheet')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'spreadsheet' ? 'bg-background shadow-sm text-foreground' : 'text-secondary hover:text-foreground'}`}
             >
               Bảng nhập nhanh
             </button>
           </div>
-          
+
           {canManageRoles && viewMode === 'list' && (
-            <Button 
-              onClick={handleOpenAddModal} 
+            <Button
+              onClick={handleOpenAddModal}
               className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
             >
               <UserPlus size={16} /> Gán vai trò mới
@@ -279,89 +329,37 @@ export const EvaluationMemberRolesPanel = ({
           isLocked={isLocked}
         />
       ) : (
-        <div className="bg-card/45 border border-border/30 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-card/45 border border-border/30 rounded-xl shadow-sm overflow-hidden p-4">
           {isLoading ? (
-          <div className="flex items-center justify-center p-12">
-            <Loader2 size={32} className="animate-spin text-primary mr-2" />
-            <span className="text-secondary font-medium">Đang tải danh sách vai trò...</span>
-          </div>
-        ) : roles.length === 0 ? (
-          <div className="text-center p-12 text-secondary font-medium">
-            Chưa có thành viên nào được gán vai trò trong chu kỳ này.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold">MSSV</TableHead>
-                  <TableHead className="font-semibold">Họ và tên</TableHead>
-                  <TableHead className="font-semibold">Ban / Bộ phận</TableHead>
-                  <TableHead className="font-semibold">Loại vai trò</TableHead>
-                  <TableHead className="font-semibold">Chức danh</TableHead>
-                  <TableHead className="font-semibold text-center">Trọng số</TableHead>
-                  <TableHead className="font-semibold text-center">Ban chính</TableHead>
-                  {canManageRoles && <TableHead className="text-right font-semibold">Thao tác</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {roles.map((role) => {
-                  const m = memberMap.get(role.memberId);
-                  const memberName = m ? m.name : 'Không rõ';
-                  const memberMssv = m ? m.mssv : role.memberId;
-                  return (
-                    <TableRow key={role.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-medium text-secondary-foreground">{memberMssv}</TableCell>
-                      <TableCell className="font-bold">
-                        <Link to={`/members/${role.memberId}`} className="text-primary hover:underline" target="_blank">
-                          {memberName}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">{getUnitLabel(role.unitCode)}</TableCell>
-                      <TableCell className="text-sm">{getRoleTypeLabel(role.roleType)}</TableCell>
-                      <TableCell className="text-sm text-secondary-foreground">{role.roleTitle || 'Thành viên'}</TableCell>
-                      <TableCell className="font-bold text-center text-primary">{role.participationWeight}</TableCell>
-                      <TableCell className="text-center">
-                        {role.isPrimary ? (
-                          <span className="text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded font-bold">Chính</span>
-                        ) : (
-                          <span className="text-xs text-secondary">Phụ</span>
-                        )}
-                      </TableCell>
-                      {canManageRoles && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1.5">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
-                              onClick={() => handleOpenEditModal(role)}
-                            >
-                              <Edit2 size={13} /> Sửa
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={() => setConfirmDelete({ roleId: role.id, memberName })}
-                            >
-                              <Trash2 size={13} /> Xóa
-                            </Button>
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+            <div className="flex items-center justify-center p-12">
+              <Loader2 size={32} className="animate-spin text-primary mr-2" />
+              <span className="text-secondary font-medium">
+                Đang tải danh sách vai trò...
+              </span>
+            </div>
+          ) : (
+            <EvaluationMemberRolesGroupedList
+              roles={roles}
+              allMembers={allMembers}
+              canManageRoles={canManageRoles}
+              onEditRole={handleOpenEditModal}
+              onAskRemoveRole={(role, memberName) =>
+                setConfirmDelete({ roleId: role.id, memberName })
+              }
+            />
+          )}
+        </div>
       )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingRole ? "Sửa vai trò thành viên" : "Gán vai trò thành viên mới"}>
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
+
+          <div className="rounded-xl border border-border/50 bg-muted/30 p-3 text-sm text-secondary">
+            {editingRole
+              ? 'Trạng thái: đang chỉnh sửa một vai trò đã có trên hệ thống.'
+              : 'Trạng thái: đang tạo vai trò mới, chưa có trên hệ thống cho đến khi lưu.'}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
@@ -382,9 +380,9 @@ export const EvaluationMemberRolesPanel = ({
               <label className="block text-sm font-semibold text-foreground mb-1.5">
                 Chọn Thành viên <span className="text-red-500">*</span>
               </label>
-              <Select 
-                value={formData.memberId} 
-                onChange={e => setFormData({ ...formData, memberId: e.target.value })} 
+              <Select
+                value={formData.memberId}
+                onChange={e => setFormData({ ...formData, memberId: e.target.value })}
                 disabled={!!editingRole}
                 className="w-full rounded-xl"
               >
@@ -396,6 +394,34 @@ export const EvaluationMemberRolesPanel = ({
                   ))
                 )}
               </Select>
+              {formData.memberId && !editingRole && (
+                <div className="mt-2 text-sm text-secondary">
+                  Gợi ý: <span className="font-medium text-foreground">Ban</span> sẽ được tự động chọn theo thông tin thành viên; <span className="font-medium text-foreground">Chức vụ</span> gợi ý từ hồ sơ thành viên.
+                </div>
+              )}
+
+              {/* Suggestions: show unassigned members for quick selection */}
+              {!editingRole && unassignedMembers.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-sm text-secondary mb-2">Gợi ý thành viên chưa gán vai trò:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {unassignedMembers.slice(0, 8).map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, memberId: m.id }))}
+                        className="px-2 py-1 text-sm rounded-lg bg-muted/30 border border-border hover:bg-muted"
+                        title={`${m.name} (${m.mssv})`}
+                      >
+                        {m.name.split(' ').slice(-1)[0]} • {m.mssv}
+                      </button>
+                    ))}
+                    {unassignedMembers.length > 8 && (
+                      <div className="px-2 py-1 text-sm rounded-lg text-secondary">+{unassignedMembers.length - 8} khác</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -404,9 +430,9 @@ export const EvaluationMemberRolesPanel = ({
               <label className="block text-sm font-semibold text-foreground mb-1.5">
                 Ban / Bộ phận <span className="text-red-500">*</span>
               </label>
-              <Select 
-                value={formData.unitCode} 
-                onChange={e => setFormData({ ...formData, unitCode: e.target.value })} 
+              <Select
+                value={formData.unitCode}
+                onChange={e => setFormData({ ...formData, unitCode: e.target.value })}
                 className="w-full rounded-xl"
               >
                 {EVALUATION_UNIT_CODES.map(u => (
@@ -418,11 +444,11 @@ export const EvaluationMemberRolesPanel = ({
               <label className="block text-sm font-semibold text-foreground mb-1.5">
                 Chức vụ / Chức danh
               </label>
-              <Input 
-                value={formData.roleTitle} 
-                onChange={e => setFormData({ ...formData, roleTitle: e.target.value })} 
+              <Input
+                value={formData.roleTitle}
+                onChange={e => setFormData({ ...formData, roleTitle: e.target.value })}
                 placeholder="VD: Thành viên, Trưởng nhóm"
-                className="rounded-xl" 
+                className="rounded-xl"
               />
             </div>
           </div>
@@ -430,9 +456,9 @@ export const EvaluationMemberRolesPanel = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Loại vai trò</label>
-              <Select 
-                value={formData.roleType} 
-                onChange={e => setFormData({ ...formData, roleType: e.target.value })} 
+              <Select
+                value={formData.roleType}
+                onChange={e => setFormData({ ...formData, roleType: e.target.value })}
                 className="w-full rounded-xl"
               >
                 <option value="MEMBER">Thành viên</option>
@@ -442,22 +468,22 @@ export const EvaluationMemberRolesPanel = ({
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Trọng số tham gia</label>
-              <Input 
-                type="number" 
-                step="0.1" 
-                min="0" 
-                max="1" 
-                value={formData.participationWeight} 
-                onChange={e => setFormData({ ...formData, participationWeight: parseFloat(e.target.value) || 0 })} 
-                className="rounded-xl font-bold" 
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={formData.participationWeight}
+                onChange={e => setFormData({ ...formData, participationWeight: parseFloat(e.target.value) || 0 })}
+                className="rounded-xl font-bold"
               />
             </div>
             <div className="flex items-center pt-8">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={formData.isPrimary} 
-                  onChange={e => setFormData({ ...formData, isPrimary: e.target.checked })} 
+                <input
+                  type="checkbox"
+                  checked={formData.isPrimary}
+                  onChange={e => setFormData({ ...formData, isPrimary: e.target.checked })}
                   className="rounded border-border text-primary focus:ring-primary h-4.5 w-4.5"
                 />
                 <span className="text-sm font-semibold text-foreground">Là Ban chính</span>
@@ -467,20 +493,20 @@ export const EvaluationMemberRolesPanel = ({
 
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">Ghi chú</label>
-            <textarea 
+            <textarea
               rows={2}
               placeholder="Nhập ghi chú (nếu có)..."
-              value={formData.note} 
-              onChange={e => setFormData({ ...formData, note: e.target.value })} 
+              value={formData.note}
+              onChange={e => setFormData({ ...formData, note: e.target.value })}
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent focus-visible:outline-none"
             />
           </div>
 
           <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
             <Button type="button" variant="outline" className="rounded-xl" onClick={() => setIsModalOpen(false)}>Hủy</Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting} 
+            <Button
+              type="submit"
+              disabled={isSubmitting}
               className="bg-primary hover:opacity-95 text-white rounded-xl shadow-md border-0"
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin mr-2" /> : 'Lưu vai trò'}

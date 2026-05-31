@@ -284,7 +284,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">{t('settings.title')}</h2>
-          <p className="text-blue-300 mt-1">{t('settings.subtitle')}</p>
+          <p className="text-secondary mt-1">{t('settings.subtitle')}</p>
         </div>
         {successMsg && (
           <div className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg flex items-center animate-in slide-in-from-right-4">
@@ -300,8 +300,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           <button
             onClick={() => setActiveTab('profile')}
             className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'profile'
-              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              ? `bg-primary text-primary-foreground border border-primary`
+              : 'text-secondary hover:bg-brand-light hover:text-primary'
               }`}
           >
             <User size={18} className="mr-3" />
@@ -310,8 +310,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           <button
             onClick={() => setActiveTab('security')}
             className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'security'
-              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              ? `bg-primary text-primary-foreground border border-primary`
+              : 'text-secondary hover:bg-brand-light hover:text-primary'
               }`}
           >
             <Shield size={18} className="mr-3" />
@@ -320,8 +320,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           <button
             onClick={() => setActiveTab('notifications')}
             className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications'
-              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              ? `bg-primary text-primary-foreground border border-primary`
+              : 'text-secondary hover:bg-brand-light hover:text-primary'
               }`}
           >
             <Bell size={18} className="mr-3" />
@@ -332,8 +332,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
             <button
               onClick={() => setActiveTab('accounts')}
               className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'accounts'
-                ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-                : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+                ? `bg-primary text-primary-foreground border border-primary`
+                : 'text-secondary hover:bg-brand-light hover:text-primary'
                 }`}
             >
               <Users size={18} className="mr-3" />
@@ -344,8 +344,8 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
           <button
             onClick={() => setActiveTab('version')}
             className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'version'
-              ? `bg-[#1a3c6d] text-[#ffc20e] border border-[#2a4d85]`
-              : 'text-blue-200 hover:bg-[#1a3c6d]/50 hover:text-white'
+              ? `bg-primary text-primary-foreground border border-primary`
+              : 'text-secondary hover:bg-brand-light hover:text-primary'
               }`}
           >
             <Clock size={18} className="mr-3" />
@@ -360,7 +360,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
               <h3 className="text-lg font-bold border-b border-border pb-4">{t('settings.profileTitle')}</h3>
 
               <div className="flex items-center space-x-6">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-r from-brand-gold to-orange-400 flex items-center justify-center text-brand-blue font-bold text-3xl shadow-lg">
+                <div className="w-24 h-24 rounded-full bg-brand-light border border-border flex items-center justify-center text-primary font-bold text-3xl shadow-none">
                   {currentUser.avatarInitials}
                 </div>
                 <div>
@@ -517,7 +517,7 @@ export const SettingsView = ({ currentUser, authToken }: SettingsViewProps) => {
                       <TableCell className="font-medium">{acc.username}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white">
+                          <div className="w-8 h-8 rounded-full bg-brand-light border border-border flex items-center justify-center text-xs font-bold text-white">
                             {acc.avatarInitials}
                           </div>
                           {acc.fullName}

@@ -96,11 +96,11 @@ export function DatePicker({
             aria-haspopup="dialog"
             aria-expanded={open}
             className={cn(
-              "group flex h-9 w-full items-center gap-2 rounded-lg",
-              "border border-border bg-background px-3 py-2 text-sm",
-              "transition-all duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:border-transparent",
-              open && "border-transparent ring-2 ring-gold",
+              "group flex h-9 w-full items-center gap-2 rounded-md",
+              "border border-border bg-card px-3 py-2 text-sm",
+              "transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:border-border-highlight focus-visible:ring-2 focus-visible:ring-border-highlight/20",
+              open && "border-border-highlight ring-2 ring-border-highlight/20",
               "disabled:cursor-not-allowed disabled:opacity-50",
               !displayText ? "text-secondary" : "text-primary",
               clearable && selected && !disabled && "pr-8",

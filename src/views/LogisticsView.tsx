@@ -103,45 +103,45 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-bold">{t('logistics.title')}</h2>
-          <p className="text-blue-300 mt-1">{t('logistics.subtitle')}</p>
+          <p className="text-secondary mt-1">{t('logistics.subtitle')}</p>
         </div>
-        <button onClick={openCreateModal} className={`px-4 py-2 bg-gold hover:bg-gold-hover text-[#061932] font-semibold rounded-lg text-sm transition-colors`}>
+        <button onClick={openCreateModal} className={`px-4 py-2 bg-primary hover:bg-primary-focus text-primary-foreground font-semibold rounded-lg text-sm transition-colors`}>
           + {t('logistics.addBtn')}
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
-          <p className="text-sm text-blue-300">{t('logistics.statTotal')}</p>
+        <div className={`bg-card rounded-xl p-4 border border-border`}>
+          <p className="text-sm text-secondary">{t('logistics.statTotal')}</p>
           <p className="text-3xl font-bold mt-1">{stats?.total ?? assets.length}</p>
         </div>
-        <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
-          <p className="text-sm text-blue-300">{t('logistics.statBorrowed')}</p>
+        <div className={`bg-card rounded-xl p-4 border border-border`}>
+          <p className="text-sm text-secondary">{t('logistics.statBorrowed')}</p>
           <p className="text-3xl font-bold mt-1 text-orange-300">{stats?.borrowed ?? borrowedCount}</p>
         </div>
-        <div className={`bg-card rounded-xl p-4 border border-[#2a4d85]`}>
-          <p className="text-sm text-blue-300">{t('logistics.statMaintenance')}</p>
+        <div className={`bg-card rounded-xl p-4 border border-border`}>
+          <p className="text-sm text-secondary">{t('logistics.statMaintenance')}</p>
           <p className="text-3xl font-bold mt-1 text-red-300">{stats?.maintenance ?? maintenanceCount}</p>
         </div>
       </div>
 
-      <div className={`bg-card p-4 rounded-xl border border-[#2a4d85] flex flex-col lg:flex-row gap-4`}>
-        <div className="flex items-center w-full lg:w-1/3 bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2">
-          <Search size={16} className="text-blue-300" />
+      <div className={`bg-card p-4 rounded-xl border border-border flex flex-col lg:flex-row gap-4`}>
+        <div className="flex items-center w-full lg:w-1/3 bg-background border border-border rounded-lg px-3 py-2">
+          <Search size={16} className="text-secondary" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('logistics.searchPlaceholder')}
-            className="bg-transparent border-none outline-none text-sm text-white ml-2 w-full placeholder-blue-400"
+            className="bg-transparent border-none outline-none text-sm text-primary ml-2 w-full placeholder:text-secondary"
           />
         </div>
 
-        <div className="flex items-center gap-2 bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 w-full lg:w-48">
-          <Filter size={14} className="text-blue-300" />
+        <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-2 w-full lg:w-48">
+          <Filter size={14} className="text-secondary" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'All' | AssetStatus)}
-            className="bg-transparent border-none outline-none text-sm text-white w-full"
+            className="bg-transparent border-none outline-none text-sm text-primary w-full"
           >
             <option value="All">{t('logistics.filterStatusAll')}</option>
             <option value="Tốt">{t('logistics.statusGood')}</option>
@@ -152,10 +152,10 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
         </div>
       </div>
 
-      <div className={`bg-card rounded-xl border border-[#2a4d85] overflow-hidden`}>
+      <div className={`bg-card rounded-xl border border-border overflow-hidden`}>
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-[#0a1f3f] text-blue-300 text-sm">
+            <tr className="bg-background text-secondary text-sm">
               <th className="p-4 font-semibold">{t('logistics.thId')}</th>
               <th className="p-4 font-semibold">{t('logistics.thName')}</th>
               <th className="p-4 font-semibold">{t('logistics.thCategory')}</th>
@@ -165,11 +165,11 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
               <th className="p-4 font-semibold">{t('logistics.thAction')}</th>
             </tr>
           </thead>
-          <tbody className="text-sm divide-y divide-[#2a4d85] relative">
+          <tbody className="text-sm divide-y divide-border relative">
             {isLoading && (
               <tr>
                 <td colSpan={7} className="p-8 text-center">
-                  <div className="flex items-center justify-center gap-2 text-blue-300">
+                  <div className="flex items-center justify-center gap-2 text-secondary">
                     <Loader2 size={20} className="animate-spin" />
                     <span>{t('common.loading', 'Đang tải...')}</span>
                   </div>
@@ -178,14 +178,14 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
             )}
             {!isLoading && assets.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-blue-300">
+                <td colSpan={7} className="p-8 text-center text-secondary">
                   {t('common.noData', 'Không có dữ liệu')}
                 </td>
               </tr>
             )}
             {!isLoading && assets.map((item) => (
-              <tr key={item.id} className="hover:bg-[#2a4d85]/30 transition-colors">
-                <td className="p-4 font-medium text-[#ffc20e]">{item.id}</td>
+              <tr key={item.id} className="hover:bg-brand-light transition-colors">
+                <td className="p-4 font-medium text-primary">{item.id}</td>
                 <td className="p-4 font-medium">{item.name}</td>
                 <td className="p-4">{item.category}</td>
                 <td className="p-4">{item.quantity}</td>
@@ -204,7 +204,7 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
                 </td>
                 <td className="p-4">{item.holder}</td>
                 <td className="p-4">
-                  <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded-md bg-[#1a3c6d] hover:bg-[#2a4d85] transition-colors inline-flex items-center gap-1">
+                  <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded-md bg-brand-light hover:bg-brand-hover transition-colors inline-flex items-center gap-1">
                     <Pencil size={12} />{t('logistics.editBtn')}
                   </button>
                 </td>
@@ -214,31 +214,31 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
         </table>
       </div>
 
-      <div className={`bg-card rounded-xl p-5 border border-[#2a4d85]`}>
+      <div className={`bg-card rounded-xl p-5 border border-border`}>
         <h3 className="font-semibold text-lg mb-2 flex items-center gap-2"><ShieldAlert size={18} className="text-orange-300" />{t('logistics.noteTitle1')}</h3>
-        <p className="text-sm text-blue-100">{t('logistics.noteDesc1')}</p>
+        <p className="text-sm text-secondary">{t('logistics.noteDesc1')}</p>
       </div>
 
-      <div className={`bg-card rounded-xl p-5 border border-[#2a4d85]`}>
-        <h3 className="font-semibold text-lg mb-2 flex items-center gap-2"><Boxes size={18} className="text-blue-300" />{t('logistics.noteTitle2')}</h3>
-        <p className="text-sm text-blue-100">{t('logistics.noteDesc2')}</p>
+      <div className={`bg-card rounded-xl p-5 border border-border`}>
+        <h3 className="font-semibold text-lg mb-2 flex items-center gap-2"><Boxes size={18} className="text-secondary" />{t('logistics.noteTitle2')}</h3>
+        <p className="text-sm text-secondary">{t('logistics.noteDesc2')}</p>
       </div>
 
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className={`bg-card w-full max-w-2xl rounded-xl border border-[#2a4d85] overflow-hidden`}>
-            <div className="px-6 py-4 border-b border-[#2a4d85] flex justify-between items-center bg-[#0a1f3f]">
-              <h3 className="text-lg font-bold text-white">{editingId ? t('logistics.modalUpdate') : t('logistics.modalCreate')}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg text-blue-300 hover:bg-red-500/20"><X size={18} /></button>
+          <div className={`bg-card w-full max-w-2xl rounded-xl border border-border overflow-hidden`}>
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-background">
+              <h3 className="text-lg font-semibold text-primary">{editingId ? t('logistics.modalUpdate') : t('logistics.modalCreate')}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg text-secondary hover:bg-red-500/20"><X size={18} /></button>
             </div>
 
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input value={form.id} disabled className="bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-sm text-blue-200" />
-              <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} className="bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phName')} />
-              <input value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} className="bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phCategory')} />
-              <input value={form.holder} onChange={(e) => setForm((prev) => ({ ...prev, holder: e.target.value }))} className="bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phHolder')} />
-              <input type="number" min={1} value={form.quantity} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))} className="bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phQuantity')} />
-              <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as AssetStatus }))} className="bg-[#0a1f3f] border border-[#2a4d85] rounded-lg px-3 py-2 text-sm">
+              <input value={form.id} disabled className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-secondary" />
+              <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} className="bg-background border border-border rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phName')} />
+              <input value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} className="bg-background border border-border rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phCategory')} />
+              <input value={form.holder} onChange={(e) => setForm((prev) => ({ ...prev, holder: e.target.value }))} className="bg-background border border-border rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phHolder')} />
+              <input type="number" min={1} value={form.quantity} onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))} className="bg-background border border-border rounded-lg px-3 py-2 text-sm" placeholder={t('logistics.phQuantity')} />
+              <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as AssetStatus }))} className="bg-background border border-border rounded-lg px-3 py-2 text-sm">
                 <option value="Tốt">{t('logistics.statusGood')}</option>
                 <option value="Mới">{t('logistics.statusNew')}</option>
                 <option value="Đang mượn">{t('logistics.statusBorrowed')}</option>
@@ -246,9 +246,9 @@ export const LogisticsView = ({ authToken }: LogisticsViewProps) => {
               </select>
             </div>
 
-            <div className="px-6 py-4 border-t border-[#2a4d85] bg-[#0a1f3f] flex justify-end gap-3">
-              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-[#2a4d85] text-blue-200 rounded-lg text-sm">{t('logistics.btnCancel')}</button>
-              <button onClick={handleSave} className={`px-4 py-2 bg-gold hover:bg-gold-hover text-[#061932] font-semibold rounded-lg text-sm`}>{t('logistics.btnSave')}</button>
+            <div className="px-6 py-4 border-t border-border bg-background flex justify-end gap-3">
+              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-border text-secondary rounded-lg text-sm">{t('logistics.btnCancel')}</button>
+              <button onClick={handleSave} className={`px-4 py-2 bg-primary hover:bg-primary-focus text-primary-foreground font-semibold rounded-lg text-sm`}>{t('logistics.btnSave')}</button>
             </div>
           </div>
         </div>

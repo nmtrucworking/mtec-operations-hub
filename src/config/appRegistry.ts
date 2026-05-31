@@ -30,6 +30,29 @@ export const APP_VISIBLE_TABS: AppTab[] = [
   'logs'
 ];
 
+export const APP_TAB_PATHS: Record<AppTab, string> = {
+  dashboard: '/dashboard',
+  members: '/members',
+  requests: '/requests',
+  finance: '/finance',
+  discipline: '/discipline',
+  logistics: '/logistics',
+  generator: '/generator',
+  settings: '/settings',
+  logs: '/logs'
+};
+
+export const getTabPath = (tab: AppTab) => APP_TAB_PATHS[tab];
+
+export const getTabFromPath = (pathname: string): AppTab | undefined => {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  if (normalizedPath === '/') {
+    return 'dashboard';
+  }
+
+  return APP_VISIBLE_TABS.find((tab) => APP_TAB_PATHS[tab] === normalizedPath);
+};
+
 export interface AppRenderContext {
   authToken: string;
   currentUser: UserAccount;

@@ -10,9 +10,22 @@ export default {
         card: 'var(--bg-card)',
         border: 'var(--border-color)',
         'border-highlight': 'var(--border-highlight)',
+        foreground: 'var(--foreground)',
+        muted: 'var(--muted)',
+        'muted-foreground': 'var(--muted-foreground)',
+        primary: {
+          DEFAULT: 'var(--brand-primary)',
+          focus: 'var(--brand-primary-focus)'
+        },
+        'primary-foreground': 'var(--primary-foreground)',
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)'
+        },
         gold: {
           DEFAULT: 'var(--brand-gold)',
-          hover: 'var(--brand-gold-hover)'
+          hover: 'var(--brand-gold-hover)',
+          dark: 'var(--brand-gold-hover)'
         },
         brand: {
           blue: 'var(--brand-blue)',
@@ -47,11 +60,11 @@ export default {
       borderRadius: {
         'sm': '0.125rem', // 2px
         DEFAULT: '0.25rem', // 4px
-        'md': '0.375rem', // 6px
-        'lg': '0.5rem',   // 8px
-        'xl': '0.625rem', // 10px (originally 12px)
-        '2xl': '0.75rem', // 12px (originally 16px)
-        '3xl': '1rem',    // 16px (originally 24px)
+        'md': '0.25rem', // 4px
+        'lg': '0.375rem',   // 6px
+        'xl': '0.5rem', // 8px
+        '2xl': '0.5rem', // 8px
+        '3xl': '0.625rem',    // 10px
       }
     }
   },

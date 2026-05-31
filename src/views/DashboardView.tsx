@@ -751,7 +751,7 @@ export const DashboardView = ({ authToken, currentUser }: DashboardViewProps) =>
             onClick={handleGenerateInsight}
             disabled={isAiLoading}
             isLoading={isAiLoading}
-            className="flex-1 sm:flex-none bg-gradient-to-r from-brand-blue-light to-brand-blue hover:from-brand-blue-hover hover:to-brand-blue text-white shadow-lg border-0"
+            className="flex-1 sm:flex-none shadow-none"
           >
             {!isAiLoading && <Sparkles size={16} className="mr-2" />}
             {t('dashboard.aiInsightBtn')}

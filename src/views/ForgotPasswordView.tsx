@@ -124,17 +124,13 @@ export const ForgotPasswordView = ({ onBack }: ForgotPasswordViewProps) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background font-sans relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      <Card className="w-full max-w-md z-10 animate-in fade-in zoom-in duration-500 border-border shadow-2xl p-2">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background font-sans relative overflow-hidden px-4">
+      <Card className="w-full max-w-md z-10 animate-in fade-in zoom-in duration-300 border-border shadow-none p-2">
         <CardHeader className="text-center pb-4">
-          <div className="mx-auto inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-blue border-2 border-gold mb-4 shadow-lg shadow-gold/20">
-            <Lock size={32} className="text-gold" />
+          <div className="mx-auto inline-flex items-center justify-center w-14 h-14 rounded-lg bg-brand-light border border-border mb-4">
+            <Lock size={28} className="text-primary" />
           </div>
-          <CardTitle className="text-3xl font-bold text-gold tracking-wider">
+          <CardTitle className="text-2xl font-semibold text-primary">
             {step === 'request' && t('auth.forgotPasswordTitle')}
             {step === 'verify' && 'Verify Reset Token'}
             {step === 'reset' && t('auth.resetPasswordTitle')}
@@ -244,7 +240,7 @@ export const ForgotPasswordView = ({ onBack }: ForgotPasswordViewProps) => {
               )}
 
               <div className="pt-2 space-y-3">
-                <Button type="submit" className="w-full font-bold" isLoading={isLoading}>
+                <Button type="submit" className="w-full font-semibold" isLoading={isLoading}>
                   {step === 'request' && t('auth.sendButton')}
                   {step === 'verify' && 'Verify Token'}
                   {step === 'reset' && t('auth.resetButton')}
