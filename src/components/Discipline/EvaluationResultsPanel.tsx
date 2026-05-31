@@ -18,6 +18,8 @@ import { Badge } from '../ui/badge';
 import { Modal } from '../ui/modal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { useToast } from '../ui/toast';
+import { useTranslation } from 'react-i18next';
+import { downloadFileWithAuth } from '../../lib/helpers';
 import { 
   MemberEvaluation, 
   MemberEvaluationBreakdown,
@@ -25,7 +27,8 @@ import {
   getEvaluationMemberResults, 
   getEvaluationMemberBreakdowns,
   computeEvaluationCycle,
-  computeEvaluationMember
+  computeEvaluationMember,
+  exportMemberEvaluationReportUrl
 } from '../../services/evaluations';
 import { EVALUATION_CLASSIFICATIONS, EVALUATION_UNIT_CODES } from '../../data/evaluations';
 import { ConfirmModal } from '../ui/ConfirmModal';
@@ -48,6 +51,7 @@ export const EvaluationResultsPanel = ({
   onComputeComplete
 }: EvaluationResultsPanelProps) => {
   const { success, error, warning } = useToast();
+  const { t } = useTranslation();
   const [results, setResults] = useState<MemberEvaluation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isComputing, setIsComputing] = useState(false);
@@ -164,6 +168,25 @@ export const EvaluationResultsPanel = ({
     } finally {
       setIsLoadingBreakdowns(false);
     }
+  };
+
+  const handleDownloadMemberReport = async () => {
+    if (!selectedMember || !selectedResult) {
+      return;
+    }
+
+    const url = exportMemberEvaluationReportUrl(cycleId, selectedMember.id);
+    const filename = `Phieu_danh_gia_${selectedMember.name.replace(/\s+/g, '_')}_${selectedMember.mssv}.docx`;
+
+    if (authToken) {
+      const ok = await downloadFileWithAuth(url, authToken, filename);
+      if (!ok) {
+        error('Không thể tải phiếu đánh giá. Vui lòng thử lại sau.', 'Tải phiếu đánh giá thất bại');
+      }
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const getClassificationBadge = (classification?: string | null) => {
@@ -420,6 +443,14 @@ export const EvaluationResultsPanel = ({
             )}
 
             <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={handleDownloadMemberReport}
+              >
+                <Award size={16} className="mr-2" />
+                {t('common.downloadEvaluationReport')}
+              </Button>
               <Button variant="outline" className="rounded-xl" onClick={() => setBreakdownModalOpen(false)}>Đóng</Button>
             </div>
           </div>

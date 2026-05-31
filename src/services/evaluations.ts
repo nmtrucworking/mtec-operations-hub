@@ -1,4 +1,4 @@
-import { apiCall, type ApiResponse } from './api';
+import { apiCall, getBaseUrl, type ApiResponse } from './api';
 
 const BASE = '/api/v2/evaluations';
 
@@ -491,6 +491,11 @@ export const getEvaluationMemberResults = async (
 export const getEvaluationMemberBreakdowns = async (cycleId: string, memberId: string, token?: string) => {
   const res = await apiCall(`${BASE}/cycles/${cycleId}/members/${memberId}/breakdowns`, {}, token);
   return unwrapList<MemberEvaluationBreakdown>(res);
+};
+
+export const exportMemberEvaluationReportUrl = (cycleId: string, memberId: string) => {
+  const API_BASE = getBaseUrl();
+  return `${API_BASE}/api/v2/evaluations/cycles/${cycleId}/members/${memberId}/exports/report.docx`;
 };
 
 export const getEvaluationCycleSummary = async (cycleId: string, token?: string) => {

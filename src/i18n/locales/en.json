@@ -38,7 +38,8 @@
     "member": "Member",
     "select": "Select",
     "skip": "Skip",
-    "thAction": "Action"
+    "thAction": "Action",
+    "downloadEvaluationReport": "Download evaluation sheet (DOCX)"
   },
   "appShell": {
     "title": "MTEC NTTU",

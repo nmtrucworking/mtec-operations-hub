@@ -38,7 +38,8 @@
     "member": "Th?nh vi?n",
     "select": "Ch?n",
     "skip": "B? qua",
-    "thAction": "Thao t?c"
+    "thAction": "Thao t?c",
+    "downloadEvaluationReport": "Tải phiếu đánh giá (DOCX)"
   },
   "appShell": {
     "title": "MTEC NTTU",
@@ -168,10 +169,10 @@
     },
     "financeTx": {
       "errors": {
-        "requiredTitle": "Vui l?ng nh?p n?i dung giao d?ch.",
-        "requiredOwner": "Vui l?ng nh?p ng??i ph? tr?ch.",
-        "requiredCategory": "Vui l?ng ch?n danh m?c.",
-        "invalidAmount": "S? ti?n ph?i l?n h?n 0."
+        "requiredTitle": "Vui lòng nhập nội dung giao dịch.",
+        "requiredOwner": "Vui lòng nhập người phụ trách.",
+        "requiredCategory": "Vui lòng chọn danh mục.",
+        "invalidAmount": "Số tiền phải lớn hơn 0."
       }
     }
   },
@@ -508,16 +509,16 @@
     "editBtn": "Sửa",
     "resetPwdBtn": "Reset Mật khẩu",
     "deleteAccountConfirm": "Bạn có chắc chắn muốn xóa tài khoản này?",
-    "deleteBtn": "X?a",
-    "editAccountTitle": "S?a th?ng tin t?i kho?n",
-    "addAccountTitle": "Th?m t?i kho?n m?i",
-    "saveAccountBtn": "L?u th?ng tin",
-    "usernameLabel": "T?n ??ng nh?p",
-    "passwordLabel": "M?t kh?u",
-    "passwordPlaceholder": "Nh?p m?t kh?u cho t?i kho?n m?i",
-    "fullNameLabel": "H? v? t?n",
-    "rolesLabel": "Ch?c v? (Ph?n quy?n)",
-    "primaryRoleHint": "Role ch?nh s? ???c t? ??ng ch?n theo m?c ?u ti?n khi l?u."
+    "deleteBtn": "Xóa",
+    "editAccountTitle": "Sửa thông tin tài khoản",
+    "addAccountTitle": "Thêm tài khoản mới",
+    "saveAccountBtn": "Lưu thông tin",
+    "usernameLabel": "Tên đăng nhập",
+    "passwordLabel": "Mật khẩu",
+    "passwordPlaceholder": "Nhập mật khẩu cho tài khoản mới",
+    "fullNameLabel": "Họ và tên",
+    "rolesLabel": "Chức vụ (Phân quyền)",
+    "primaryRoleHint": "Role chính sẽ được tự động chọn theo mức ưu tiên khi lưu."
   },
   "logs": {
     "title": "Nhật ký hoạt động",
@@ -584,6 +585,6 @@
       "goal": "Mục tiêu",
       "orientation": "Định hướng"
     },
-    "noLogsFound": "Kh?ng t?m th?y nh?t k? ph? h?p."
+    "noLogsFound": "Không tìm thấy nhật ký phù hợp."
   }
 }
