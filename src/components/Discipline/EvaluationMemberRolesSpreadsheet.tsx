@@ -313,6 +313,18 @@ export const EvaluationMemberRolesSpreadsheet = ({
     };
   };
 
+  const memberWeights = useMemo(() => {
+    const weights = new Map<string, number>();
+    for (const row of roleRows) {
+      const payload = buildPayload(row);
+      if (!payload.unitCode || !payload.roleType) {
+        continue;
+      }
+      weights.set(row.member.id, (weights.get(row.member.id) || 0) + payload.participationWeight);
+    }
+    return weights;
+  }, [roleRows, edits]);
+
   const rowHasChanges = (row: RoleGridRow) => {
     const edited = edits[row.rowKey];
     if (!edited) return false;
@@ -370,6 +382,35 @@ export const EvaluationMemberRolesSpreadsheet = ({
       if (count > 1) {
         const member = allMembers.find(m => m.id === memberId);
         warning(`${member?.name || memberId} có ${count} vai trò chính. Mỗi thành viên chỉ được có một Ban chính trong một chu kỳ.`, 'Trùng Ban chính');
+        return false;
+      }
+    }
+
+    // Validate total weight per member is exactly 1.0
+    const memberTotalWeights = new Map<string, number>();
+    const memberNames = new Map<string, string>();
+    const memberHasRoles = new Set<string>();
+
+    for (const row of roleRows) {
+      const payload = buildPayload(row);
+      const hasAnyData = Boolean(row.role || payload.unitCode || payload.roleType || edits[row.rowKey]);
+      
+      if (!hasAnyData) continue;
+      
+      if (payload.unitCode && payload.roleType) {
+        memberTotalWeights.set(row.member.id, (memberTotalWeights.get(row.member.id) || 0) + payload.participationWeight);
+        memberNames.set(row.member.id, row.member.name);
+        memberHasRoles.add(row.member.id);
+      }
+    }
+
+    for (const memberId of memberHasRoles) {
+      const totalW = memberTotalWeights.get(memberId) || 0;
+      if (Math.abs(totalW - 1.0) > 0.001) {
+        warning(
+          `Tổng trọng số vai trò của thành viên ${memberNames.get(memberId)} là ${totalW.toFixed(2)} (yêu cầu tổng phải bằng đúng 1.0).`, 
+          'Tổng trọng số không hợp lệ'
+        );
         return false;
       }
     }
@@ -624,6 +665,21 @@ export const EvaluationMemberRolesSpreadsheet = ({
                         ) : (
                           <div className="mt-1 text-[11px] font-semibold text-emerald-700">Dòng vai trò chính/đầu tiên</div>
                         )}
+                        {(() => {
+                          const totalW = memberWeights.get(row.member.id) ?? 0;
+                          const hasRoles = existingRoles.some(r => r.memberId === row.member.id) || 
+                                           draftRows.some(d => d.memberId === row.member.id) ||
+                                           (edits[row.rowKey] && edits[row.rowKey].unitCode);
+                          
+                          if (!hasRoles || totalW === 0) return null;
+                          
+                          const isInvalid = Math.abs(totalW - 1.0) > 0.001;
+                          return (
+                            <div className={`mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1 ${isInvalid ? 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/20 dark:border-red-900/50' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-500'}`}>
+                              {isInvalid ? '⚠️' : '✓'} Tổng: {totalW.toFixed(1)}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="p-2 border-b border-r border-border/50">
                         <Select

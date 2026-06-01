@@ -78,6 +78,26 @@ export const EvaluationMemberRolesPanel = ({
     note: ''
   });
 
+  const currentMemberWeightsInfo = useMemo(() => {
+    if (!formData.memberId) return null;
+    const memberRoles = roles.filter(r => r.memberId === formData.memberId);
+    
+    const otherRoles = editingRole 
+      ? memberRoles.filter(r => r.id !== editingRole.id)
+      : memberRoles;
+    
+    const otherWeightsSum = otherRoles.reduce((sum, r) => sum + (r.participationWeight || 0), 0);
+    const newTotalWeight = otherWeightsSum + (Number(formData.participationWeight) || 0);
+    
+    return {
+      rolesCount: memberRoles.length,
+      otherRoles,
+      otherWeightsSum,
+      newTotalWeight,
+      isInvalid: Math.abs(newTotalWeight - 1.0) > 0.001
+    };
+  }, [formData.memberId, formData.participationWeight, roles, editingRole]);
+
   useEffect(() => {
     if (filteredMembers.length > 0) {
       if (!filteredMembers.some(m => m.id === formData.memberId)) {
@@ -477,6 +497,16 @@ export const EvaluationMemberRolesPanel = ({
                 onChange={e => setFormData({ ...formData, participationWeight: parseFloat(e.target.value) || 0 })}
                 className="rounded-xl font-bold"
               />
+              {currentMemberWeightsInfo && (
+                <div className={`mt-2 text-xs font-semibold p-2 rounded-lg border ${currentMemberWeightsInfo.isInvalid ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-950/20 dark:border-orange-900/50' : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/20'}`}>
+                  {currentMemberWeightsInfo.isInvalid ? '⚠️' : '✓'} Tổng trọng số sau thay đổi: {currentMemberWeightsInfo.newTotalWeight.toFixed(2)}
+                  {currentMemberWeightsInfo.isInvalid && (
+                    <p className="mt-1 font-normal text-secondary-foreground">
+                      Lưu ý: Để chạy tính điểm, tổng trọng số của thành viên phải bằng đúng 1.0. Bạn nên dùng <b>"Bảng nhập nhanh"</b> ngoài danh sách để sửa trọng số của các thành viên đa ban dễ dàng hơn.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center pt-8">
               <label className="flex items-center gap-2 cursor-pointer">
