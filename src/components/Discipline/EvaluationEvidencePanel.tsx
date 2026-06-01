@@ -112,6 +112,10 @@ export const EvaluationEvidencePanel = ({
   // Bulk Approve State
   const [isBulkApproveModalOpen, setIsBulkApproveModalOpen] = useState(false);
   const [bulkApproveTarget, setBulkApproveTarget] = useState<EvaluationEvidence[]>([]);
+  const [isBulkProgressOpen, setIsBulkProgressOpen] = useState(false);
+  const [bulkApproveStatuses, setBulkApproveStatuses] = useState<Record<string, { status: 'pending' | 'success' | 'error'; message?: string }>>({});
+  const [bulkProcessedCount, setBulkProcessedCount] = useState(0);
+  const [bulkTotalCount, setBulkTotalCount] = useState(0);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [requestTargetMemberId, setRequestTargetMemberId] = useState<string | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
@@ -450,22 +454,67 @@ export const EvaluationEvidencePanel = ({
   };
 
   const handleBulkApproveSubmit = async () => {
+    if (bulkApproveTarget.length === 0) return;
+
+    // Initialize progress
+    const initialStatuses: Record<string, { status: 'pending' | 'success' | 'error'; message?: string }> = {};
+    for (const ev of bulkApproveTarget) initialStatuses[ev.id] = { status: 'pending' };
+    setBulkApproveStatuses(initialStatuses);
+    setBulkProcessedCount(0);
+    setBulkTotalCount(bulkApproveTarget.length);
+    setIsBulkProgressOpen(true);
     setIsSubmitting(true);
-    let successCount = 0;
-    try {
-      for (const ev of bulkApproveTarget) {
-        const res = await verifyEvaluationEvidence(ev.id, 'Duyệt nhanh (Hàng loạt)', authToken);
-        if (!res.error) successCount++;
-      }
-      success(`Đã duyệt thành công ${successCount}/${bulkApproveTarget.length} minh chứng.`);
-      setIsBulkApproveModalOpen(false);
-      fetchEvidenceList();
-    } catch (err) {
-      console.error(err);
-      error('Lỗi hệ thống khi duyệt hàng loạt.');
-    } finally {
-      setIsSubmitting(false);
+
+    const results: { id: string; ok: boolean; error?: string }[] = [];
+
+    // Helper to process in batches for better UX and to avoid overwhelming the server
+    const batchSize = 8;
+    const items = bulkApproveTarget.slice();
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      // Run batch in parallel
+      const promises = batch.map(async (ev) => {
+        try {
+          const res = await verifyEvaluationEvidence(ev.id, 'Duyệt nhanh (Hàng loạt)', authToken);
+          if (!res.error) {
+            setBulkApproveStatuses(prev => ({ ...prev, [ev.id]: { status: 'success' } }));
+            // optimistic UI update: mark local evidence as VERIFIED
+            setEvidenceList(prev => prev.map(p => p.id === ev.id ? { ...p, status: 'VERIFIED' } : p));
+            setBulkProcessedCount(prev => prev + 1);
+            return { id: ev.id, ok: true };
+          } else {
+            const msg = fmtError(res.error) || `Status ${res.status || 'error'}`;
+            setBulkApproveStatuses(prev => ({ ...prev, [ev.id]: { status: 'error', message: msg } }));
+            setBulkProcessedCount(prev => prev + 1);
+            return { id: ev.id, ok: false, error: msg };
+          }
+        } catch (err: any) {
+          const msg = fmtError(err);
+          setBulkApproveStatuses(prev => ({ ...prev, [ev.id]: { status: 'error', message: msg } }));
+          setBulkProcessedCount(prev => prev + 1);
+          return { id: ev.id, ok: false, error: msg };
+        }
+      });
+
+      const settled = await Promise.all(promises);
+      results.push(...settled.map(r => ({ id: r.id, ok: r.ok, error: (r as any).error })));
     }
+
+    const successCount = results.filter(r => r.ok).length;
+    const failList = results.filter(r => !r.ok);
+
+    if (successCount > 0) {
+      success(`Đã duyệt thành công ${successCount}/${bulkApproveTarget.length} minh chứng.`);
+    }
+    if (failList.length > 0) {
+      error(`Có ${failList.length} minh chứng không duyệt được. Kiểm tra chi tiết trong bảng tiến trình.`, 'Duyệt một phần');
+    }
+
+    // refresh authoritative state in background
+    fetchEvidenceList();
+    setIsSubmitting(false);
+    setIsBulkApproveModalOpen(false);
+    // keep progress modal open so user can inspect; they can close it
   };
 
   const getStatusBadge = (status: string) => {
@@ -1135,6 +1184,54 @@ export const EvaluationEvidencePanel = ({
         cancelText="Hủy"
         isLoading={isSubmitting}
       />
+
+      <Modal
+        isOpen={isBulkProgressOpen}
+        onClose={() => { if (!isSubmitting) setIsBulkProgressOpen(false); }}
+        title="Tiến trình Duyệt Hàng loạt"
+      >
+        <div className="space-y-3 pt-2">
+          <div className="text-sm text-secondary">Theo dõi tiến trình phê duyệt từng minh chứng. Trạng thái sẽ cập nhật theo thời gian.</div>
+
+          <div className="w-full">
+            <div className="text-xs text-secondary mb-2">Tiến trình: {bulkProcessedCount}/{bulkTotalCount} ({bulkTotalCount ? Math.round((bulkProcessedCount / bulkTotalCount) * 100) : 0}%)</div>
+            <div className="w-full bg-muted/20 rounded-full h-3 overflow-hidden border border-border">
+              <div
+                className="h-3 bg-primary transition-all"
+                style={{ width: `${bulkTotalCount ? Math.round((bulkProcessedCount / bulkTotalCount) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="p-3 bg-muted/10 rounded-lg border border-border max-h-56 overflow-y-auto">
+            {bulkApproveTarget.map(ev => {
+              const st = bulkApproveStatuses[ev.id] || { status: 'pending' as const };
+              const member = memberMap.get(ev.memberId);
+              return (
+                <div key={ev.id} className="flex items-start justify-between gap-3 py-2 border-b last:border-b-0">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{ev.title} <span className="text-xs text-secondary">• {getCriterionName(ev.criterionId)}</span></div>
+                    <div className="text-xs text-secondary truncate">{member ? member.name : ev.memberId} • Sự kiện {ev.scoreEventId || ev.id}</div>
+                    {st.status === 'error' && st.message && (
+                      <div className="mt-1 text-xs text-red-600">Lỗi: {st.message}</div>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {st.status === 'pending' && <Badge variant="outline" className="text-secondary">Đang xử lý</Badge>}
+                    {st.status === 'success' && <Badge variant="outline" className="text-green-700">Đã duyệt</Badge>}
+                    {st.status === 'error' && <Badge variant="outline" className="text-red-700">Lỗi</Badge>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setIsBulkProgressOpen(false)} disabled={isSubmitting}>Đóng</Button>
+            <Button onClick={() => { setIsBulkProgressOpen(false); fetchEvidenceList(); }} className="bg-primary text-white" disabled={isSubmitting}>Làm mới danh sách</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BookOpen,
   Briefcase,
@@ -79,6 +80,7 @@ type MemberEvaluationHistoryItem = EvaluationQuickReviewItem & {
 
 export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [members, setMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBan, setFilterBan] = useState('All');
@@ -109,6 +111,25 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const [isLoadingEvaluation, setIsLoadingEvaluation] = useState(false);
   const [evaluationHistory, setEvaluationHistory] = useState<MemberEvaluationHistoryItem[]>([]);
   const [isLoadingEvaluationHistory, setIsLoadingEvaluationHistory] = useState(false);
+
+  useEffect(() => {
+    const querySearch = searchParams.get('search') ?? '';
+    setSearchTerm(querySearch);
+    setCurrentPage(1);
+  }, [searchParams]);
+
+  const updateSearchTerm = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (value.trim()) {
+      nextParams.set('search', value);
+    } else {
+      nextParams.delete('search');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const handleImportSubmit = async () => {
     if (!canManageMembers) {
@@ -639,7 +660,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               </div>
               <p className="text-secondary font-medium">{t('members.emptyState')}</p>
               {searchTerm && (
-                <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')}>
+                <Button variant="ghost" size="sm" onClick={() => updateSearchTerm('')}>
                   Xóa tìm kiếm
                 </Button>
               )}
@@ -833,7 +854,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               <Input
                 placeholder={t('members.searchPlaceholder')}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => updateSearchTerm(e.target.value)}
                 className="pl-10 bg-background border-border focus:border-gold/50 transition-all"
               />
             </div>
@@ -857,7 +878,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               <option value="Inactive">{t('members.statusInactive')}</option>
             </Select>
             <div className="flex items-center justify-end sm:col-span-1 lg:col-span-1">
-              <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFilterBan('All'); setFilterStatus('All'); }} className="text-secondary hover:text-primary">
+              <Button variant="ghost" size="sm" onClick={() => { updateSearchTerm(''); setFilterBan('All'); setFilterStatus('All'); }} className="text-secondary hover:text-primary">
                 <X size={14} className="mr-2" />
                 Xóa bộ lọc
               </Button>

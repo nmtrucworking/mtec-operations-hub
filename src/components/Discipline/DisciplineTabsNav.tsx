@@ -1,5 +1,6 @@
 import React from 'react';
 import { type LucideIcon, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export type TabType = 'records' | 'meetings' | 'competitions' | 'evaluations';
 
@@ -24,7 +25,15 @@ export const DisciplineTabsNav: React.FC<DisciplineTabsNavProps> = ({
   activeTab,
   onChangeTab,
 }) => {
-  const activeTabMeta = tabs.find(t => t.id === activeTab);
+  const { t } = useTranslation();
+  const activeTabMeta = tabs.find(tab => tab.id === activeTab);
+
+  const getDescription = (tabId: TabType) => {
+    if (tabId === 'evaluations') return t('discipline.tabsNav.evaluationsDesc', 'Chu kỳ, tiêu chí, minh chứng, khiếu nại và kết quả xếp loại.');
+    if (tabId === 'meetings') return t('discipline.tabsNav.meetingsDesc', 'Ghi nhận có mặt, vắng có phép, vắng không phép và chưa ghi nhận.');
+    if (tabId === 'competitions') return t('discipline.tabsNav.competitionsDesc', 'Kết quả thi đua và điểm thưởng đồng bộ sang đánh giá.');
+    return t('discipline.tabsNav.recordsDesc', 'Dữ liệu tóm tắt cũ, dùng để đối chiếu trong giai đoạn chuyển đổi.');
+  };
 
   return (
     <div className="mb-6 space-y-4">
@@ -38,12 +47,11 @@ export const DisciplineTabsNav: React.FC<DisciplineTabsNavProps> = ({
               <button
                 key={tab.id}
                 onClick={() => onChangeTab(tab.id)}
-                className={`
-                  flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
-                  ${isActive 
-                    ? `bg-background shadow-sm ring-1 ring-border/50 ${tab.colorClass}` 
-                    : 'text-secondary hover:text-foreground hover:bg-background/40'}
-                `}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                  isActive
+                    ? `bg-background shadow-sm ring-1 ring-border/50 ${tab.colorClass}`
+                    : 'text-secondary hover:text-foreground hover:bg-background/40'
+                }`}
               >
                 <Icon size={16} className={isActive ? '' : 'opacity-70'} />
                 <span className="whitespace-nowrap">{tab.shortLabel}</span>
@@ -58,10 +66,7 @@ export const DisciplineTabsNav: React.FC<DisciplineTabsNavProps> = ({
           <Info size={18} className="mt-0.5 shrink-0 text-primary/70" />
           <div className="text-sm leading-relaxed">
             <span className="font-semibold text-foreground mr-2">{activeTabMeta.label}:</span>
-            {activeTabMeta.id === 'evaluations' && 'Quy định Evaluation bao gồm cách tính điểm, xếp loại, minh chứng, khiếu nại và trạng thái chu kỳ.'}
-            {activeTabMeta.id === 'meetings' && 'Điểm danh cuộc họp là dữ liệu đầu vào quan trọng cho chuyên cần và các lỗi vắng không phép trong evaluation.'}
-            {activeTabMeta.id === 'competitions' && 'Hiệu suất thi đua được dùng như nguồn điểm thưởng/đóng góp khi tính kết quả đánh giá định kỳ.'}
-            {activeTabMeta.id === 'records' && 'Hồ sơ kỷ luật legacy được giữ để đối chiếu trong giai đoạn chuyển đổi; kết quả chính nên xem tại Evaluation v2.'}
+            {getDescription(activeTabMeta.id)}
           </div>
         </div>
       )}

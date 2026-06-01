@@ -141,6 +141,10 @@ const App = () => {
     navigate('/', { replace: true });
   };
 
+  const handleGlobalSearch = (query: string) => {
+    navigate(`${getTabPath('members')}?search=${encodeURIComponent(query)}`);
+  };
+
   const openHelperCenter = () => {
     navigate(PUBLIC_HELPER_CENTER_PATH);
   };
@@ -198,7 +202,14 @@ const App = () => {
           <LoginView onLogin={handleLogin} onOpenHelperCenter={openHelperCenter} />
         )
       ) : (
-        <AppShell activeTab={normalizedActiveTab} onTabChange={(tab) => navigate(getTabPath(tab))} onLogout={handleLogout} currentUser={currentUser}>
+        <AppShell
+          activeTab={normalizedActiveTab}
+          onTabChange={(tab) => navigate(getTabPath(tab))}
+          onLogout={handleLogout}
+          onGlobalSearch={handleGlobalSearch}
+          currentUser={currentUser}
+          authToken={authToken}
+        >
           {renderActiveView()}
         </AppShell>
       )}

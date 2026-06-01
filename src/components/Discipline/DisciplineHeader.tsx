@@ -24,10 +24,10 @@ export const DisciplineHeader: React.FC<DisciplineHeaderProps> = ({
           </div>
           <div className="min-w-0">
             <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
-              {t('discipline.title', 'Kỷ luật & Hiệu suất')}
+              {t('discipline.header.title', 'Kỷ luật & Chuyên cần')}
             </h2>
             <p className="text-secondary text-sm mt-1">
-              {t('discipline.subtitle', 'Quản lý điểm danh, kỷ luật và đánh giá định kỳ toàn diện')}
+              {t('discipline.header.subtitle', 'Quản lý điểm danh, vai trò, minh chứng và kết quả đánh giá định kỳ.')}
             </p>
           </div>
         </div>
@@ -35,11 +35,11 @@ export const DisciplineHeader: React.FC<DisciplineHeaderProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 cursor-default">
             <BookOpen size={14} />
-            Quy định Evaluation
+            {t('discipline.header.ruleTag', 'Quy định Evaluation')}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background/50 px-3.5 py-1.5 text-xs font-medium text-secondary backdrop-blur-sm cursor-default">
             <Activity size={14} />
-            Evaluation v2 là nguồn tổng hợp chính
+            {t('discipline.header.sourceTag', 'Evaluation v2 là nguồn tổng hợp chính')}
           </span>
         </div>
       </div>
@@ -51,7 +51,7 @@ export const DisciplineHeader: React.FC<DisciplineHeaderProps> = ({
           </div>
           <div>
             <div className="text-[11px] font-bold text-secondary uppercase tracking-wider">
-              Thành viên Active
+              {t('discipline.header.activeMembers', 'Thành viên active')}
             </div>
             <div className="text-xl font-black text-foreground leading-none mt-1">{memberCount}</div>
           </div>
@@ -63,7 +63,7 @@ export const DisciplineHeader: React.FC<DisciplineHeaderProps> = ({
           </div>
           <div>
             <div className="text-[11px] font-bold text-secondary uppercase tracking-wider">
-              Đang xem
+              {t('discipline.header.viewing', 'Đang xem')}
             </div>
             <div className="text-sm font-bold text-foreground mt-1 truncate max-w-[140px]">{activeTabLabel}</div>
           </div>

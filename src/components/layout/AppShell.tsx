@@ -1,19 +1,22 @@
 import logoSvg from '../../assets/mtec_logo.svg';
 import React, { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, LogOut, Search, Globe, Menu, X, Sun, Moon } from 'lucide-react';
+import { ArrowRight, LogOut, Search, Globe, Menu, X, Sun, Moon } from 'lucide-react';
 import { NavItem } from '../shared/Widgets';
 import { useTheme } from '../theme-provider';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import type { AppTab, UserAccount, UserRole } from '../../types/app';
 import { APP_VERSION, getVisibleTabDefinitions } from '../../config/appRegistry';
 import { hasAnyRole } from '../../lib/permissions';
+import { NotificationBell } from './NotificationBell';
 
 interface AppShellProps {
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
   onLogout: () => void;
+  onGlobalSearch: (query: string) => void;
   currentUser: UserAccount;
+  authToken?: string;
   children: ReactNode;
 }
 
@@ -28,12 +31,15 @@ const checkTabAccess = (tab: AppTab, roles: readonly UserRole[] | undefined, fal
   return hasAnyRole(resolvedRoles, definition.allowedRoles);
 };
 
-export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, children }: AppShellProps) => {
+export const AppShell = ({ activeTab, onTabChange, onLogout, onGlobalSearch, currentUser, authToken, children }: AppShellProps) => {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const currentLang = (i18n.resolvedLanguage || i18n.language || 'vi').split('-')[0];
+  const canReadActivityNotifications = hasAnyRole(currentUser.roles ?? [currentUser.role], ['bcn', 'bcm']);
+  const canOpenLogsTab = checkTabAccess('logs', currentUser.roles, currentUser.role);
 
   React.useEffect(() => {
     if (isDesktop && isMobileMenuOpen) {
@@ -51,6 +57,14 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
 
   const handleTabChange = (tab: AppTab) => {
     onTabChange(tab);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleGlobalSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = globalSearch.trim();
+    if (!query) return;
+    onGlobalSearch(query);
     setIsMobileMenuOpen(false);
   };
 
@@ -140,14 +154,38 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
             >
               <Menu size={24} />
             </button>
-            <div className="hidden md:flex items-center bg-background rounded-md px-3 py-1.5 w-64 lg:w-96 border border-border">
+            <form
+              onSubmit={handleGlobalSearchSubmit}
+              className="hidden md:flex items-center bg-background rounded-md px-3 py-1.5 w-64 lg:w-96 border border-border focus-within:border-border-highlight focus-within:ring-2 focus-within:ring-border-highlight/20 transition-colors"
+              role="search"
+            >
               <Search size={18} className="text-secondary" />
               <input
                 type="text"
                 placeholder={t('appShell.searchPlaceholder')}
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
                 className="bg-transparent border-none outline-none text-sm text-foreground ml-2 w-full placeholder:text-secondary"
               />
-            </div>
+              {globalSearch && (
+                <button
+                  type="button"
+                  onClick={() => setGlobalSearch('')}
+                  className="rounded-md p-1 text-secondary transition-colors hover:bg-brand-light hover:text-foreground"
+                  aria-label={t('common.clear', 'Xóa')}
+                >
+                  <X size={14} />
+                </button>
+              )}
+              <button
+                type="submit"
+                className="ml-1 rounded-md p-1 text-secondary transition-colors hover:bg-brand-light hover:text-foreground"
+                aria-label={t('common.search', 'Tìm kiếm')}
+                title={t('common.search', 'Tìm kiếm')}
+              >
+                <ArrowRight size={15} />
+              </button>
+            </form>
           </div>
 
           <div className="flex items-center space-x-2 lg:space-x-3">
@@ -169,10 +207,12 @@ export const AppShell = ({ activeTab, onTabChange, onLogout, currentUser, childr
               <Globe size={18} className="lg:mr-2" />
               <span className="text-xs lg:text-sm font-medium uppercase">{currentLang}</span>
             </button>
-            <button className="relative p-2 text-secondary hover:text-foreground transition-colors hidden sm:block">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-danger-text rounded-full border-2 border-background" />
-            </button>
+            <NotificationBell
+              authToken={authToken ?? ''}
+              userId={currentUser.id}
+              canReadActivity={canReadActivityNotifications}
+              onOpenLogs={canOpenLogsTab ? () => handleTabChange('logs') : undefined}
+            />
             <div className="flex items-center pl-2 lg:pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => handleTabChange('settings')}>
               <div className="w-8 h-8 rounded-md bg-brand-light border border-border flex items-center justify-center text-foreground font-semibold text-sm">
                 {currentUser.avatarInitials}
