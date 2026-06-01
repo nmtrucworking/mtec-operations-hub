@@ -468,7 +468,7 @@ export const computeEvaluationCycle = async (
 ): Promise<ApiResponse<any>> => {
   const res = await apiCall(`${BASE}/cycles/${cycleId}/compute`, {
     method: 'POST',
-    body: JSON.stringify({ strict: true, evidenceMode: 'approval', recomputeExisting: true, ...payload }),
+    body: JSON.stringify({ strict: false, evidenceMode: 'approval', recomputeExisting: true, ...payload }),
   }, token);
   return unwrapData<any>(res);
 };
@@ -481,7 +481,7 @@ export const computeEvaluationMember = async (
 ): Promise<ApiResponse<any>> => {
   const res = await apiCall(`${BASE}/cycles/${cycleId}/members/${memberId}/compute`, {
     method: 'POST',
-    body: JSON.stringify({ strict: true, evidenceMode: 'approval', recomputeExisting: true, ...payload }),
+    body: JSON.stringify({ strict: false, evidenceMode: 'approval', recomputeExisting: true, ...payload }),
   }, token);
   return unwrapData<any>(res);
 };

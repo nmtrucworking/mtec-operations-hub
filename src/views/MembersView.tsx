@@ -38,7 +38,17 @@ import { Modal } from '../components/ui/modal';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { createMember, getMembers, updateMember, deleteMember, exportMembers, exportMemberProfileUrl, importMembers, membersImportTemplateUrl, type MembersImportResult } from '../services/members';
+import {
+  createMember,
+  getMembers,
+  updateMember,
+  deleteMember,
+  exportMembersUrls,
+  exportMemberProfileUrls,
+  importMembers,
+  membersImportTemplateUrls,
+  type MembersImportResult
+} from '../services/members';
 import { formatDate, toDateInputFormat, downloadFileWithAuth, copyToClipboard } from '../lib/helpers';
 import type { ApiResponse } from '../services/api';
 import type { UserAccount } from '../types/app';
@@ -100,6 +110,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const [memberLogs, setMemberLogs] = useState<ActivityLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'history' | 'performance' | 'evaluation-history'>('info');
+  const [downloadTask, setDownloadTask] = useState<'members-export' | 'member-profile' | 'import-template' | null>(null);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -331,6 +342,32 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
     return false;
   };
 
+  const downloadWithAuthFallback = async (
+    urls: string[],
+    filename: string,
+    task: 'members-export' | 'member-profile' | 'import-template',
+    successMessage: string,
+    failureMessage: string
+  ) => {
+    if (!authToken) {
+      toast.error('Thiếu token đăng nhập để tải tệp.');
+      return false;
+    }
+
+    setDownloadTask(task);
+    try {
+      const success = await downloadFileWithAuth(urls, authToken, filename);
+      if (success) {
+        toast.success(successMessage);
+        return true;
+      }
+      toast.error(failureMessage);
+      return false;
+    } finally {
+      setDownloadTask(null);
+    }
+  };
+
   // Lọc dữ liệu
   const filteredMembers = members.filter((member) => {
     const matchSearch =
@@ -378,20 +415,24 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   };
 
   const handleExport = async (format: 'csv' | 'zip') => {
-    const exportUrl = exportMembers({
+    const exportUrls = exportMembersUrls({
       format,
       ban: filterBan === 'All' ? undefined : filterBan,
       status: filterStatus === 'All' ? undefined : filterStatus
-    }, authToken);
+    });
 
     if (authToken) {
       const filename = `members_export_${new Date().getTime()}.${format === 'csv' ? 'csv' : 'zip'}`;
-      const success = await downloadFileWithAuth(exportUrl, authToken, filename);
-      if (!success) {
-        toast.error('Không thể tải tệp xuất. Vui lòng kiểm tra lại quyền truy cập.');
-      }
+      const label = format === 'csv' ? 'Xuất danh sách CSV' : 'Xuất danh sách ZIP';
+      await downloadWithAuthFallback(
+        exportUrls,
+        filename,
+        'members-export',
+        `${label} thành công.`,
+        'Không thể tải tệp xuất. Vui lòng kiểm tra lại quyền truy cập.'
+      );
     } else {
-      window.open(exportUrl, '_blank');
+      window.open(exportUrls[0], '_blank');
     }
   };
 
@@ -792,12 +833,22 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
             <RefreshCw size={16} className={isLoadingMembers ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">Làm mới</span>
           </Button>
-          <Button variant="outline" onClick={() => handleExport('csv')} className="hidden sm:flex items-center gap-2 border-border-highlight">
-            <Download size={16} />
+          <Button
+            variant="outline"
+            onClick={() => handleExport('csv')}
+            disabled={downloadTask === 'members-export'}
+            className="hidden sm:flex items-center gap-2 border-border-highlight"
+          >
+            <Download size={16} className={downloadTask === 'members-export' ? 'animate-spin' : ''} />
             CSV
           </Button>
-          <Button variant="outline" onClick={() => handleExport('zip')} className="hidden sm:flex items-center gap-2 border-border-highlight">
-            <Download size={16} />
+          <Button
+            variant="outline"
+            onClick={() => handleExport('zip')}
+            disabled={downloadTask === 'members-export'}
+            className="hidden sm:flex items-center gap-2 border-border-highlight"
+          >
+            <Download size={16} className={downloadTask === 'members-export' ? 'animate-spin' : ''} />
             ZIP
           </Button>
           {canManageMembers ? (
@@ -985,17 +1036,21 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
           <>
             <Button
               variant="outline"
+              disabled={downloadTask === 'member-profile'}
               onClick={async () => {
-                const url = exportMemberProfileUrl(selectedMember!.id);
-                if (authToken) {
-                  const filename = `Ho_so_${selectedMember!.name.replace(/\s+/g, '_')}_${selectedMember!.mssv}.docx`;
-                  const success = await downloadFileWithAuth(url, authToken, filename);
-                  if (!success) {
-                    toast.error('Không thể tải hồ sơ. Vui lòng thử lại sau.');
-                  }
-                } else {
-                  window.open(url, '_blank');
+                const urls = exportMemberProfileUrls(selectedMember!.id);
+                const filename = `Ho_so_${selectedMember!.name.replace(/\s+/g, '_')}_${selectedMember!.mssv}.docx`;
+                if (!authToken) {
+                  window.open(urls[0], '_blank');
+                  return;
                 }
+                await downloadWithAuthFallback(
+                  urls,
+                  filename,
+                  'member-profile',
+                  'Tải hồ sơ thành công.',
+                  'Không thể tải hồ sơ. Vui lòng thử lại sau.'
+                );
               }}
               className="mr-auto"
             >
@@ -1678,13 +1733,31 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
           </div>
 
           <div className="pt-2">
-            <a
-              href={membersImportTemplateUrl(authToken)}
-              className="text-sm text-gold hover:underline flex items-center gap-1 w-max"
+            <Button
+              variant="ghost"
+              type="button"
+              disabled={downloadTask === 'import-template'}
+              onClick={async (e) => {
+                e.preventDefault();
+                const urls = membersImportTemplateUrls();
+                if (!authToken) {
+                  toast.error('Cần đăng nhập để tải template import.');
+                  window.open(urls[0], '_blank');
+                  return;
+                }
+                await downloadWithAuthFallback(
+                  urls,
+                  `members_import_template_${Date.now()}.csv`,
+                  'import-template',
+                  'Tải template import thành công.',
+                  'Không thể tải template import. Vui lòng thử lại sau.'
+                );
+              }}
+              className="h-auto p-0 text-sm text-gold hover:underline flex items-center gap-1 w-max"
             >
-              <Download size={14} />
+              <Download size={14} className={downloadTask === 'import-template' ? 'animate-spin' : ''} />
               {t('members.importDownloadTemplate')}
-            </a>
+            </Button>
           </div>
 
           {importResult && (

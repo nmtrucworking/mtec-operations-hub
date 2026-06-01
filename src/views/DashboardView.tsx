@@ -550,13 +550,23 @@ export const DashboardView = ({ authToken, currentUser }: DashboardViewProps) =>
       }
 
       const API_BASE = getBaseUrl();
-      const url = `${API_BASE}/api/v1/members/export?format=csv`;
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
+      const candidateUrls = [
+        `${API_BASE}/api/v1/members/export?format=csv`,
+        `${API_BASE}/api/members/export?format=csv`,
+      ];
 
-      if (!response.ok) {
-        setExportError(`${t('common.error')} (HTTP ${response.status})`);
+      let response: Response | null = null;
+      for (const url of candidateUrls) {
+        response = await fetch(url, {
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+        if (response.ok || response.status !== 404) {
+          break;
+        }
+      }
+
+      if (!response || !response.ok) {
+        setExportError(`${t('common.error')} (HTTP ${response?.status ?? 0})`);
         return;
       }
 

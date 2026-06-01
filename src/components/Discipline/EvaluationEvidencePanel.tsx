@@ -68,7 +68,6 @@ export const EvaluationEvidencePanel = ({
   const [criteria, setCriteria] = useState<EvaluationCriterion[]>([]);
   const [scoreEvents, setScoreEvents] = useState<EvaluationScoreEvent[]>([]);
   const [missingEvents, setMissingEvents] = useState<EvaluationScoreEvent[]>([]);
-  const [isLoadingMissing, setIsLoadingMissing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -99,6 +98,7 @@ export const EvaluationEvidencePanel = ({
   const [formData, setFormData] = useState({
     memberId: '',
     criterionId: '',
+    scoreEventId: '',
     evidenceType: 'LINK', // LINK, TEXT, FILE
     title: '',
     url: '',
@@ -161,7 +161,7 @@ export const EvaluationEvidencePanel = ({
 
   const fetchCriteriaList = async () => {
     try {
-      const res = await getEvaluationCriteria({ isActive: true, pageSize: 100 }, authToken);
+      const res = await getEvaluationCriteria({ isActive: true, pageSize: 1000 }, authToken);
       if (res?.data?.items) {
         // Only select criteria that require evidence
         const filtered = res.data.items.filter(c => c.requiresEvidence);
@@ -199,10 +199,10 @@ export const EvaluationEvidencePanel = ({
   }, [criteria]);
 
   useEffect(() => {
-    // compute missing events: score events whose criterion requires evidence and no evidence linked
+    // compute missing events: score events whose criterion requires evidence and no pending/verified evidence linked
     const mapEvidenceByEvent = new Map<string, number>();
     for (const ev of evidenceList) {
-      if (ev.scoreEventId) {
+      if (ev.scoreEventId && ev.status !== 'REJECTED') {
         mapEvidenceByEvent.set(ev.scoreEventId, (mapEvidenceByEvent.get(ev.scoreEventId) || 0) + 1);
       }
     }
@@ -263,6 +263,8 @@ export const EvaluationEvidencePanel = ({
 
   // Update member selection when filter changes
   useEffect(() => {
+    if (formData.scoreEventId) return;
+
     if (filteredCycleMembers.length > 0) {
       if (!filteredCycleMembers.some(m => m.id === formData.memberId)) {
         setFormData(prev => ({ ...prev, memberId: filteredCycleMembers[0].id }));
@@ -289,10 +291,30 @@ export const EvaluationEvidencePanel = ({
     setFormData({
       memberId: cycleMembers[0]?.id || '',
       criterionId: criteria[0]?.id || '',
+      scoreEventId: '',
       evidenceType: 'LINK',
       title: '',
       url: '',
       description: ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenMissingEvidenceModal = (event: EvaluationScoreEvent) => {
+    const criterion = criteriaMap.get(event.criterionId ?? '');
+    const member = memberMap.get(event.memberId);
+
+    setModalFilterDept('');
+    setFormData({
+      memberId: event.memberId,
+      criterionId: event.criterionId || '',
+      scoreEventId: event.id,
+      evidenceType: 'LINK',
+      title: criterion
+        ? `Minh chứng ${criterion.code} - ${member?.name ?? event.memberId}`
+        : `Minh chứng cho sự kiện ${event.id}`,
+      url: '',
+      description: `Bổ sung minh chứng cho tiêu chí ${event.criterionCode || criterion?.code || event.criterionId}. Điểm ghi nhận: ${event.scoreDelta}.`
     });
     setIsModalOpen(true);
   };
@@ -323,6 +345,7 @@ export const EvaluationEvidencePanel = ({
       const res = await createEvaluationEvidence(cycleId, {
         memberId: formData.memberId,
         criterionId: formData.criterionId || undefined,
+        scoreEventId: formData.scoreEventId || undefined,
         evidenceType: formData.evidenceType,
         title: trimmedTitle,
         url: trimmedUrl || undefined,
@@ -541,6 +564,41 @@ export const EvaluationEvidencePanel = ({
     return c ? `${c.code} - ${c.name}` : id;
   };
 
+  const evidenceByScoreEvent = useMemo(() => {
+    const grouped = new Map<string, EvaluationEvidence[]>();
+    for (const evidence of evidenceList) {
+      if (!evidence.scoreEventId) continue;
+      const current = grouped.get(evidence.scoreEventId) ?? [];
+      current.push(evidence);
+      grouped.set(evidence.scoreEventId, current);
+    }
+    return grouped;
+  }, [evidenceList]);
+
+  const missingEventsByMember = useMemo(() => {
+    const grouped = new Map<string, EvaluationScoreEvent[]>();
+    for (const event of missingEvents) {
+      const current = grouped.get(event.memberId) ?? [];
+      current.push(event);
+      grouped.set(event.memberId, current);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([memberId, events]) => ({
+        memberId,
+        member: memberMap.get(memberId),
+        events: events.sort((left, right) => (left.criterionCode || '').localeCompare(right.criterionCode || ''))
+      }))
+      .sort((left, right) => (left.member?.name || left.memberId).localeCompare(right.member?.name || right.memberId));
+  }, [missingEvents, memberMap]);
+
+  const selectedScoreEvent = useMemo(
+    () => scoreEvents.find(event => event.id === formData.scoreEventId) ?? null,
+    [formData.scoreEventId, scoreEvents]
+  );
+
+  const formatScoreDelta = (value: number) => (value > 0 ? `+${value}` : String(value));
+
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
       {isLocked && (
@@ -568,104 +626,138 @@ export const EvaluationEvidencePanel = ({
         )}
       </div>
 
-      {/* Missing evidence requests panel */}
-      {missingEvents.length > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold">Yêu cầu cung cấp minh chứng còn thiếu</h4>
-              <p className="text-sm text-secondary mt-1">Có {missingEvents.length} sự kiện ghi điểm yêu cầu minh chứng nhưng chưa có minh chứng liên kết.</p>
+      {missingEvents.length > 0 ? (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={18} className="text-amber-600 dark:text-amber-300 shrink-0" />
+                <h4 className="font-bold text-foreground">Checklist minh chứng còn thiếu</h4>
+              </div>
+              <p className="text-sm text-secondary mt-1">
+                Có {missingEvents.length} sự kiện điểm thuộc tiêu chí bắt buộc minh chứng nhưng chưa có minh chứng PENDING/VERIFIED liên kết.
+              </p>
             </div>
-            <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  isLoading={isLoadingMissing}
-                  onClick={async () => {
-                    // bulk create evidence requests - skip events that already have evidence to avoid duplicates
-                    setIsLoadingMissing(true);
-                    try {
-                      const existingByEvent = new Set(evidenceList.filter(ev => ev.scoreEventId).map(ev => ev.scoreEventId));
-                      const toCreate = missingEvents.filter(ev => !existingByEvent.has(ev.id));
-                      if (toCreate.length === 0) {
-                        warning('Không có sự kiện nào còn thiếu minh chứng (hoặc đã có yêu cầu).', 'Không có hành động');
-                        return;
-                      }
-                      for (const ev of toCreate) {
-                        await createEvaluationEvidence(cycleId, {
-                          memberId: ev.memberId,
-                          scoreEventId: ev.id,
-                          criterionId: ev.criterionId,
-                          evidenceType: 'TEXT',
-                          title: `Yêu cầu minh chứng cho sự kiện ${ev.id}`,
-                          description: `Vui lòng nộp minh chứng cho sự kiện ghi điểm ${ev.id} (tiêu chí ${ev.criterionCode}).`
-                        }, authToken);
-                      }
-                      success(`Đã tạo yêu cầu minh chứng cho ${toCreate.length} sự kiện.`, 'Yêu cầu tạo');
-                      fetchEvidenceList();
-                    } catch (err) {
-                      console.error('Error creating evidence requests:', err);
-                      error('Lỗi khi tạo yêu cầu minh chứng.', 'Lỗi');
-                    } finally {
-                      setIsLoadingMissing(false);
-                    }
-                  }}
-                >Tạo tất cả</Button>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
+                {missingEventsByMember.length} thành viên
+              </Badge>
+              <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
+                {missingEvents.length} mục cần nộp
+              </Badge>
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-2">
-            {missingEvents.slice(0, 8).map(ev => {
-              const member = memberMap.get(ev.memberId);
-              const critName = criteriaMap.get(ev.criterionId || '') ? `${criteriaMap.get(ev.criterionId || '')!.code} - ${criteriaMap.get(ev.criterionId || '')!.name}` : ev.criterionCode;
+          <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+            {missingEventsByMember.map(group => {
+              const unitCode = cycleRoles.find(role => role.memberId === group.memberId)?.unitCode;
+              const unitLabel = EVALUATION_UNIT_CODES.find(unit => unit.value === unitCode)?.label || unitCode;
+
               return (
-                <div key={ev.id} className="p-3 bg-white rounded-lg border border-border flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{member ? member.name : ev.memberId} — {critName}</div>
-                    <div className="text-xs text-secondary">Sự kiện: {ev.id} • Điểm: {ev.scoreDelta}</div>
+                <div key={group.memberId} className="bg-card border border-border/50 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 bg-muted/20 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-foreground truncate">{group.member?.name || group.memberId}</div>
+                      <div className="text-xs text-secondary truncate">{group.member?.mssv || 'Chưa có MSSV'}{unitLabel ? ` • ${unitLabel}` : ''}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                        {group.events.length} thiếu
+                      </Badge>
+                      {canSubmitEvidence && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openRequestModalForMember(group.memberId)}
+                          className="rounded-lg"
+                        >
+                          Nhắc nộp
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      isLoading={isLoadingMissing}
-                      onClick={async () => {
-                        try {
-                          // check if evidence already exists for this event to avoid duplicate
-                          const exists = evidenceList.some(x => x.scoreEventId === ev.id);
-                          if (exists) {
-                            warning('Đã có minh chứng hoặc yêu cầu cho sự kiện này.', 'Bỏ qua');
-                            return;
-                          }
-                          setIsLoadingMissing(true);
-                          await createEvaluationEvidence(cycleId, {
-                            memberId: ev.memberId,
-                            scoreEventId: ev.id,
-                            criterionId: ev.criterionId,
-                            evidenceType: 'TEXT',
-                            title: `Yêu cầu minh chứng cho sự kiện ${ev.id}`,
-                            description: `Vui lòng nộp minh chứng cho sự kiện ghi điểm ${ev.id} (tiêu chí ${ev.criterionCode}).`
-                          }, authToken);
-                          success('Đã tạo yêu cầu minh chứng.', 'Tạo thành công');
-                          fetchEvidenceList();
-                        } catch (err) {
-                          console.error(err);
-                          error('Không thể tạo yêu cầu minh chứng.', 'Lỗi');
-                        } finally {
-                          setIsLoadingMissing(false);
-                        }
-                      }}
-                    >Tạo yêu cầu</Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openRequestModalForMember(ev.memberId)}
-                      className="rounded-lg"
-                    >Yêu cầu (Thư)</Button>
+
+                  <div className="divide-y divide-border/40">
+                    {group.events.map(event => {
+                      const criterion = criteriaMap.get(event.criterionId || '');
+                      const existingLinkedEvidence = evidenceByScoreEvent.get(event.id) || [];
+                      const rejectedEvidence = existingLinkedEvidence.find(item => item.status === 'REJECTED');
+
+                      return (
+                        <div key={event.id} className="p-4 flex flex-col xl:flex-row xl:items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="font-bold bg-background">
+                                {event.criterionCode || criterion?.code || 'Tiêu chí'}
+                              </Badge>
+                              {rejectedEvidence ? (
+                                <Badge variant="outline" className="font-bold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                                  Đã bị từ chối
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                                  Chưa nộp
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="mt-2 font-semibold text-foreground">
+                              {criterion?.name || event.criterionId || 'Sự kiện điểm'}
+                            </div>
+                            <div className="mt-1 text-xs text-secondary flex flex-wrap gap-x-3 gap-y-1">
+                              <span>Sự kiện: {event.id}</span>
+                              <span>Điểm: {formatScoreDelta(event.scoreDelta)}</span>
+                              {event.sourceType && <span>Nguồn: {event.sourceType}</span>}
+                            </div>
+                            {rejectedEvidence?.reviewNote && (
+                              <div className="mt-2 text-xs text-red-700 dark:text-red-300">
+                                Lý do từ chối: {rejectedEvidence.reviewNote}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            {rejectedEvidence && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg"
+                                onClick={() => setDetailsEvidenceId(rejectedEvidence.id)}
+                              >
+                                Xem phản hồi
+                              </Button>
+                            )}
+                            {canSubmitEvidence && (
+                              <Button
+                                size="sm"
+                                className="rounded-lg bg-primary text-white"
+                                onClick={() => handleOpenMissingEvidenceModal(event)}
+                              >
+                                <FileCheck size={14} className="mr-1.5" />
+                                {rejectedEvidence ? 'Nộp lại' : 'Nộp minh chứng'}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
+      ) : (
+        scoreEvents.length > 0 && (
+          <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4 flex items-start gap-3">
+            <CheckCircle size={20} className="text-green-600 dark:text-green-300 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-foreground">Đã đủ minh chứng bắt buộc</h4>
+              <p className="text-sm text-secondary mt-1">
+                Các sự kiện điểm yêu cầu minh chứng hiện đều đã có minh chứng PENDING hoặc VERIFIED liên kết.
+              </p>
+            </div>
+          </div>
+        )
       )}
 
       {/* Filter Row */}
@@ -859,8 +951,25 @@ export const EvaluationEvidencePanel = ({
       </div>
 
       {/* Add Evidence Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nộp minh chứng đánh giá mới">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={formData.scoreEventId ? 'Nộp minh chứng cho mục còn thiếu' : 'Nộp minh chứng đánh giá mới'}
+      >
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
+          {selectedScoreEvent && (
+            <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-3">
+              <Info size={18} className="text-primary shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="font-bold text-foreground">Đang nộp cho sự kiện điểm cụ thể</div>
+                <div className="text-sm text-secondary mt-1">
+                  {selectedScoreEvent.criterionCode || getCriterionName(selectedScoreEvent.criterionId)} • Điểm {formatScoreDelta(selectedScoreEvent.scoreDelta)}
+                </div>
+                <div className="text-xs text-secondary mt-1 break-all">Sự kiện: {selectedScoreEvent.id}</div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
@@ -869,6 +978,7 @@ export const EvaluationEvidencePanel = ({
               <Select
                 value={modalFilterDept}
                 onChange={e => setModalFilterDept(e.target.value)}
+                disabled={Boolean(formData.scoreEventId)}
                 className="w-full rounded-xl"
               >
                 <option value="">-- Tất cả các Ban --</option>
@@ -884,6 +994,7 @@ export const EvaluationEvidencePanel = ({
               <Select 
                 value={formData.memberId} 
                 onChange={e => setFormData({ ...formData, memberId: e.target.value })} 
+                disabled={Boolean(formData.scoreEventId)}
                 className="w-full rounded-xl"
               >
                 {filteredCycleMembers.length === 0 ? (
@@ -904,6 +1015,7 @@ export const EvaluationEvidencePanel = ({
             <Select 
               value={formData.criterionId} 
               onChange={e => setFormData({ ...formData, criterionId: e.target.value })} 
+              disabled={Boolean(formData.scoreEventId)}
               className="w-full rounded-xl"
             >
               <option value="">-- Đánh giá chung (Không gắn tiêu cụ thể) --</option>

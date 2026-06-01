@@ -101,18 +101,14 @@ export const DisciplineView = ({ authToken, currentUser }: DisciplineViewProps) 
   const ActiveTabIcon = activeTabMeta.icon;
 
   return (
-    <div className="space-y-6 w-full px-4 sm:px-6 md:px-8 pb-10 overflow-x-hidden min-h-screen bg-background text-foreground transition-colors">
+    <div className="space-y-5 w-full px-3 sm:px-4 md:px-6 pb-8 overflow-x-hidden min-h-0 bg-background text-foreground transition-colors">
       <DisciplineHeader 
         memberCount={allMembers.length} 
         activeTabLabel={activeTabMeta.label} 
         activeTabIcon={ActiveTabIcon} 
       />
 
-      <DisciplineTabsNav 
-        tabs={tabs} 
-        activeTab={activeTab} 
-        onChangeTab={setActiveTab} 
-      />
+      <DisciplineTabsNav tabs={tabs} activeTab={activeTab} onChangeTab={setActiveTab} />
 
       <div className="mt-4 sm:mt-6 transition-all duration-300">
         {activeTab === 'records' && <DisciplineRecordsTab authToken={authToken} allMembers={allMembers} />}

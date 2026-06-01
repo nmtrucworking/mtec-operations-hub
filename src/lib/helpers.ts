@@ -78,30 +78,43 @@ export const getInitials = (fullName: string): string => {
  * @param token - The Bearer token
  * @param filename - The name to save the file as
  */
-export const downloadFileWithAuth = async (url: string, token: string, filename: string): Promise<boolean> => {
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+export const downloadFileWithAuth = async (
+  url: string | string[],
+  token: string,
+  filename: string
+): Promise<boolean> => {
+  const urls = Array.isArray(url) ? url : [url];
 
-    if (!response.ok) {
-      console.error('Download failed:', response.statusText);
-      return false;
+  try {
+    for (const candidateUrl of urls) {
+      const response = await fetch(candidateUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+        return true;
+      }
+
+      if (response.status !== 404) {
+        console.error('Download failed:', response.statusText);
+        return false;
+      }
     }
 
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode?.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
-    return true;
+    console.error('Download failed: all fallback URLs returned 404');
+    return false;
   } catch (error) {
     console.error('Error downloading file:', error);
     return false;

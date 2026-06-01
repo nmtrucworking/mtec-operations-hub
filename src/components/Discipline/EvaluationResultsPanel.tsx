@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Loader2, 
   AlertTriangle,
@@ -28,6 +28,7 @@ import {
   getEvaluationMemberResults, 
   getEvaluationMemberBreakdowns,
   getMemberCycleRoles,
+  getEvaluationCycleSummary,
   computeEvaluationCycle,
   computeEvaluationMember,
   exportMemberEvaluationReportUrl
@@ -58,6 +59,11 @@ export const EvaluationResultsPanel = ({
   const [cycleRoles, setCycleRoles] = useState<MemberCycleRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isComputing, setIsComputing] = useState(false);
+  const [computeModalOpen, setComputeModalOpen] = useState(false);
+  const [computeProgress, setComputeProgress] = useState(0);
+  const [computeTotal, setComputeTotal] = useState<number | null>(null);
+  const computeTotalRef = useRef<number | null>(null);
+  const [computeLogs, setComputeLogs] = useState<string[]>([]);
   const [computingMemberId, setComputingMemberId] = useState<string | null>(null);
   const [isConfirmComputeOpen, setIsConfirmComputeOpen] = useState(false);
 
@@ -127,23 +133,77 @@ export const EvaluationResultsPanel = ({
 
   const isLocked = cycle.status === 'LOCKED';
   const canCompute = hasRole(['bcn', 'bvh_discipline', 'bvh_hr']) && !isLocked;
+  const computePercent = computeTotal && computeTotal > 0
+    ? Math.min(100, Math.round((computeProgress / computeTotal) * 100))
+    : computeProgress > 0 ? 50 : 0;
+  const showComputeProgressButton = canCompute && !computeModalOpen && (isComputing || computeLogs.length > 0);
 
   const executeComputeCycle = async () => {
+    // Open progress modal and start compute + polling
+    setComputeModalOpen(true);
     setIsComputing(true);
+    setComputeLogs([]);
+    setComputeProgress(0);
+    setComputeTotal(null);
+    computeTotalRef.current = null;
+
     try {
-      const res = await computeEvaluationCycle(cycleId, {}, authToken);
-      if (!res.error) {
-        success('Đã tính toán xong kết quả chu kỳ!', 'Tính điểm chu kỳ');
-        await fetchResultsList();
-        if (onComputeComplete) onComputeComplete();
-      } else {
-        error(res.error || 'Lỗi không xác định khi tính toán kết quả.', 'Tính toán thất bại');
+      // determine expected total members from cycle summary
+      try {
+        const sumRes = await getEvaluationCycleSummary(cycleId, authToken);
+        if (sumRes?.data?.totalMembers !== undefined) {
+          setComputeTotal(sumRes.data.totalMembers);
+          computeTotalRef.current = sumRes.data.totalMembers;
+        }
+      } catch (e) {
+        // ignore summary error, we'll fallback to polling counts
       }
+
+      setComputeLogs(['Đang gửi yêu cầu tính điểm toàn chu kỳ...']);
+      const res = await computeEvaluationCycle(cycleId, {}, authToken);
+      if (res?.error) {
+        setComputeLogs(prev => [...prev, `ERROR: ${res.error}`]);
+        error(res.error || 'Lỗi không xác định khi tính toán kết quả.', 'Tính toán thất bại');
+        setComputeModalOpen(false);
+        setIsComputing(false);
+        return;
+      }
+
+      const data: any = res.data || {};
+      const computedMembers = Number(data.computedMembers ?? 0);
+      const skippedMembers = Number(data.skippedMembers ?? 0);
+      const errorsList = Array.isArray(data.errors) ? data.errors : [];
+
+      setComputeProgress(computedMembers);
+      if (computeTotalRef.current !== null && computeTotalRef.current !== undefined) {
+        setComputeTotal(computeTotalRef.current);
+      }
+      setComputeLogs((prev) => [
+        ...prev,
+        `Hoàn tất tính toán cho ${computedMembers} thành viên`,
+        skippedMembers > 0 ? `Bỏ qua ${skippedMembers} thành viên do lỗi dữ liệu` : 'Không có thành viên nào bị bỏ qua',
+        ...errorsList.slice(0, 10).map((item: any) => `WARN ${item.memberId || 'unknown'}: ${item.message || item.code || 'Unknown error'}`),
+      ]);
+
+      // final refresh
+      await fetchResultsList();
+      if (onComputeComplete) onComputeComplete();
+      if (errorsList.length > 0) {
+        warning(
+          `Đã tính xong nhưng có ${errorsList.length} thành viên bị lỗi hoặc bị bỏ qua. Kiểm tra log tiến trình để xử lý tiếp.`,
+          'Tính điểm chu kỳ hoàn tất một phần'
+        );
+      } else {
+        success('Đã tính toán xong kết quả chu kỳ!', 'Tính điểm chu kỳ');
+      }
+      setComputeLogs(prev => [...prev, 'Hoàn thành tính toán']);
     } catch (err) {
       console.error(err);
+      setComputeLogs(prev => [...prev, `Lỗi hệ thống: ${String(err)}`]);
       error('Lỗi kết nối khi tính toán kết quả.', 'Lỗi hệ thống');
     } finally {
       setIsComputing(false);
+      // leave modal open so user can review progress; provide a close button
     }
   };
 
@@ -274,14 +334,26 @@ export const EvaluationResultsPanel = ({
           <p className="text-sm text-secondary mt-1">Tính toán điểm trung bình chu kỳ và xếp loại thành viên theo thuật toán v2.</p>
         </div>
         {canCompute && (
-          <Button 
-            onClick={() => setIsConfirmComputeOpen(true)} 
-            disabled={isComputing}
-            className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
-          >
-            {isComputing ? <Loader2 size={16} className="animate-spin mr-1" /> : <Play size={16} />} 
-            Chạy tính điểm toàn chu kỳ
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {showComputeProgressButton && (
+              <Button
+                variant="outline"
+                onClick={() => setComputeModalOpen(true)}
+                className="flex items-center gap-2 rounded-xl border-primary/30 text-primary bg-primary/5 hover:bg-primary/10"
+              >
+                {isComputing ? <Loader2 size={16} className="animate-spin" /> : <Eye size={16} />}
+                {isComputing ? `Hiển thị tiến trình ${computePercent}%` : 'Xem tiến trình gần nhất'}
+              </Button>
+            )}
+            <Button
+              onClick={() => setIsConfirmComputeOpen(true)}
+              disabled={isComputing}
+              className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
+            >
+              {isComputing ? <Loader2 size={16} className="animate-spin mr-1" /> : <Play size={16} />}
+              Chạy tính điểm toàn chu kỳ
+            </Button>
+          </div>
         )}
       </div>
 
@@ -330,12 +402,12 @@ export const EvaluationResultsPanel = ({
       {/* Table */}
       <div className="bg-card/45 border border-border/30 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center p-12">
-            <Loader2 size={32} className="animate-spin text-primary mr-2" />
+          <div className="flex items-center justify-center p-8">
+            <Loader2 size={28} className="animate-spin text-primary mr-2" />
             <span className="text-secondary font-medium">Đang tải danh sách kết quả...</span>
           </div>
         ) : results.length === 0 ? (
-          <div className="text-center p-12 text-secondary font-medium">
+          <div className="text-center p-6 text-secondary font-medium">
             Chưa có kết quả tính điểm. Vui lòng bấm "Chạy tính điểm toàn chu kỳ" để tạo điểm.
           </div>
         ) : (
@@ -343,15 +415,15 @@ export const EvaluationResultsPanel = ({
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold">Thành viên</TableHead>
-                  <TableHead className="font-semibold text-center">Điểm I</TableHead>
-                  <TableHead className="font-semibold text-center">Điểm II</TableHead>
-                  <TableHead className="font-semibold text-center">Điểm III-A</TableHead>
-                  <TableHead className="font-semibold text-center">Điểm III-B</TableHead>
-                  <TableHead className="font-semibold text-center">Tổng điểm</TableHead>
-                  <TableHead className="font-semibold text-center">Xếp loại</TableHead>
-                  <TableHead className="font-semibold text-center">Trạng thái</TableHead>
-                  <TableHead className="text-right font-semibold">Thao tác</TableHead>
+                  <TableHead className="font-semibold text-sm">Thành viên</TableHead>
+                  <TableHead className="font-semibold text-center text-sm">Điểm I</TableHead>
+                  <TableHead className="font-semibold text-center text-sm">Điểm II</TableHead>
+                  <TableHead className="font-semibold text-center text-sm">Điểm III-A</TableHead>
+                  <TableHead className="font-semibold text-center text-sm">Điểm III-B</TableHead>
+                  <TableHead className="font-semibold text-center text-sm">Tổng điểm</TableHead>
+                  <TableHead className="font-semibold text-center text-sm">Xếp loại</TableHead>
+                  <TableHead className="font-semibold text-center text-sm">Trạng thái</TableHead>
+                  <TableHead className="text-right font-semibold text-sm">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -369,17 +441,17 @@ export const EvaluationResultsPanel = ({
                       <TableCell className="text-center font-semibold text-secondary-foreground">{res.componentIIScore}</TableCell>
                       <TableCell className="text-center font-semibold text-secondary-foreground">{res.componentIIiAScore}</TableCell>
                       <TableCell className="text-center font-semibold text-secondary-foreground">{res.componentIIiBScore}</TableCell>
-                      <TableCell className="text-center font-black text-primary text-base">{Number(res.totalScore ?? 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-center font-black text-primary text-sm">{Number(res.totalScore ?? 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center">{getClassificationBadge(res.finalClassification)}</TableCell>
                       <TableCell className="text-center">
                         <span className="text-xs text-secondary font-medium">{res.status}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1.5">
+                        <div className="flex justify-end gap-1">
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-primary border-primary/20 hover:bg-primary/5"
+                            className="rounded-lg text-sm py-1 px-2 h-8 flex items-center gap-1 text-primary border-primary/20 hover:bg-primary/5"
                             onClick={() => m && handleOpenBreakdown(res, m)}
                           >
                             <Eye size={13} /> Chi tiết
@@ -389,7 +461,7 @@ export const EvaluationResultsPanel = ({
                               variant="outline" 
                               size="sm" 
                               disabled={isSingleComputing}
-                              className="rounded-lg shadow-sm text-sm py-1 px-2.5 h-8 flex items-center gap-1 text-green-600 border-green-200 hover:bg-green-50"
+                              className="rounded-lg text-sm py-1 px-2 h-8 flex items-center gap-1 text-green-600 border-green-200 hover:bg-green-50"
                               onClick={() => m && handleComputeMember(res.memberId, m.name)}
                             >
                               {isSingleComputing ? (
@@ -502,6 +574,46 @@ export const EvaluationResultsPanel = ({
         title="Xác nhận tính toán"
         message="Xác nhận tính toán kết quả đánh giá cho toàn bộ thành viên trong chu kỳ này?"
       />
+
+      {/* Compute Progress Modal */}
+      <Modal
+        isOpen={computeModalOpen}
+        onClose={() => setComputeModalOpen(false)}
+        title="Tiến trình tính điểm"
+      >
+        <div className="space-y-4">
+          <div className="text-sm text-secondary">
+            Tiến độ tính toán kết quả cho chu kỳ. Cửa sổ sẽ tự cập nhật khi có tiến độ mới.
+            {isComputing && ' Nếu đóng cửa sổ này, bạn vẫn có thể mở lại bằng nút Hiển thị tiến trình.'}
+          </div>
+
+          <div className="w-full bg-muted/20 rounded-xl h-3 overflow-hidden border border-border/20">
+            <div
+              className="h-3 bg-primary"
+              style={{ width: `${computePercent}%` }}
+            />
+          </div>
+
+          <div className="flex justify-between text-xs text-secondary">
+            <div>Đã xử lý: {computeProgress}</div>
+            <div>Tổng dự kiến: {computeTotal ?? '...'}</div>
+          </div>
+
+          <div className="h-28 overflow-y-auto bg-card/30 border border-border/20 rounded-md p-2 text-xs font-mono">
+            {computeLogs.length === 0 ? (
+              <div className="text-secondary">Chưa có nhật ký tiến trình.</div>
+            ) : (
+              computeLogs.map((l, i) => <div key={i} className="py-0.5">{l}</div>)
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setComputeModalOpen(false)}>
+              {isComputing ? 'Ẩn tiến trình' : 'Đóng'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

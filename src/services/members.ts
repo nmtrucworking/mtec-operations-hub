@@ -194,29 +194,46 @@ export const deleteMember = async (memberId: number | string, token?: string): P
 /**
  * Export Members
  * GET /api/v1/members/export?format={csv|zip}
- * Note: This returns a URL string, so it doesn't support automatic fallback easily.
- * However, since most other calls use apiCall, they will work.
  */
-export const exportMembers = (params: { format: 'csv' | 'zip'; ban?: string; status?: string }, token?: string) => {
+export const exportMembersUrls = (params: { format: 'csv' | 'zip'; ban?: string; status?: string }) => {
   const query = new URLSearchParams();
   query.append('format', params.format);
   if (params.ban) query.append('ban', params.ban);
   if (params.status) query.append('status', params.status);
   
   const API_BASE = getBaseUrl();
-  // We'll default to the standard path, but if the user encounters issues they should check the base URL
-  const url = `${API_BASE}/api/v1/members/export?${query.toString()}`;
-  
-  return url;
+  const queryString = query.toString();
+
+  return [
+    `${API_BASE}/api/v1/members/export?${queryString}`,
+    `${API_BASE}/api/members/export?${queryString}`,
+  ];
 };
+
+export const exportMembers = exportMembersUrls;
 
 /**
  * Export Member Profile (DOCX)
  * GET /api/v1/members/{member_id}/profile
  */
-export const exportMemberProfileUrl = (memberId: number | string) => {
+export const exportMemberProfileUrls = (memberId: number | string) => {
   const API_BASE = getBaseUrl();
-  return `${API_BASE}/api/v1/members/${memberId}/profile`;
+  return [
+    `${API_BASE}/api/v1/members/${memberId}/profile`,
+    `${API_BASE}/api/members/${memberId}/profile`,
+  ];
+};
+
+export const exportMemberProfileUrl = (memberId: number | string) => {
+  return exportMemberProfileUrls(memberId)[0];
+};
+
+export const membersImportTemplateUrls = () => {
+  const API_BASE = getBaseUrl();
+  return [
+    `${API_BASE}/api/v1/members/import/template?format=csv`,
+    `${API_BASE}/api/members/import/template?format=csv`,
+  ];
 };
 
 export type MembersImportResult = {
@@ -228,10 +245,7 @@ export type MembersImportResult = {
   errors: Array<{ row: number; error: string; details?: unknown }>;
 };
 
-export const membersImportTemplateUrl = (token?: string) => {
-  const API_BASE = getBaseUrl();
-  return `${API_BASE}/api/v1/members/import/template?format=csv`;
-};
+export const membersImportTemplateUrl = () => membersImportTemplateUrls()[0];
 
 export const importMembers = async (
   file: File,
