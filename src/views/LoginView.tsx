@@ -16,6 +16,7 @@ interface LoginViewProps {
 }
 
 import { useToast } from '../components/ui/toast';
+import { APP_VERSION } from '../config/appVersion';
 
 export const LoginView = ({ onLogin, onOpenHelperCenter }: LoginViewProps) => {
   const { t, i18n } = useTranslation();
@@ -159,6 +160,10 @@ export const LoginView = ({ onLogin, onOpenHelperCenter }: LoginViewProps) => {
         <div className="mt-4 pt-6 border-t border-border text-center pb-4">
           <p className="text-xs text-secondary">
             {t('login.footer')}
+          </p>
+          <p className="text-xs text-secondary mt-1">
+            {/* version */}
+            v{APP_VERSION}
           </p>
         </div>
       </Card>

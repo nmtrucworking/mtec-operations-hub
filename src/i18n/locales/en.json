@@ -272,6 +272,7 @@
     "thStt": "No.",
     "thName": "Full Name",
     "thMssv": "Student ID",
+    "thClass": "Class",
     "thDept": "Department",
     "thRole": "Role",
     "thStatus": "Status",
@@ -291,7 +292,44 @@
     "noExperience": "Experience not updated",
     "experience": "Experience",
     "close": "Close",
-    "update": "Update"
+    "update": "Update",
+    "gender": {
+      "male": "Male",
+      "female": "Female"
+    },
+    "tabs": {
+      "profile": {
+        "title": "Profile",
+        "memberInfo": "Member Information",
+        "dob": "Date of Birth",
+        "gender": "Gender",
+        "phone": "Phone",
+        "academic": "Academic and Club",
+        "studentID": "Student ID",
+        "class": "Class",
+        "department": "Department",
+        "major": "Major",
+        "joinDate": "Join Date"
+      },
+      "activity": {
+        "title": "Activity"
+      },
+      "requests": {
+        "title": "Requests"
+      },
+      "performance": {
+        "title": "Discipline & KPI"
+      },
+      "evaluations": {
+        "title": "Evaluations"
+      },
+      "history": {
+        "title": "Change History"
+      }
+    },
+    "import": {
+      "infoBasic": "Basic Information"
+    }
   },
   "requests": {
     "title": "Requests & Forms Management",

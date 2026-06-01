@@ -250,7 +250,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
   const initialFormState: MemberFormData = {
     mssv: '',
     name: '',
-    gender: 'Nam',
+    gender: '{t("members.gender.male")}',
     dob: '',
     ban: [],
     role: 'Thanh vien',
@@ -1047,28 +1047,28 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                 onClick={() => setActiveDetailTab('info')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'info' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
-                Thông tin chi tiết
+                {t('members.tabs.profile.title')}
                 {activeDetailTab === 'info' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
               <button
                 onClick={() => setActiveDetailTab('performance')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'performance' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
-                Kỷ luật & KPI
+                {t('members.tabs.performance.title')}
                 {activeDetailTab === 'performance' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
               <button
                 onClick={() => setActiveDetailTab('evaluation-history')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'evaluation-history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
-                Lịch sử evaluation
+                {t('members.tabs.evaluations.title')}
                 {activeDetailTab === 'evaluation-history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
               <button
                 onClick={() => setActiveDetailTab('history')}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeDetailTab === 'history' ? 'text-gold' : 'text-secondary hover:text-primary'}`}
               >
-                Lịch sử thay đổi
+                {t('members.tabs.history.title')}
                 {activeDetailTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />}
               </button>
             </div>
@@ -1076,10 +1076,10 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
             {activeDetailTab === 'info' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 <div className="space-y-6">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary/70">Thông tin cá nhân</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary/70">{t('members.tabs.profile.memberInfo')}</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    <InfoItem Icon={Calendar} label="Ngày sinh" value={formatDate(selectedMember.dob)} />
-                    <InfoItem Icon={Users} label="Giới tính" value={selectedMember.gender} />
+                    <InfoItem Icon={Calendar} label={t('members.tabs.profile.dob')} value={formatDate(selectedMember.dob)} />
+                    <InfoItem Icon={Users} label={t('members.tabs.profile.gender')} value={selectedMember.gender} />
                     <div className="flex flex-col group relative">
                       <span className="flex items-center text-xs text-secondary mb-1">
                         <Mail size={16} className="mr-1.5 opacity-70" />
@@ -1098,15 +1098,15 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                     <div className="flex flex-col group relative">
                       <span className="flex items-center text-xs text-secondary mb-1">
                         <Phone size={16} className="mr-1.5 opacity-70" />
-                        Số điện thoại
+                        {t('members.tabs.profile.phone')}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-primary">{selectedMember.phone}</span>
                         <button
-                          onClick={() => handleCopy(selectedMember.phone, 'Số điện thoại')}
+                          onClick={() => handleCopy(selectedMember.phone, t('members.tabs.profile.phone'))}
                           className="p-1 hover:bg-secondary/10 rounded transition-colors text-secondary hover:text-gold"
                         >
-                          {copiedField === 'Số điện thoại' ? <Check size={14} /> : <Copy size={14} />}
+                          {copiedField === t('members.tabs.profile.phone') ? <Check size={14} /> : <Copy size={14} />}
                         </button>
                       </div>
                     </div>
@@ -1114,17 +1114,17 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
                 </div>
 
                 <div className="space-y-6">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary/70">Học vấn & CLB</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary/70">{t('members.tabs.profile.academic')}</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    <InfoItem Icon={BookOpen} label="MSSV" value={selectedMember.mssv} />
-                    <InfoItem Icon={GraduationCap} label="Lớp" value={selectedMember.lop} />
+                    <InfoItem Icon={BookOpen} label={t('members.tabs.profile.studentID')} value={selectedMember.mssv} />
+                    <InfoItem Icon={GraduationCap} label={t('members.tabs.profile.class')} value={selectedMember.lop} />
                     <div className="col-span-2">
-                      <InfoItem Icon={Compass} label="Khoa" value={selectedMember.khoa} />
+                        <InfoItem Icon={Compass} label={t('members.tabs.profile.department')} value={selectedMember.khoa} />
                     </div>
                     <div className="col-span-2">
-                      <InfoItem Icon={Target} label="Chuyên ngành" value={selectedMember.chuyenNganh} />
+                      <InfoItem Icon={Target} label={t('members.tabs.profile.major')} value={selectedMember.chuyenNganh} />
                     </div>
-                    <InfoItem Icon={Calendar} label="Ngày gia nhập" value={formatDate(selectedMember.joinDate)} />
+                    <InfoItem Icon={Calendar} label={t('members.tabs.profile.joinDate')} value={formatDate(selectedMember.joinDate)} />
                   </div>
                 </div>
 
@@ -1355,14 +1355,14 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
         footer={
           <>
             <Button variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }} className="hover:bg-secondary/10 transition-colors">
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button
               isLoading={isSavingMember}
               onClick={() => void (isEditModalOpen ? handleEditSubmit() : handleAddSubmit())}
               className={`transition-all ${isSavingMember ? 'cursor-wait' : 'active:scale-95'}`}
             >
-              {isEditModalOpen ? 'Lưu thay đổi' : 'Thêm mới'}
+              {isEditModalOpen ? t('common.save') : t('common.addMember')}
             </Button>
           </>
         }
@@ -1376,7 +1376,7 @@ export const MembersView = ({ authToken, currentUser }: MembersViewProps) => {
               <div className="space-y-4">
                 <h4 className="font-semibold text-gold border-b border-border pb-2 flex items-center">
                   <Users size={18} className="mr-2" />
-                  Thông tin cơ bản
+                  {t('members.import.infoBasic')}
                 </h4>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Họ và tên *</label>

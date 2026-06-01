@@ -12,6 +12,7 @@
     "cancel": "Hủy",
     "delete": "Xóa",
     "edit": "Sửa",
+    "editBtn": "Chỉnh sửa",
     "view": "Xem",
     "close": "Đóng",
     "success": "Thành công",
@@ -30,15 +31,15 @@
     "prev": "Trước",
     "next": "Sau",
     "noData": "Không có dữ liệu",
-    "networkError": "L?i k?t n?i",
-    "actionFailed": "Thao t?c th?t b?i",
-    "all": "T?t c?",
-    "allGroups": "T?t c? nh?m",
-    "fill": "?i?n",
-    "member": "Th?nh vi?n",
-    "select": "Ch?n",
-    "skip": "B? qua",
-    "thAction": "Thao t?c",
+    "networkError": "Lỗi kết nối",
+    "actionFailed": "Thao tác thất bại",
+    "all": "Tất cả",
+    "allGroups": "Tất cả nhóm",
+    "fill": "Điền",
+    "member": "Thành viên",
+    "select": "Chọn",
+    "skip": "Bỏ qua",
+    "thAction": "Thao tác",
     "downloadEvaluationReport": "Tải phiếu đánh giá (DOCX)"
   },
   "appShell": {
@@ -219,27 +220,27 @@
     "pushPermissionRequired": "Cần cấp quyền trình duyệt trước khi bật thông báo đẩy.",
     "pushTestTitle": "Đã bật thông báo MTEC",
     "pushTestBody": "Thông báo đẩy sẽ hiển thị trên trình duyệt này.",
-    "loadFailed": "Kh?ng th? t?i c?i ??t",
-    "profileUpdateFailed": "Kh?ng th? c?p nh?t h? s?",
-    "tabVersionHistory": "L?ch s? c?p nh?t",
-    "versionTitle": "L?ch s? c?p nh?t h? th?ng",
+    "loadFailed": "Không thể tải cài đặt.",
+    "profileUpdateFailed": "Không thể cập nhật hồ sơ.",
+    "tabVersionHistory": "Lịch sử cập nhật",
+    "versionTitle": "Lịch sử cập nhật hệ thống",
     "appVersionLabel": "Phiên bản {{version}}",
-    "versionLabel": "Phi?n b?n {{version}}",
-    "notiSubtitle": "Ch?n k?nh nh?n th?ng b?o. Email v? SMS ?ang ???c kh?a cho ??n khi h? th?ng h? tr?.",
-    "pushBrowserStatus": "Tr?ng th?i tr?nh duy?t",
-    "pushTestButton": "G?i th?",
-    "pushEnableBeforeTest": "H?y b?t th?ng b?o ??y tr??c khi g?i th?.",
+    "versionLabel": "Phiên bản {{version}}",
+    "notiSubtitle": "Chọn kênh nhận thông báo. Email và SMS đang bị khóa cho đến khi hệ thống hỗ trợ.",
+    "pushBrowserStatus": "Trạng thái trình duyệt",
+    "pushTestButton": "Gửi thử",
+    "pushEnableBeforeTest": "Hãy bật thông báo đẩy trước khi gửi thử.",
     "pushPermission": {
       "granted": "?? ???c c?p quy?n hi?n th? th?ng b?o tr?n tr?nh duy?t n?y.",
       "default": "Ch?a c?p quy?n. Khi b?t Push, tr?nh duy?t s? h?i quy?n hi?n th? th?ng b?o.",
-      "denied": "Quy?n th?ng b?o ?ang b? ch?n trong c?i ??t tr?nh duy?t.",
-      "unsupported": "Tr?nh duy?t ho?c m?i tr??ng hi?n t?i ch?a h? tr? th?ng b?o ??y."
+      "denied": "Quyền thông báo của trình duyệt đang bị chặn.",
+      "unsupported": "Trình duyệt hoặc môi trường hiện tại chưa hỗ trợ thông báo đẩy."
     },
     "changeType": {
-      "feature": "T?nh n?ng",
-      "fix": "S?a l?i",
-      "improvement": "C?i ti?n",
-      "security": "B?o m?t"
+      "feature": "Tính năng",
+      "fix": "Sửa lỗi",
+      "improvement": "Cải tiến",
+      "security": "Bảo mật"
     }
   },
   "members": {
@@ -272,6 +273,7 @@
     "thStt": "STT",
     "thName": "Họ và tên",
     "thMssv": "MSSV",
+    "thClass": "Lớp",
     "thDept": "Ban trực thuộc",
     "thRole": "Chức vụ",
     "thStatus": "Trạng thái",
@@ -291,7 +293,45 @@
     "noExperience": "Chưa cập nhật kinh nghiệm",
     "experience": "Kinh nghiệm",
     "close": "Đóng",
-    "update": "Cập nhật"
+    "update": "Cập nhật",
+    "gender": {
+      "male": "Nam",
+      "female": "Nữ"
+    },
+    "tabs": {
+      "profile": {
+        "title": "Hồ sơ cá nhân",
+        "memberInfo": "Thông tin thành viên",
+        "dob": "Ngày sinh",
+        "gender": "Giới tính",
+        "phone": "Số điện thoại",
+        "academic": "Học vấn & CLB",
+        "studentID": "MSSV",
+        "class": "Lớp",
+        "department": "Khoa",
+        "major": "Chuyên ngành",
+        "joinDate": "Ngày gia nhập"
+      },
+      "activity": {
+        "title": "Hoạt động"
+      },
+      "requests": {
+        "title": "Đơn từ"
+      },
+      "performance": {
+        "title": "Kỷ luật & KPI"
+      },
+      "evaluations": {
+        "title": "Đánh giá"
+      },
+      "history": {
+        "title": "Lịch sử thay đổi"
+      }
+    },
+    "import": {
+      "infoBasic": "Thông tin cơ bản"
+    }
+    
   },
   "requests": {
     "title": "Quản lý Đơn từ (Biểu mẫu Hành chính)",
@@ -409,7 +449,7 @@
     "tabs": {
       "evaluations": {
         "label": "Đánh giá định kỳ",
-        "short": "Evaluation v2",
+        "short": "Evaluation",
         "desc": "Chu kỳ, tiêu chí, minh chứng, khiếu nại và kết quả xếp loại."
       },
       "meetings": {
@@ -587,5 +627,23 @@
       "orientation": "Định hướng"
     },
     "noLogsFound": "Không tìm thấy nhật ký phù hợp."
+  },
+  "toasts": {
+    "errors": {
+
+    },
+    "success": {
+      "members": {
+        "deleted": "Xóa thành viên thành công!",
+        "updated": "Cập nhật thành viên thành công!"
+      },
+      "memberAdded": "Thêm thành viên thành công!",
+      "memberUpdated": "Cập nhật thành viên thành công!",
+      "transactionAdded": "Thêm giao dịch thành công!",
+      "transactionUpdated": "Cập nhật giao dịch thành công!",
+      "requestProcessed": "Xử lý đơn từ thành công!",
+      "accountCreated": "Tạo tài khoản mới thành công!",
+      "accountUpdated": "Cập nhật tài khoản thành công!"
+    }
   }
 }
