@@ -28,9 +28,12 @@ import {
   getEvaluationMemberResults, 
   getEvaluationMemberBreakdowns,
   getMemberCycleRoles,
-  getEvaluationCycleSummary,
+  getEvaluationCycleSummaryFresh,
   computeEvaluationCycle,
   computeEvaluationMember,
+  getEvaluationComputeJob,
+  cancelEvaluationComputeJob,
+  EvaluationComputeJob,
   exportMemberEvaluationReportUrl
 } from '../../services/evaluations';
 import { EVALUATION_CLASSIFICATIONS, EVALUATION_UNIT_CODES } from '../../data/evaluations';
@@ -64,8 +67,13 @@ export const EvaluationResultsPanel = ({
   const [computeTotal, setComputeTotal] = useState<number | null>(null);
   const computeTotalRef = useRef<number | null>(null);
   const [computeLogs, setComputeLogs] = useState<string[]>([]);
+  const [computeStartedAt, setComputeStartedAt] = useState<number | null>(null);
+  const [computeElapsedSeconds, setComputeElapsedSeconds] = useState(0);
   const [computingMemberId, setComputingMemberId] = useState<string | null>(null);
   const [isConfirmComputeOpen, setIsConfirmComputeOpen] = useState(false);
+  const [computeJobId, setComputeJobId] = useState<string | null>(null);
+  const computeAbortControllerRef = useRef<AbortController | null>(null);
+  const computePollTimerRef = useRef<number | null>(null);
 
   // Breakdown Modal state
   const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
@@ -78,14 +86,14 @@ export const EvaluationResultsPanel = ({
   const [filterUnit, setFilterUnit] = useState('');
   const [filterClassification, setFilterClassification] = useState('');
 
-  const fetchResultsList = async () => {
+  const fetchResultsList = async (fresh = false) => {
     setIsLoading(true);
     try {
       const params: any = { pageSize: 1000 };
       if (filterUnit) params.unitCode = filterUnit;
       if (filterClassification) params.classification = filterClassification;
 
-      const res = await getEvaluationMemberResults(cycleId, params, authToken);
+      const res = await getEvaluationMemberResults(cycleId, params, authToken, { noCache: fresh });
       if (res?.data?.items) {
         setResults(res.data.items);
       } else if (res?.error) {
@@ -137,20 +145,137 @@ export const EvaluationResultsPanel = ({
     ? Math.min(100, Math.round((computeProgress / computeTotal) * 100))
     : computeProgress > 0 ? 50 : 0;
   const showComputeProgressButton = canCompute && !computeModalOpen && (isComputing || computeLogs.length > 0);
+  const computeStatusText = isComputing
+    ? 'Backend đang xử lý dữ liệu và tính lại điểm chu kỳ...'
+    : computeProgress > 0
+      ? 'Kết quả đã được tính xong, đang tải lại dữ liệu hiển thị...'
+      : 'Chưa bắt đầu tính toán.';
+
+  const formatElapsed = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remain = seconds % 60;
+    if (minutes <= 0) {
+      return `${remain}s`;
+    }
+    return `${minutes}m ${remain.toString().padStart(2, '0')}s`;
+  };
+
+  const stopComputePolling = () => {
+    if (computePollTimerRef.current) {
+      window.clearInterval(computePollTimerRef.current);
+      computePollTimerRef.current = null;
+    }
+  };
+
+  const resetComputeRuntime = () => {
+    stopComputePolling();
+    computeAbortControllerRef.current = null;
+    setIsComputing(false);
+  };
+
+  const applyComputeJobStatus = (job: EvaluationComputeJob) => {
+    setComputeJobId(job.jobId);
+    setComputeProgress(job.processedMembers ?? 0);
+    setComputeTotal(job.totalMembers || null);
+    computeTotalRef.current = job.totalMembers || computeTotalRef.current;
+    if (Array.isArray(job.logs) && job.logs.length > 0) {
+      setComputeLogs(job.logs.slice(-20));
+    }
+  };
+
+  const waitForJobPoll = (ms: number, signal: AbortSignal) => (
+    new Promise<void>((resolve, reject) => {
+      if (signal.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+
+      const timer = window.setTimeout(resolve, ms);
+      signal.addEventListener(
+        'abort',
+        () => {
+          window.clearTimeout(timer);
+          reject(new DOMException('Aborted', 'AbortError'));
+        },
+        { once: true }
+      );
+    })
+  );
+
+  const waitForComputeJob = async (jobId: string, abortController: AbortController) => {
+    while (!abortController.signal.aborted) {
+      await waitForJobPoll(5000, abortController.signal);
+      const jobRes = await getEvaluationComputeJob(cycleId, jobId, authToken, {
+        signal: abortController.signal,
+      });
+      if (jobRes.error || !jobRes.data) {
+        throw new Error(jobRes.error || 'Không thể tải trạng thái job tính điểm.');
+      }
+
+      applyComputeJobStatus(jobRes.data);
+      if (['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(jobRes.data.status)) {
+        return jobRes.data;
+      }
+    }
+
+    throw new DOMException('Aborted', 'AbortError');
+  };
+
+  const handleCancelCompute = async () => {
+    if (!isComputing && !computeAbortControllerRef.current) {
+      return;
+    }
+
+    const currentJobId = computeJobId;
+    if (currentJobId) {
+      try {
+        const cancelRes = await cancelEvaluationComputeJob(cycleId, currentJobId, authToken);
+        if (cancelRes.data) {
+          applyComputeJobStatus(cancelRes.data);
+        }
+      } catch (cancelError) {
+        console.error('Cancel compute job failed:', cancelError);
+      }
+    }
+
+    computeAbortControllerRef.current?.abort();
+    stopComputePolling();
+    setComputeLogs((prev) => [
+      ...prev,
+      currentJobId
+        ? 'Đã gửi yêu cầu hủy tới backend.'
+        : 'Đã hủy yêu cầu ở phía trình duyệt.',
+    ]);
+    setIsComputing(false);
+    warning(
+      currentJobId
+        ? 'Đã gửi yêu cầu hủy tới backend. Job sẽ dừng sau member đang xử lý hiện tại.'
+        : 'Đã hủy yêu cầu trên trình duyệt.',
+      'Đã hủy tiến trình'
+    );
+  };
 
   const executeComputeCycle = async () => {
-    // Open progress modal and start compute + polling
+    // Open progress modal and start compute with a local elapsed-time heartbeat.
     setComputeModalOpen(true);
     setIsComputing(true);
     setComputeLogs([]);
     setComputeProgress(0);
     setComputeTotal(null);
+    setComputeStartedAt(Date.now());
+    setComputeElapsedSeconds(0);
+    setComputeJobId(null);
     computeTotalRef.current = null;
+    const abortController = new AbortController();
+    computeAbortControllerRef.current = abortController;
+    stopComputePolling();
 
     try {
       // determine expected total members from cycle summary
       try {
-        const sumRes = await getEvaluationCycleSummary(cycleId, authToken);
+        const sumRes = await getEvaluationCycleSummaryFresh(cycleId, authToken, {
+          signal: abortController.signal,
+        });
         if (sumRes?.data?.totalMembers !== undefined) {
           setComputeTotal(sumRes.data.totalMembers);
           computeTotalRef.current = sumRes.data.totalMembers;
@@ -160,16 +285,59 @@ export const EvaluationResultsPanel = ({
       }
 
       setComputeLogs(['Đang gửi yêu cầu tính điểm toàn chu kỳ...']);
-      const res = await computeEvaluationCycle(cycleId, {}, authToken);
-      if (res?.error) {
-        setComputeLogs(prev => [...prev, `ERROR: ${res.error}`]);
-        error(res.error || 'Lỗi không xác định khi tính toán kết quả.', 'Tính toán thất bại');
-        setComputeModalOpen(false);
-        setIsComputing(false);
+      const startedAt = Date.now();
+      computePollTimerRef.current = window.setInterval(async () => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+        setComputeElapsedSeconds(elapsedSeconds);
+        if (elapsedSeconds % 5 === 0) {
+          setComputeLogs((prev) => [...prev.slice(-20), `Backend đang xử lý... (${elapsedSeconds}s)`]);
+        }
+      }, 3000);
+
+      const res = await computeEvaluationCycle(cycleId, {}, authToken, {
+        signal: abortController.signal,
+      });
+
+      if (abortController.signal.aborted) {
+        setComputeLogs((prev) => [...prev, 'Tiến trình đã được hủy.']);
         return;
       }
 
-      const data: any = res.data || {};
+      if (res?.error) {
+        setComputeLogs(prev => [...prev, `ERROR: ${res.error}`]);
+        error(res.error || 'Lỗi không xác định khi tính toán kết quả.', 'Tính toán thất bại');
+        return;
+      }
+
+      let data: any = res.data || {};
+      if (data.jobId) {
+        applyComputeJobStatus(data as EvaluationComputeJob);
+        setComputeLogs((prev) => [
+          ...prev,
+          `Backend đã nhận job ${data.jobId}. Đang theo dõi trạng thái...`,
+        ]);
+        const finalJob = await waitForComputeJob(data.jobId, abortController);
+        data = finalJob.result || finalJob;
+
+        if (finalJob.status === 'CANCELLED') {
+          setComputeLogs((prev) => [...prev, 'Job đã được hủy. Không lưu thay đổi tính điểm.']);
+          warning('Job tính điểm đã được hủy.', 'Đã hủy tiến trình');
+          return;
+        }
+
+        if (finalJob.status === 'FAILED') {
+          const message = finalJob.error || 'Backend không thể hoàn tất job tính điểm.';
+          setComputeLogs((prev) => [...prev, `ERROR: ${message}`]);
+          error(message, 'Tính toán thất bại');
+          return;
+        }
+      }
+
+      stopComputePolling();
       const computedMembers = Number(data.computedMembers ?? 0);
       const skippedMembers = Number(data.skippedMembers ?? 0);
       const errorsList = Array.isArray(data.errors) ? data.errors : [];
@@ -186,7 +354,7 @@ export const EvaluationResultsPanel = ({
       ]);
 
       // final refresh
-      await fetchResultsList();
+      await fetchResultsList(true);
       if (onComputeComplete) onComputeComplete();
       if (errorsList.length > 0) {
         warning(
@@ -198,11 +366,19 @@ export const EvaluationResultsPanel = ({
       }
       setComputeLogs(prev => [...prev, 'Hoàn thành tính toán']);
     } catch (err) {
+      if (abortController.signal.aborted) {
+        setComputeLogs((prev) => [...prev, 'Tiến trình đã được hủy trước khi hoàn tất.']);
+        return;
+      }
       console.error(err);
       setComputeLogs(prev => [...prev, `Lỗi hệ thống: ${String(err)}`]);
       error('Lỗi kết nối khi tính toán kết quả.', 'Lỗi hệ thống');
     } finally {
-      setIsComputing(false);
+      stopComputePolling();
+      if (computeStartedAt) {
+        setComputeElapsedSeconds(Math.max(1, Math.round((Date.now() - computeStartedAt) / 1000)));
+      }
+      resetComputeRuntime();
       // leave modal open so user can review progress; provide a close button
     }
   };
@@ -213,7 +389,7 @@ export const EvaluationResultsPanel = ({
       const res = await computeEvaluationMember(cycleId, memberId, {}, authToken);
       if (!res.error) {
         success(`Đã tính toán xong kết quả cho thành viên ${memberName}!`, 'Tính điểm thành viên');
-        await fetchResultsList();
+        await fetchResultsList(true);
         if (onComputeComplete) onComputeComplete();
       } else {
         error(res.error || 'Lỗi không xác định.', 'Tính toán thất bại');
@@ -582,9 +758,16 @@ export const EvaluationResultsPanel = ({
         title="Tiến trình tính điểm"
       >
         <div className="space-y-4">
-          <div className="text-sm text-secondary">
-            Tiến độ tính toán kết quả cho chu kỳ. Cửa sổ sẽ tự cập nhật khi có tiến độ mới.
-            {isComputing && ' Nếu đóng cửa sổ này, bạn vẫn có thể mở lại bằng nút Hiển thị tiến trình.'}
+          <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-foreground">{computeStatusText}</div>
+              <div className="text-xs text-secondary whitespace-nowrap">
+                Thời gian: {formatElapsed(computeElapsedSeconds)}
+              </div>
+            </div>
+            <div className="text-xs text-secondary">
+              Cửa sổ sẽ tự cập nhật khi có tiến độ mới. Nếu đóng lúc đang chạy, bạn vẫn có thể mở lại bằng nút Hiển thị tiến trình.
+            </div>
           </div>
 
           <div className="w-full bg-muted/20 rounded-xl h-3 overflow-hidden border border-border/20">
@@ -595,11 +778,11 @@ export const EvaluationResultsPanel = ({
           </div>
 
           <div className="flex justify-between text-xs text-secondary">
-            <div>Đã xử lý: {computeProgress}</div>
-            <div>Tổng dự kiến: {computeTotal ?? '...'}</div>
+            <div>Đã xử lý: {computeProgress}{computeTotal ? ` / ${computeTotal}` : ''}</div>
+            <div>Tiến độ: {computePercent}%</div>
           </div>
 
-          <div className="h-28 overflow-y-auto bg-card/30 border border-border/20 rounded-md p-2 text-xs font-mono">
+          <div className="h-32 overflow-y-auto bg-card/30 border border-border/20 rounded-md p-2 text-xs font-mono">
             {computeLogs.length === 0 ? (
               <div className="text-secondary">Chưa có nhật ký tiến trình.</div>
             ) : (
@@ -608,6 +791,14 @@ export const EvaluationResultsPanel = ({
           </div>
 
           <div className="flex justify-end gap-2">
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              onClick={handleCancelCompute}
+              disabled={!isComputing}
+            >
+              {isComputing ? 'Hủy tiến trình' : 'Không có tiến trình đang chạy'}
+            </Button>
             <Button variant="outline" className="rounded-xl" onClick={() => setComputeModalOpen(false)}>
               {isComputing ? 'Ẩn tiến trình' : 'Đóng'}
             </Button>

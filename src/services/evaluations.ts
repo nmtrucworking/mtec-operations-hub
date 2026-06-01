@@ -225,6 +225,32 @@ export interface EvaluationQuickReviewCycle {
   persisted: boolean;
 }
 
+export type EvaluationComputeJobStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export interface EvaluationComputeJob {
+  jobId: string;
+  cycleId: string;
+  status: EvaluationComputeJobStatus;
+  totalMembers: number;
+  processedMembers: number;
+  computedMembers: number;
+  skippedMembers: number;
+  percent: number;
+  cancelRequested: boolean;
+  error?: string | null;
+  result?: any;
+  logs: string[];
+  createdAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  updatedAt: string;
+}
+
 const unwrapList = <T>(response: ApiResponse<any>): ApiResponse<{ items: T[]; total: number }> => {
   if (response.status === 0 || !response.data) return response as ApiResponse<any>;
   const data = response.data?.data ?? response.data;
@@ -244,6 +270,11 @@ const unwrapData = <T>(response: ApiResponse<any>): ApiResponse<T> => {
     ...response,
     data: response.data?.data ?? response.data,
   };
+};
+
+const addCacheBust = (url: string, noCache?: boolean) => {
+  if (!noCache) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}_ts=${Date.now()}`;
 };
 
 export const getEvaluationCycles = async (
@@ -464,24 +495,56 @@ export const rejectEvaluationEvidence = async (evidenceId: string, note?: string
 export const computeEvaluationCycle = async (
   cycleId: string,
   payload: { strict?: boolean; evidenceMode?: string; recomputeExisting?: boolean } = {},
-  token?: string
-): Promise<ApiResponse<any>> => {
-  const res = await apiCall(`${BASE}/cycles/${cycleId}/compute`, {
+  token?: string,
+  requestInit: RequestInit = {}
+): Promise<ApiResponse<any | EvaluationComputeJob>> => {
+  const res = await apiCall(`${BASE}/cycles/${cycleId}/compute-jobs`, {
     method: 'POST',
     body: JSON.stringify({ strict: false, evidenceMode: 'approval', recomputeExisting: true, ...payload }),
+    ...requestInit,
   }, token);
   return unwrapData<any>(res);
+};
+
+export const getEvaluationComputeJob = async (
+  cycleId: string,
+  jobId: string,
+  token?: string,
+  requestInit: RequestInit = {}
+): Promise<ApiResponse<EvaluationComputeJob>> => {
+  const res = await apiCall(
+    addCacheBust(`${BASE}/cycles/${cycleId}/compute-jobs/${jobId}`, true),
+    requestInit,
+    token
+  );
+  return unwrapData<EvaluationComputeJob>(res);
+};
+
+export const cancelEvaluationComputeJob = async (
+  cycleId: string,
+  jobId: string,
+  token?: string,
+  requestInit: RequestInit = {}
+): Promise<ApiResponse<EvaluationComputeJob>> => {
+  const res = await apiCall(
+    `${BASE}/cycles/${cycleId}/compute-jobs/${jobId}/cancel`,
+    { method: 'POST', ...requestInit },
+    token
+  );
+  return unwrapData<EvaluationComputeJob>(res);
 };
 
 export const computeEvaluationMember = async (
   cycleId: string,
   memberId: string,
   payload: { strict?: boolean; evidenceMode?: string; recomputeExisting?: boolean } = {},
-  token?: string
+  token?: string,
+  requestInit: RequestInit = {}
 ): Promise<ApiResponse<any>> => {
   const res = await apiCall(`${BASE}/cycles/${cycleId}/members/${memberId}/compute`, {
     method: 'POST',
     body: JSON.stringify({ strict: false, evidenceMode: 'approval', recomputeExisting: true, ...payload }),
+    ...requestInit,
   }, token);
   return unwrapData<any>(res);
 };
@@ -489,13 +552,18 @@ export const computeEvaluationMember = async (
 export const getEvaluationMemberResults = async (
   cycleId: string,
   params: { classification?: string; status?: string; minScore?: number; maxScore?: number; unitCode?: string; page?: number; pageSize?: number } = {},
-  token?: string
+  token?: string,
+  options: { noCache?: boolean; requestInit?: RequestInit } = {}
 ): Promise<ApiResponse<{ items: MemberEvaluation[]; total: number }>> => {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
   });
-  const res = await apiCall(`${BASE}/cycles/${cycleId}/members${query.toString() ? `?${query.toString()}` : ''}`, {}, token);
+  const res = await apiCall(
+    addCacheBust(`${BASE}/cycles/${cycleId}/members${query.toString() ? `?${query.toString()}` : ''}`, options.noCache),
+    options.requestInit || {},
+    token
+  );
   return unwrapList<MemberEvaluation>(res);
 };
 
@@ -512,6 +580,15 @@ export const exportMemberEvaluationReportUrl = (cycleId: string, memberId: strin
 
 export const getEvaluationCycleSummary = async (cycleId: string, token?: string) => {
   const res = await apiCall(`${BASE}/cycles/${cycleId}/summary`, {}, token);
+  return unwrapData<EvaluationCycleSummary>(res);
+};
+
+export const getEvaluationCycleSummaryFresh = async (
+  cycleId: string,
+  token?: string,
+  requestInit: RequestInit = {}
+) => {
+  const res = await apiCall(addCacheBust(`${BASE}/cycles/${cycleId}/summary`, true), requestInit, token);
   return unwrapData<EvaluationCycleSummary>(res);
 };
 

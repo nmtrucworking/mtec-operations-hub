@@ -240,6 +240,14 @@ export const apiCall = async <T = any>(
 
     return apiResponse;
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return {
+        status: 0,
+        success: false,
+        error: 'Request cancelled'
+      };
+    }
+
     const message = error instanceof Error ? error.message : 'Unknown error';
     return {
       status: 0,
