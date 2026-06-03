@@ -34,7 +34,8 @@ import {
   getEvaluationComputeJob,
   cancelEvaluationComputeJob,
   EvaluationComputeJob,
-  exportMemberEvaluationReportUrl
+  exportMemberEvaluationReportUrl,
+  validateEvaluationCycleData
 } from '../../services/evaluations';
 import { EVALUATION_CLASSIFICATIONS, EVALUATION_UNIT_CODES } from '../../data/evaluations';
 import { ConfirmModal } from '../ui/ConfirmModal';
@@ -81,6 +82,11 @@ export const EvaluationResultsPanel = ({
   const [selectedResult, setSelectedResult] = useState<MemberEvaluation | null>(null);
   const [breakdowns, setBreakdowns] = useState<MemberEvaluationBreakdown[]>([]);
   const [isLoadingBreakdowns, setIsLoadingBreakdowns] = useState(false);
+
+  // Validation Report state
+  const [validationReportOpen, setValidationReportOpen] = useState(false);
+  const [validationReport, setValidationReport] = useState<any | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
 
   // Filters
   const [filterUnit, setFilterUnit] = useState('');
@@ -255,6 +261,36 @@ export const EvaluationResultsPanel = ({
     );
   };
 
+  const handleValidateCycleData = async () => {
+    setIsValidating(true);
+    try {
+      const res = await validateEvaluationCycleData(cycleId, { evidenceMode: 'approval', strict: true }, authToken);
+      if (res?.error) {
+        if (res.status === 422 && res.data?.detail && res.data.detail.code === 'EVALUATION_VALIDATION_ERROR') {
+          setValidationReport(res.data.detail.details);
+          setValidationReportOpen(true);
+          error(res.data.detail.message || 'Lỗi dữ liệu không hợp lệ.', 'Kiểm tra dữ liệu thất bại');
+        } else {
+          error(res.error || 'Lỗi không xác định khi kiểm tra dữ liệu.', 'Kiểm tra dữ liệu thất bại');
+        }
+      } else {
+        const report = res.data;
+        setValidationReport(report);
+        setValidationReportOpen(true);
+        if (report?.hasErrors) {
+          error(`Phát hiện ${report.errorsCount} lỗi dữ liệu trong chu kỳ.`, 'Kiểm tra dữ liệu thất bại');
+        } else {
+          success('Dữ liệu chu kỳ hợp lệ! Sẵn sàng tính điểm.', 'Kiểm tra thành công');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      error('Lỗi hệ thống khi kiểm tra dữ liệu.', 'Lỗi hệ thống');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
   const executeComputeCycle = async () => {
     // Open progress modal and start compute with a local elapsed-time heartbeat.
     setComputeModalOpen(true);
@@ -308,8 +344,16 @@ export const EvaluationResultsPanel = ({
       }
 
       if (res?.error) {
-        setComputeLogs(prev => [...prev, `ERROR: ${res.error}`]);
-        error(res.error || 'Lỗi không xác định khi tính toán kết quả.', 'Tính toán thất bại');
+        if (res.status === 422 && res.data?.detail && res.data.detail.code === 'EVALUATION_VALIDATION_ERROR') {
+          setValidationReport(res.data.detail.details);
+          setValidationReportOpen(true);
+          setComputeModalOpen(false); // Close progress modal
+          setComputeLogs(prev => [...prev, `ERROR: ${res.data.detail.message}`]);
+          error(res.data.detail.message || 'Lỗi dữ liệu không hợp lệ.', 'Kiểm tra dữ liệu thất bại');
+        } else {
+          setComputeLogs(prev => [...prev, `ERROR: ${res.error}`]);
+          error(res.error || 'Lỗi không xác định khi tính toán kết quả.', 'Tính toán thất bại');
+        }
         return;
       }
 
@@ -522,9 +566,18 @@ export const EvaluationResultsPanel = ({
               </Button>
             )}
             <Button
+              variant="outline"
+              onClick={handleValidateCycleData}
+              disabled={isComputing || isValidating}
+              className="flex items-center gap-2 rounded-xl border-orange-200 text-orange-600 bg-orange-50/50 hover:bg-orange-50 hover:text-orange-700 h-10"
+            >
+              {isValidating ? <Loader2 size={16} className="animate-spin" /> : <AlertTriangle size={16} />}
+              Kiểm tra dữ liệu
+            </Button>
+            <Button
               onClick={() => setIsConfirmComputeOpen(true)}
               disabled={isComputing}
-              className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0"
+              className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-focus hover:opacity-95 text-white rounded-xl shadow-md border-0 h-10"
             >
               {isComputing ? <Loader2 size={16} className="animate-spin mr-1" /> : <Play size={16} />}
               Chạy tính điểm toàn chu kỳ
@@ -805,6 +858,57 @@ export const EvaluationResultsPanel = ({
           </div>
         </div>
       </Modal>
+
+      {/* Validation Report Modal */}
+      {validationReport && (
+        <Modal
+          isOpen={validationReportOpen}
+          onClose={() => setValidationReportOpen(false)}
+          title="Kết quả kiểm tra dữ liệu chu kỳ"
+        >
+          <div className="space-y-4 pt-2 max-h-[60vh] overflow-y-auto pr-1">
+            {validationReport.hasErrors ? (
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                Phát hiện {validationReport.errorsCount} lỗi dữ liệu trong chu kỳ. Vui lòng khắc phục trước khi tính điểm:
+              </p>
+            ) : (
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                Không phát hiện lỗi dữ liệu nào. Dữ liệu hợp lệ để tính điểm!
+              </p>
+            )}
+
+            {validationReport.issues && validationReport.issues.length > 0 && (
+              <div className="space-y-3">
+                {validationReport.issues.map((issue: any, index: number) => (
+                  <div key={index} className="p-3 bg-card border border-border/60 rounded-xl space-y-1.5 shadow-sm">
+                    <div className="font-bold text-sm text-foreground flex justify-between">
+                      <span>{issue.name || 'Thành viên'} {issue.mssv ? `(${issue.mssv})` : ''}</span>
+                      <span className="text-xs text-secondary font-mono">{issue.memberId?.slice(0, 8)}</span>
+                    </div>
+                    <div className="space-y-1 pl-2.5 border-l-2 border-primary/45">
+                      {issue.errors?.map((err: any, idx: number) => (
+                        <p key={idx} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1">
+                          <span className="font-bold shrink-0">• [Lỗi] {err.code}:</span>
+                          <span>{err.message}</span>
+                        </p>
+                      ))}
+                      {issue.warnings?.map((warn: any, idx: number) => (
+                        <p key={idx} className="text-xs text-yellow-600 dark:text-yellow-500 flex items-start gap-1">
+                          <span className="font-bold shrink-0">• [Cảnh báo] {warn.code}:</span>
+                          <span>{warn.message}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end pt-4">
+              <Button variant="outline" className="rounded-xl" onClick={() => setValidationReportOpen(false)}>Đóng</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

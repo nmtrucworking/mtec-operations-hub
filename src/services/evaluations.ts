@@ -685,3 +685,16 @@ export const createEvaluationAppeal = async (
   }, token);
   return unwrapData<EvaluationAppeal>(res);
 };
+
+export const validateEvaluationCycleData = async (
+  cycleId: string,
+  params: { evidenceMode?: string; strict?: boolean } = {},
+  token?: string
+): Promise<ApiResponse<any>> => {
+  const query = new URLSearchParams();
+  if (params.evidenceMode) query.set('evidenceMode', params.evidenceMode);
+  if (params.strict !== undefined) query.set('strict', String(params.strict));
+  const res = await apiCall(`${BASE}/cycles/${cycleId}/validate${query.toString() ? `?${query.toString()}` : ''}`, {}, token);
+  return unwrapData<any>(res);
+};
+

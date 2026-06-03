@@ -72,6 +72,8 @@ export const EvaluationCyclesPanel = ({
   const [computeError, setComputeError] = useState<string | null>(null);
   const [pendingCycleId, setPendingCycleId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ cycleId: string, action: 'submit' | 'ready' | 'approve' | 'lock' | 'cancel', msg: string } | null>(null);
+  const [validationReportOpen, setValidationReportOpen] = useState(false);
+  const [validationReport, setValidationReport] = useState<any | null>(null);
   
   // Form state
   const [formType, setFormType] = useState<'create' | 'edit'>('create');
@@ -561,10 +563,16 @@ export const EvaluationCyclesPanel = ({
                       // show backend validation details when 422
                       if (res.status === 422 && res.data?.detail) {
                         const detail = res.data.detail;
-                        // Instead of overwriting missingDetails, show in computeError
-                        const errorMsg = detail.message || fmtError(res.error);
-                        setComputeError(errorMsg);
-                        error('Compute thất bại do dữ liệu không hợp lệ.', 'Compute thất bại');
+                        if (detail.code === 'EVALUATION_VALIDATION_ERROR') {
+                          setValidationReport(detail.details);
+                          setValidationReportOpen(true);
+                          setMissingModalOpen(false);
+                          error(detail.message || 'Lỗi dữ liệu không hợp lệ.', 'Kiểm tra dữ liệu thất bại');
+                        } else {
+                          const errorMsg = detail.message || fmtError(res.error);
+                          setComputeError(errorMsg);
+                          error('Compute thất bại do dữ liệu không hợp lệ.', 'Compute thất bại');
+                        }
                       } else {
                         setComputeError(fmtError(res.error) || 'Không thể chạy Compute.');
                         error('Không thể chạy Compute.', 'Compute thất bại');
@@ -605,6 +613,57 @@ export const EvaluationCyclesPanel = ({
         message={confirmAction?.msg || ''}
         isDestructive={confirmAction?.action === 'cancel'}
       />
+
+      {/* Validation Report Modal */}
+      {validationReport && (
+        <Modal
+          isOpen={validationReportOpen}
+          onClose={() => setValidationReportOpen(false)}
+          title="Kết quả kiểm tra dữ liệu chu kỳ"
+        >
+          <div className="space-y-4 pt-2 max-h-[60vh] overflow-y-auto pr-1">
+            {validationReport.hasErrors ? (
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                Phát hiện {validationReport.errorsCount} lỗi dữ liệu trong chu kỳ. Vui lòng khắc phục trước khi tính điểm:
+              </p>
+            ) : (
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                Không phát hiện lỗi dữ liệu nào. Dữ liệu hợp lệ để tính điểm!
+              </p>
+            )}
+
+            {validationReport.issues && validationReport.issues.length > 0 && (
+              <div className="space-y-3">
+                {validationReport.issues.map((issue: any, index: number) => (
+                  <div key={index} className="p-3 bg-card border border-border/60 rounded-xl space-y-1.5 shadow-sm">
+                    <div className="font-bold text-sm text-foreground flex justify-between">
+                      <span>{issue.name || 'Thành viên'} {issue.mssv ? `(${issue.mssv})` : ''}</span>
+                      <span className="text-xs text-secondary font-mono">{issue.memberId?.slice(0, 8)}</span>
+                    </div>
+                    <div className="space-y-1 pl-2.5 border-l-2 border-primary/45">
+                      {issue.errors?.map((err: any, idx: number) => (
+                        <p key={idx} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1">
+                          <span className="font-bold shrink-0">• [Lỗi] {err.code}:</span>
+                          <span>{err.message}</span>
+                        </p>
+                      ))}
+                      {issue.warnings?.map((warn: any, idx: number) => (
+                        <p key={idx} className="text-xs text-yellow-600 dark:text-yellow-500 flex items-start gap-1">
+                          <span className="font-bold shrink-0">• [Cảnh báo] {warn.code}:</span>
+                          <span>{warn.message}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end pt-4">
+              <Button variant="outline" className="rounded-xl" onClick={() => setValidationReportOpen(false)}>Đóng</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
