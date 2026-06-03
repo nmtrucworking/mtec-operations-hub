@@ -64,6 +64,18 @@ type MissingEvidenceMemberGroup = {
   eventCount: number;
 };
 
+type MissingEvidenceCriterionGroup = {
+  criterionId: string;
+  criterion?: EvaluationCriterion | null;
+  evidenceLabel: string;
+  events: EvaluationScoreEvent[];
+  members: Array<{
+    memberId: string;
+    member?: Member;
+    eventCount: number;
+  }>;
+};
+
 export const EvaluationEvidencePanel = ({ 
   authToken, 
   currentUser, 
@@ -94,7 +106,6 @@ export const EvaluationEvidencePanel = ({
   const [cycleRoles, setCycleRoles] = useState<MemberCycleRole[]>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   const [expandedMemberIds, setExpandedMemberIds] = useState<Set<string>>(new Set());
-  const [modalFilterDept, setModalFilterDept] = useState('');
 
   // Details Modal State
   const [detailsEvidenceId, setDetailsEvidenceId] = useState<string | null>(null);
@@ -268,35 +279,43 @@ export const EvaluationEvidencePanel = ({
   };
 
   useEffect(() => {
-    // compute missing events: score events whose criterion requires evidence and no pending/verified evidence linked
-    const mapEvidenceByEvent = new Map<string, number>();
-    const mapEvidenceByCriterionMember = new Map<string, number>();
+    // compute missing events by criterion across the whole cycle
+    const coveredEventIds = new Set<string>();
+    const eventsByCriterion = new Map<string, EvaluationScoreEvent[]>();
+
+    for (const event of scoreEvents) {
+      if (!event.criterionId) continue;
+      const arr = eventsByCriterion.get(event.criterionId) || [];
+      arr.push(event);
+      eventsByCriterion.set(event.criterionId, arr);
+    }
+
     for (const ev of evidenceList) {
-      if (ev.status === 'REJECTED') {
-        continue;
-      }
+      if (ev.status === 'REJECTED') continue;
+
       if (ev.appliedScoreEventIds && ev.appliedScoreEventIds.length > 0) {
         for (const scoreEventId of ev.appliedScoreEventIds) {
-          mapEvidenceByEvent.set(scoreEventId, (mapEvidenceByEvent.get(scoreEventId) || 0) + 1);
+          coveredEventIds.add(scoreEventId);
         }
         continue;
       }
+
       if (ev.scoreEventId) {
-        mapEvidenceByEvent.set(ev.scoreEventId, (mapEvidenceByEvent.get(ev.scoreEventId) || 0) + 1);
+        coveredEventIds.add(ev.scoreEventId);
         continue;
       }
+
       if (ev.criterionId) {
-        const key = `${ev.memberId}::${ev.criterionId}`;
-        mapEvidenceByCriterionMember.set(key, (mapEvidenceByCriterionMember.get(key) || 0) + 1);
+        for (const relatedEvent of eventsByCriterion.get(ev.criterionId) || []) {
+          coveredEventIds.add(relatedEvent.id);
+        }
       }
     }
 
     const missing = scoreEvents.filter(se => {
       const crit = criteriaMap.get(se.criterionId ?? '');
       const requires = crit ? crit.requiresEvidence : false;
-      const directCount = mapEvidenceByEvent.get(se.id) || 0;
-      const sharedCount = se.criterionId ? (mapEvidenceByCriterionMember.get(`${se.memberId}::${se.criterionId}`) || 0) : 0;
-      return requires && directCount + sharedCount === 0;
+      return requires && !coveredEventIds.has(se.id);
     });
     setMissingEvents(missing);
   }, [scoreEvents, evidenceList, criteriaMap]);
@@ -335,31 +354,6 @@ export const EvaluationEvidencePanel = ({
     return allMembers.filter(m => rolesMap.has(m.id));
   }, [allMembers, cycleRoles]);
 
-  // Filtered cycle members in modal
-  const filteredCycleMembers = useMemo(() => {
-    if (!modalFilterDept) return cycleMembers;
-    const memberIdsInDept = new Set(
-      cycleRoles
-        .filter(r => r.unitCode === modalFilterDept)
-        .map(r => r.memberId)
-    );
-    return cycleMembers.filter(m => memberIdsInDept.has(m.id));
-  }, [cycleMembers, cycleRoles, modalFilterDept]);
-
-
-  // Update member selection when filter changes
-  useEffect(() => {
-    if (formData.scoreEventId) return;
-
-    if (filteredCycleMembers.length > 0) {
-      if (!filteredCycleMembers.some(m => m.id === formData.memberId)) {
-        setFormData(prev => ({ ...prev, memberId: filteredCycleMembers[0].id }));
-      }
-    } else {
-      setFormData(prev => ({ ...prev, memberId: '' }));
-    }
-  }, [filteredCycleMembers, formData.memberId]);
-
   // Helper check roles
   const hasRole = (allowedRoles: UserRole[]) => {
     if (currentUser.roles && currentUser.roles.length > 0) {
@@ -373,13 +367,12 @@ export const EvaluationEvidencePanel = ({
   const canVerifyEvidence = hasRole(['bcn', 'bvh_discipline', 'bvh_hr', 'bcm']) && !isLocked;
 
   const handleOpenAddModal = () => {
-    setModalFilterDept('');
     setEvidenceContextEventId(null);
     setFormData({
       memberId: cycleMembers[0]?.id || '',
       criterionId: criteria[0]?.id || '',
       scoreEventId: '',
-      appliedScoreEventIds: [],
+      appliedScoreEventIds: scoreEvents.filter(event => event.criterionId === criteria[0]?.id && !event.isVoid).map(event => event.id),
       evidenceType: 'LINK',
       title: '',
       url: '',
@@ -388,26 +381,29 @@ export const EvaluationEvidencePanel = ({
     setIsModalOpen(true);
   };
 
-  const handleOpenMissingEvidenceModal = (record: MissingEvidenceRecordGroup, memberId: string) => {
-    const firstEvent = record.events[0];
-    const criterion = criteriaMap.get(firstEvent?.criterionId ?? '');
-    const member = memberMap.get(memberId);
-    const selectedEventIds = record.events.map(event => event.id);
-    const uniqueCriterionIds = Array.from(new Set(record.events.map(event => event.criterionId).filter(Boolean) as string[]));
+  const handleOpenMissingEvidenceModal = (
+    group: MissingEvidenceCriterionGroup | MissingEvidenceRecordGroup,
+    memberId?: string
+  ) => {
+    const criterionId = 'criterionId' in group && group.criterionId
+      ? group.criterionId
+      : group.events[0]?.criterionId || '';
+    const firstEvent = group.events[0];
+    const selectedEventIds = scoreEvents
+      .filter(event => event.criterionId === criterionId && !event.isVoid)
+      .map(event => event.id);
+    const evidenceLabel = 'evidenceLabel' in group ? group.evidenceLabel : (getEvidenceGroupingLabel(criteriaMap.get(criterionId)) || criterionId);
 
-    setModalFilterDept('');
     setEvidenceContextEventId(firstEvent?.id ?? null);
     setFormData({
-      memberId,
-      criterionId: uniqueCriterionIds.length === 1 ? uniqueCriterionIds[0] : '',
+      memberId: memberId || firstEvent?.memberId || cycleMembers[0]?.id || '',
+      criterionId,
       scoreEventId: '',
       appliedScoreEventIds: selectedEventIds,
       evidenceType: 'LINK',
-      title: criterion
-        ? `Minh chứng cụm ${record.evidenceLabel} - ${member?.name ?? memberId}`
-        : `Minh chứng cho ${member?.name ?? memberId}`,
+      title: `Minh chứng tiêu chí ${evidenceLabel}`,
       url: '',
-      description: `Bổ sung minh chứng cho cụm ${record.evidenceLabel} của ${member?.name ?? memberId}. Minh chứng này được gắn cho ${selectedEventIds.length} sự kiện trong chu kỳ hiện tại.`
+      description: `Bổ sung minh chứng cho tiêu chí ${evidenceLabel}. Minh chứng này áp dụng cho toàn bộ ${selectedEventIds.length} sự kiện của tiêu chí này trong chu kỳ hiện tại.`
     });
     setIsModalOpen(true);
   };
@@ -433,8 +429,8 @@ export const EvaluationEvidencePanel = ({
       return;
     }
 
-    if (evidenceContextEventId && formData.appliedScoreEventIds.length === 0) {
-      warning('Hãy chọn ít nhất một sự kiện để áp dụng minh chứng này.', 'Thiếu sự kiện áp dụng');
+    if (formData.criterionId && formData.appliedScoreEventIds.length === 0) {
+      warning('Hãy chọn ít nhất một sự kiện thuộc tiêu chí này để áp dụng minh chứng.', 'Thiếu sự kiện áp dụng');
       return;
     }
 
@@ -680,14 +676,13 @@ export const EvaluationEvidencePanel = ({
 
   const evidenceByScoreEvent = useMemo(() => {
     const grouped = new Map<string, EvaluationEvidence[]>();
-    const eventsByCriterionMember = new Map<string, EvaluationScoreEvent[]>();
+    const eventsByCriterion = new Map<string, EvaluationScoreEvent[]>();
 
     for (const event of scoreEvents) {
       if (!event.criterionId) continue;
-      const key = `${event.memberId}::${event.criterionId}`;
-      const current = eventsByCriterionMember.get(key) ?? [];
+      const current = eventsByCriterion.get(event.criterionId) ?? [];
       current.push(event);
-      eventsByCriterionMember.set(key, current);
+      eventsByCriterion.set(event.criterionId, current);
     }
 
     for (const evidence of evidenceList) {
@@ -707,7 +702,7 @@ export const EvaluationEvidencePanel = ({
       }
 
       if (!evidence.criterionId) continue;
-      const relatedEvents = eventsByCriterionMember.get(`${evidence.memberId}::${evidence.criterionId}`) ?? [];
+      const relatedEvents = eventsByCriterion.get(evidence.criterionId) ?? [];
       for (const event of relatedEvents) {
         const current = grouped.get(event.id) ?? [];
         current.push(evidence);
@@ -718,18 +713,18 @@ export const EvaluationEvidencePanel = ({
   }, [evidenceList, scoreEvents]);
 
   const candidateScoreEvents = useMemo(() => {
-    if (!formData.memberId) return [];
+    if (!formData.criterionId) return [];
     return scoreEvents
-      .filter(event => event.memberId === formData.memberId && !event.isVoid)
+      .filter(event => event.criterionId === formData.criterionId && !event.isVoid)
       .sort((left, right) => {
-        const leftCriterion = left.criterionCode || criteriaMap.get(left.criterionId || '')?.code || left.criterionId || '';
-        const rightCriterion = right.criterionCode || criteriaMap.get(right.criterionId || '')?.code || right.criterionId || '';
-        if (leftCriterion !== rightCriterion) {
-          return leftCriterion.localeCompare(rightCriterion);
+        const leftMember = memberMap.get(left.memberId)?.name || left.memberId;
+        const rightMember = memberMap.get(right.memberId)?.name || right.memberId;
+        if (leftMember !== rightMember) {
+          return leftMember.localeCompare(rightMember);
         }
         return (left.recordedAt || '').localeCompare(right.recordedAt || '');
       });
-  }, [criteriaMap, formData.memberId, scoreEvents]);
+  }, [formData.criterionId, memberMap, scoreEvents]);
 
   const selectedAppliedEvents = useMemo(() => {
     if (formData.appliedScoreEventIds.length === 0) return [];
@@ -807,15 +802,65 @@ export const EvaluationEvidencePanel = ({
 
   const selectedScoreEvent = activeEvidenceContextEvent;
   const selectedAppliedEventCount = formData.appliedScoreEventIds.length;
+  const missingEvidenceByCriterion = useMemo(() => {
+    const grouped = new Map<string, MissingEvidenceCriterionGroup>();
+
+    for (const event of missingEvents) {
+      const criterion = criteriaMap.get(event.criterionId ?? '');
+      const evidenceLabel = getEvidenceGroupingLabel(criterion);
+      const current = grouped.get(event.criterionId ?? '') ?? {
+        criterionId: event.criterionId ?? '',
+        criterion,
+        evidenceLabel,
+        events: [],
+        members: [],
+      };
+
+      current.events.push(event);
+      const memberEntry = current.members.find(item => item.memberId === event.memberId);
+      if (memberEntry) {
+        memberEntry.eventCount += 1;
+      } else {
+        current.members.push({
+          memberId: event.memberId,
+          member: memberMap.get(event.memberId),
+          eventCount: 1,
+        });
+      }
+      grouped.set(event.criterionId ?? '', current);
+    }
+
+    return Array.from(grouped.values())
+      .map(group => ({
+        ...group,
+        events: group.events.sort((left, right) => {
+          const leftMember = memberMap.get(left.memberId)?.name || left.memberId;
+          const rightMember = memberMap.get(right.memberId)?.name || right.memberId;
+          if (leftMember !== rightMember) return leftMember.localeCompare(rightMember);
+          return (left.criterionCode || '').localeCompare(right.criterionCode || '');
+        }),
+        members: group.members.sort((left, right) => (left.member?.name || left.memberId).localeCompare(right.member?.name || right.memberId)),
+      }))
+      .sort((left, right) => left.evidenceLabel.localeCompare(right.evidenceLabel));
+  }, [criteriaMap, getEvidenceGroupingLabel, memberMap, missingEvents]);
+
+  const missingCriterionCount = useMemo(
+    () => missingEvidenceByCriterion.length,
+    [missingEvidenceByCriterion]
+  );
+
   useEffect(() => {
-    if (!formData.memberId) return;
+    if (!formData.criterionId) return;
     setFormData(prev => {
       const validIds = new Set(candidateScoreEvents.map(event => event.id));
       const filteredIds = prev.appliedScoreEventIds.filter(id => validIds.has(id));
+      if (filteredIds.length === 0 && candidateScoreEvents.length > 0) {
+        return { ...prev, appliedScoreEventIds: candidateScoreEvents.map(event => event.id) };
+      }
       if (filteredIds.length === prev.appliedScoreEventIds.length) return prev;
       return { ...prev, appliedScoreEventIds: filteredIds };
     });
-  }, [candidateScoreEvents, formData.memberId]);
+  }, [candidateScoreEvents, formData.criterionId]);
 
   const toggleAppliedScoreEvent = (eventId: string) => {
     setFormData(prev => {
@@ -861,7 +906,82 @@ export const EvaluationEvidencePanel = ({
         )}
       </div>
 
-      {missingEvents.length > 0 ? (
+      {missingEvents.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={18} className="text-amber-600 dark:text-amber-300 shrink-0" />
+                <h4 className="font-bold text-foreground">Checklist minh chứng theo tiêu chí</h4>
+              </div>
+              <p className="text-sm text-secondary mt-1">
+                Có {missingEvents.length} sự kiện điểm chưa được che phủ, thuộc {missingCriterionCount} tiêu chí cần minh chứng.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
+                {missingCriterionCount} tiêu chí
+              </Badge>
+              <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
+                {missingEvents.length} sự kiện
+              </Badge>
+              <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
+                {missingEvidenceByCriterion.reduce((sum, group) => sum + group.members.length, 0)} thành viên ảnh hưởng
+              </Badge>
+            </div>
+          </div>
+
+          <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+            {missingEvidenceByCriterion.map(group => {
+              const previewMembers = group.members.slice(0, 3);
+              const remainingMembers = group.members.length - previewMembers.length;
+
+              return (
+                <div key={group.criterionId} className="bg-card border border-border/50 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 bg-muted/20 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-foreground truncate">{group.evidenceLabel}</div>
+                      <div className="text-xs text-secondary truncate">
+                        {group.criterion?.code || group.criterionId} • {group.members.length} thành viên • {group.events.length} sự kiện
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                        {group.members.length} thành viên
+                      </Badge>
+                      <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                        {group.events.length} sự kiện
+                      </Badge>
+                      {canSubmitEvidence && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenMissingEvidenceModal(group)}
+                          className="rounded-lg"
+                        >
+                          Nộp cụm này
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 text-xs text-secondary space-y-2">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      <span>{previewMembers.map(item => item.member?.name || item.memberId).join(', ')}</span>
+                      {remainingMembers > 0 ? <span>+{remainingMembers} thành viên nữa</span> : null}
+                    </div>
+                    <div>
+                      Áp dụng cho toàn bộ sự kiện cùng tiêu chí trong chu kỳ hiện tại.
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {false && missingEvents.length > 0 ? (
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
             <div className="min-w-0">
@@ -870,18 +990,18 @@ export const EvaluationEvidencePanel = ({
                 <h4 className="font-bold text-foreground">Checklist minh chứng còn thiếu</h4>
               </div>
               <p className="text-sm text-secondary mt-1">
-                Có {missingEvents.length} sự kiện điểm chưa được che phủ, tương ứng {missingRecordCount} cụm minh chứng đề xuất.
+                Có {missingEvents.length} sự kiện điểm chưa được che phủ, tương ứng {missingCriterionCount} tiêu chí cần minh chứng.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
-                {missingEvidenceByMember.length} thành viên
+                {missingCriterionCount} tiêu chí
               </Badge>
               <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
-                {missingRecordCount} cụm minh chứng
+                {missingEvents.length} sự kiện
               </Badge>
               <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
-                {missingEvents.length} sự kiện ảnh hưởng
+                {missingEvidenceByCriterion.reduce((sum, group) => sum + group.members.length, 0)} thành viên ảnh hưởng
               </Badge>
             </div>
           </div>
@@ -1187,10 +1307,10 @@ export const EvaluationEvidencePanel = ({
         }}
         title={
           selectedAppliedEventCount > 0
-            ? `Nộp minh chứng cho ${selectedAppliedEventCount} sự kiện`
+            ? `Nộp minh chứng cho tiêu chí ${getCriterionName(formData.criterionId)}`
             : formData.scoreEventId
               ? 'Nộp minh chứng cho mục còn thiếu'
-              : (evidenceContextEventId ? 'Nộp minh chứng theo cụm sự kiện' : 'Nộp minh chứng đánh giá mới')
+              : (evidenceContextEventId ? 'Nộp minh chứng theo tiêu chí' : 'Nộp minh chứng đánh giá mới')
         }
       >
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
@@ -1200,19 +1320,19 @@ export const EvaluationEvidencePanel = ({
               <div className="min-w-0">
                 <div className="font-bold text-foreground">
                   {selectedAppliedEventCount > 0
-                    ? `Đang nộp cho ${selectedAppliedEventCount} sự kiện`
+                    ? `Đang nộp cho tiêu chí ${getCriterionName(formData.criterionId)}`
                     : evidenceContextEventId
-                      ? 'Đang nộp minh chứng theo cụm sự kiện'
+                      ? 'Đang nộp minh chứng theo tiêu chí'
                       : 'Đang nộp minh chứng mới'}
                 </div>
                 <div className="text-sm text-secondary mt-1">
-                  {selectedScoreEvent.criterionCode || getCriterionName(selectedScoreEvent.criterionId)} • Điểm {formatScoreDelta(selectedScoreEvent.scoreDelta)}
+                  {selectedScoreEvent.criterionCode || getCriterionName(selectedScoreEvent.criterionId)} • {selectedAppliedEventCount} sự kiện trong chu kỳ
                 </div>
                 <div className="text-xs text-secondary mt-1 break-all">
                   {selectedAppliedEventCount > 0 ? (
                     <>
-                      {selectedAppliedEvents.slice(0, 3).map(event => event.criterionCode || getCriterionName(event.criterionId)).join(', ')}
-                      {selectedAppliedEventCount > 3 ? `, +${selectedAppliedEventCount - 3} sự kiện nữa` : ''}
+                      {selectedAppliedEvents.slice(0, 3).map(event => `${memberMap.get(event.memberId)?.name || event.memberId}`).join(', ')}
+                      {selectedAppliedEventCount > 3 ? `, +${selectedAppliedEventCount - 3} thành viên nữa` : ''}
                     </>
                   ) : (
                     <>Chưa chọn sự kiện nào để áp dụng minh chứng.</>
@@ -1222,50 +1342,19 @@ export const EvaluationEvidencePanel = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Lọc nhanh theo Ban
-              </label>
-              <Select
-                value={modalFilterDept}
-                onChange={e => setModalFilterDept(e.target.value)}
-                disabled={Boolean(formData.scoreEventId)}
-                className="w-full rounded-xl"
-              >
-                <option value="">-- Tất cả các Ban --</option>
-                {EVALUATION_UNIT_CODES.map(u => (
-                  <option key={u.value} value={u.value}>{u.label}</option>
-                ))}
-              </Select>
+          <div className="p-3 rounded-xl border border-border/60 bg-muted/10">
+            <div className="text-sm font-semibold text-foreground">Hệ thống tự chọn đại diện</div>
+            <div className="text-xs text-secondary mt-1">
+              Minh chứng được gắn theo tiêu chí và áp dụng cho toàn bộ sự kiện cùng tiêu chí trong chu kỳ. Trường thành viên chỉ còn là metadata nội bộ của record.
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Thành viên được chứng minh <span className="text-red-500">*</span>
-              </label>
-              <Select 
-                value={formData.memberId} 
-                onChange={e => {
-                  setEvidenceContextEventId(null);
-                  setFormData({ ...formData, memberId: e.target.value, scoreEventId: '', appliedScoreEventIds: [] });
-                }} 
-                disabled={Boolean(formData.scoreEventId)}
-                className="w-full rounded-xl"
-              >
-                {filteredCycleMembers.length === 0 ? (
-                  <option value="">Không có thành viên nào</option>
-                ) : (
-                  filteredCycleMembers.map(m => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.mssv})</option>
-                  ))
-                )}
-              </Select>
+            <div className="text-xs text-secondary mt-2 break-all">
+              Đại diện hiện tại: {memberMap.get(formData.memberId)?.name || formData.memberId || 'Chưa xác định'}
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">
-              Tiêu chí chứng minh <span className="text-xs text-secondary">(Chỉ hiển thị các tiêu chí bắt buộc minh chứng)</span>
+              Tiêu chí minh chứng <span className="text-xs text-secondary">(Áp dụng cho toàn bộ sự kiện cùng tiêu chí trong chu kỳ)</span>
             </label>
             <Select 
               value={formData.criterionId} 
