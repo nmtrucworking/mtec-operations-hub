@@ -111,6 +111,7 @@ export interface EvaluationEvidence {
   memberId: string;
   criterionId?: string | null;
   scoreEventId?: string | null;
+  appliedScoreEventIds?: string[];
   evidenceType: string;
   title: string;
   url?: string | null;
@@ -452,6 +453,7 @@ export const createEvaluationEvidence = async (cycleId: string, payload: {
   criterionId?: string;
   criterionCode?: string;
   scoreEventId?: string;
+  appliedScoreEventIds?: string[];
   evidenceType: string;
   title: string;
   url?: string;
