@@ -629,7 +629,10 @@ export const getEvaluationQuickReviewCycle = async (
   }
 
   const res = await apiCall(
-    `${BASE}/cycles/${cycleId}/quick-review${query.toString() ? `?${query.toString()}` : ''}`,
+    addCacheBust(
+      `${BASE}/cycles/${cycleId}/quick-review${query.toString() ? `?${query.toString()}` : ''}`,
+      true
+    ),
     {},
     token
   );
@@ -653,7 +656,10 @@ export const getEvaluationQuickReviewMember = async (
   }
 
   const res = await apiCall(
-    `${BASE}/cycles/${cycleId}/members/${memberId}/quick-review${query.toString() ? `?${query.toString()}` : ''}`,
+    addCacheBust(
+      `${BASE}/cycles/${cycleId}/members/${memberId}/quick-review${query.toString() ? `?${query.toString()}` : ''}`,
+      true
+    ),
     {},
     token
   );

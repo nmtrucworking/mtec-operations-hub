@@ -74,6 +74,7 @@ export const EvaluationCyclesPanel = ({
   const [confirmAction, setConfirmAction] = useState<{ cycleId: string, action: 'submit' | 'ready' | 'approve' | 'lock' | 'cancel', msg: string } | null>(null);
   const [validationReportOpen, setValidationReportOpen] = useState(false);
   const [validationReport, setValidationReport] = useState<any | null>(null);
+  const missingValidationReport = missingDetails?.validationReport ?? null;
   
   // Form state
   const [formType, setFormType] = useState<'create' | 'edit'>('create');
@@ -534,6 +535,60 @@ export const EvaluationCyclesPanel = ({
               <div className="text-sm">{missingDetails?.memberStatusCounts ? JSON.stringify(missingDetails.memberStatusCounts) : '{}'}</div>
             </div>
           </div>
+
+          {missingValidationReport && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Thiếu dữ liệu chi tiết</div>
+                  <div className="text-xs text-secondary">
+                    {missingValidationReport.hasErrors
+                      ? `Phát hiện ${missingValidationReport.errorsCount || 0} lỗi dữ liệu và ${missingValidationReport.warningsCount || 0} cảnh báo.`
+                      : 'Chưa có lỗi dữ liệu chi tiết.'}
+                  </div>
+                </div>
+                <Badge variant="outline" className="font-semibold">
+                  {missingValidationReport.issues?.length || 0} mục
+                </Badge>
+              </div>
+
+              {missingValidationReport.issues?.length > 0 ? (
+                <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+                  {missingValidationReport.issues.map((issue: any, index: number) => (
+                    <div key={`${issue.memberId || 'member'}-${index}`} className="p-3 bg-card border border-border/60 rounded-xl space-y-1.5">
+                      <div className="font-bold text-sm text-foreground flex justify-between gap-3">
+                        <span>
+                          {issue.name || 'Thành viên'}
+                          {issue.mssv ? ` (${issue.mssv})` : ''}
+                        </span>
+                        <span className="text-xs text-secondary font-mono">
+                          {issue.memberId ? issue.memberId.slice(0, 8) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="space-y-1 pl-2.5 border-l-2 border-primary/45">
+                        {(issue.errors || []).map((err: any, idx: number) => (
+                          <p key={`err-${idx}`} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1">
+                            <span className="font-bold shrink-0">• [Lỗi] {err.code}:</span>
+                            <span>{err.message}</span>
+                          </p>
+                        ))}
+                        {(issue.warnings || []).map((warn: any, idx: number) => (
+                          <p key={`warn-${idx}`} className="text-xs text-yellow-600 dark:text-yellow-500 flex items-start gap-1">
+                            <span className="font-bold shrink-0">• [Cảnh báo] {warn.code}:</span>
+                            <span>{warn.message}</span>
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                  Không có lỗi dữ liệu chi tiết ở cấp member/event. Nếu vẫn không thể hoàn tất, nguyên nhân thường là còn khiếu nại mở hoặc chu kỳ chưa có kết quả ổn định.
+                </div>
+              )}
+            </div>
+          )}
 
           {computeError && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
