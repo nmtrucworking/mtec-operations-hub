@@ -78,6 +78,7 @@ export const EvaluationEvidencePanel = ({
 
   // Details Modal State
   const [detailsEvidenceId, setDetailsEvidenceId] = useState<string | null>(null);
+  const [evidenceContextEventId, setEvidenceContextEventId] = useState<string | null>(null);
 
   const toggleExpand = (memberId: string) => {
     setExpandedMemberIds(prev => {
@@ -239,17 +240,27 @@ export const EvaluationEvidencePanel = ({
   useEffect(() => {
     // compute missing events: score events whose criterion requires evidence and no pending/verified evidence linked
     const mapEvidenceByEvent = new Map<string, number>();
+    const mapEvidenceByCriterionMember = new Map<string, number>();
     for (const ev of evidenceList) {
-      if (ev.scoreEventId && ev.status !== 'REJECTED') {
+      if (ev.status === 'REJECTED') {
+        continue;
+      }
+      if (ev.scoreEventId) {
         mapEvidenceByEvent.set(ev.scoreEventId, (mapEvidenceByEvent.get(ev.scoreEventId) || 0) + 1);
+        continue;
+      }
+      if (ev.criterionId) {
+        const key = `${ev.memberId}::${ev.criterionId}`;
+        mapEvidenceByCriterionMember.set(key, (mapEvidenceByCriterionMember.get(key) || 0) + 1);
       }
     }
 
     const missing = scoreEvents.filter(se => {
       const crit = criteriaMap.get(se.criterionId ?? '');
       const requires = crit ? crit.requiresEvidence : false;
-      const count = mapEvidenceByEvent.get(se.id) || 0;
-      return requires && count === 0;
+      const directCount = mapEvidenceByEvent.get(se.id) || 0;
+      const sharedCount = se.criterionId ? (mapEvidenceByCriterionMember.get(`${se.memberId}::${se.criterionId}`) || 0) : 0;
+      return requires && directCount + sharedCount === 0;
     });
     setMissingEvents(missing);
   }, [scoreEvents, evidenceList, criteriaMap]);
@@ -327,6 +338,7 @@ export const EvaluationEvidencePanel = ({
 
   const handleOpenAddModal = () => {
     setModalFilterDept('');
+    setEvidenceContextEventId(null);
     setFormData({
       memberId: cycleMembers[0]?.id || '',
       criterionId: criteria[0]?.id || '',
@@ -344,16 +356,17 @@ export const EvaluationEvidencePanel = ({
     const member = memberMap.get(event.memberId);
 
     setModalFilterDept('');
+    setEvidenceContextEventId(event.id);
     setFormData({
       memberId: event.memberId,
       criterionId: event.criterionId || '',
-      scoreEventId: event.id,
+      scoreEventId: '',
       evidenceType: 'LINK',
       title: criterion
-        ? `Minh chứng ${criterion.code} - ${member?.name ?? event.memberId}`
-        : `Minh chứng cho sự kiện ${event.id}`,
+        ? `Minh chứng tiêu chí ${criterion.code} - ${member?.name ?? event.memberId}`
+        : `Minh chứng cho ${member?.name ?? event.memberId}`,
       url: '',
-      description: `Bổ sung minh chứng cho tiêu chí ${event.criterionCode || criterion?.code || event.criterionId}. Điểm ghi nhận: ${event.scoreDelta}.`
+      description: `Bổ sung minh chứng cấp tiêu chí cho ${event.criterionCode || criterion?.code || event.criterionId}. Minh chứng này sẽ được dùng chung cho các sự kiện cùng tiêu chí nếu phù hợp. Điểm ghi nhận: ${event.scoreDelta}.`
     });
     setIsModalOpen(true);
   };
@@ -381,7 +394,7 @@ export const EvaluationEvidencePanel = ({
 
     setIsSubmitting(true);
     try {
-      const res = await createEvaluationEvidence(cycleId, {
+    const res = await createEvaluationEvidence(cycleId, {
         memberId: formData.memberId,
         criterionId: formData.criterionId || undefined,
         scoreEventId: formData.scoreEventId || undefined,
@@ -597,6 +610,12 @@ export const EvaluationEvidencePanel = ({
     return found ? found.label : type;
   };
 
+  const getEvidenceScopeLabel = (evidence: EvaluationEvidence) => {
+    if (evidence.scoreEventId) return 'Sự kiện';
+    if (evidence.criterionId) return 'Tiêu chí';
+    return 'Đánh giá chung';
+  };
+
   const getCriterionName = (id?: string | null) => {
     if (!id) return 'Đánh giá chung';
     const c = criteriaMap.get(id);
@@ -605,14 +624,39 @@ export const EvaluationEvidencePanel = ({
 
   const evidenceByScoreEvent = useMemo(() => {
     const grouped = new Map<string, EvaluationEvidence[]>();
+    const eventsByCriterionMember = new Map<string, EvaluationScoreEvent[]>();
+
+    for (const event of scoreEvents) {
+      if (!event.criterionId) continue;
+      const key = `${event.memberId}::${event.criterionId}`;
+      const current = eventsByCriterionMember.get(key) ?? [];
+      current.push(event);
+      eventsByCriterionMember.set(key, current);
+    }
+
     for (const evidence of evidenceList) {
-      if (!evidence.scoreEventId) continue;
-      const current = grouped.get(evidence.scoreEventId) ?? [];
-      current.push(evidence);
-      grouped.set(evidence.scoreEventId, current);
+      if (evidence.scoreEventId) {
+        const current = grouped.get(evidence.scoreEventId) ?? [];
+        current.push(evidence);
+        grouped.set(evidence.scoreEventId, current);
+        continue;
+      }
+
+      if (!evidence.criterionId) continue;
+      const relatedEvents = eventsByCriterionMember.get(`${evidence.memberId}::${evidence.criterionId}`) ?? [];
+      for (const event of relatedEvents) {
+        const current = grouped.get(event.id) ?? [];
+        current.push(evidence);
+        grouped.set(event.id, current);
+      }
     }
     return grouped;
-  }, [evidenceList]);
+  }, [evidenceList, scoreEvents]);
+
+  const activeEvidenceContextEvent = useMemo(
+    () => scoreEvents.find(event => event.id === (formData.scoreEventId || evidenceContextEventId)) ?? null,
+    [evidenceContextEventId, formData.scoreEventId, scoreEvents]
+  );
 
   const missingEventsByMember = useMemo(() => {
     const grouped = new Map<string, EvaluationScoreEvent[]>();
@@ -631,10 +675,7 @@ export const EvaluationEvidencePanel = ({
       .sort((left, right) => (left.member?.name || left.memberId).localeCompare(right.member?.name || right.memberId));
   }, [missingEvents, memberMap]);
 
-  const selectedScoreEvent = useMemo(
-    () => scoreEvents.find(event => event.id === formData.scoreEventId) ?? null,
-    [formData.scoreEventId, scoreEvents]
-  );
+  const selectedScoreEvent = activeEvidenceContextEvent;
 
   const formatScoreDelta = (value: number) => (value > 0 ? `+${value}` : String(value));
 
@@ -772,7 +813,7 @@ export const EvaluationEvidencePanel = ({
                                 onClick={() => handleOpenMissingEvidenceModal(event)}
                               >
                                 <FileCheck size={14} className="mr-1.5" />
-                                {rejectedEvidence ? 'Nộp lại' : 'Nộp minh chứng'}
+                                {rejectedEvidence ? 'Nộp lại' : 'Nộp theo tiêu chí'}
                               </Button>
                             )}
                           </div>
@@ -923,6 +964,7 @@ export const EvaluationEvidencePanel = ({
                                 <TableCell className="font-semibold max-w-[200px] truncate" title={ev.title}>{ev.title}</TableCell>
                                 <TableCell className="text-sm font-medium max-w-[150px] truncate" title={getCriterionName(ev.criterionId)}>
                                   {getCriterionName(ev.criterionId)}
+                                  <div className="mt-1 text-xs text-secondary">{getEvidenceScopeLabel(ev)}</div>
                                 </TableCell>
                                 <TableCell className="text-xs font-semibold text-secondary-foreground">{getEvidenceTypeLabel(ev.evidenceType)}</TableCell>
                                 <TableCell className="max-w-[200px]">
@@ -992,19 +1034,32 @@ export const EvaluationEvidencePanel = ({
       {/* Add Evidence Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={formData.scoreEventId ? 'Nộp minh chứng cho mục còn thiếu' : 'Nộp minh chứng đánh giá mới'}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEvidenceContextEventId(null);
+        }}
+        title={formData.scoreEventId ? 'Nộp minh chứng cho mục còn thiếu' : (evidenceContextEventId ? 'Nộp minh chứng theo tiêu chí' : 'Nộp minh chứng đánh giá mới')}
       >
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
           {selectedScoreEvent && (
             <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-3">
               <Info size={18} className="text-primary shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <div className="font-bold text-foreground">Đang nộp cho sự kiện điểm cụ thể</div>
+                <div className="font-bold text-foreground">
+                  {evidenceContextEventId && !formData.scoreEventId
+                    ? 'Đang nộp minh chứng cấp tiêu chí'
+                    : 'Đang nộp cho sự kiện điểm cụ thể'}
+                </div>
                 <div className="text-sm text-secondary mt-1">
                   {selectedScoreEvent.criterionCode || getCriterionName(selectedScoreEvent.criterionId)} • Điểm {formatScoreDelta(selectedScoreEvent.scoreDelta)}
                 </div>
-                <div className="text-xs text-secondary mt-1 break-all">Sự kiện: {selectedScoreEvent.id}</div>
+                <div className="text-xs text-secondary mt-1 break-all">
+                  {evidenceContextEventId && !formData.scoreEventId ? (
+                    <>Áp dụng cho các sự kiện cùng tiêu chí trong cùng chu kỳ và cùng thành viên.</>
+                  ) : (
+                    <>Sự kiện: {selectedScoreEvent.id}</>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1237,7 +1292,10 @@ export const EvaluationEvidencePanel = ({
                   <div className="text-xs text-secondary mb-1">Nội dung nộp</div>
                   <div className="font-bold text-base mb-2">{ev.title}</div>
                   <div className="grid grid-cols-2 gap-2 text-sm mt-2">
-                    <div><span className="text-xs text-secondary mr-2">Tiêu chí:</span> {getCriterionName(ev.criterionId)}</div>
+                    <div>
+                      <span className="text-xs text-secondary mr-2">Tiêu chí:</span> {getCriterionName(ev.criterionId)}
+                    </div>
+                    <div><span className="text-xs text-secondary mr-2">Phạm vi:</span> {getEvidenceScopeLabel(ev)}</div>
                     <div><span className="text-xs text-secondary mr-2">Loại MH:</span> {getEvidenceTypeLabel(ev.evidenceType)}</div>
                   </div>
                   
@@ -1363,6 +1421,7 @@ export const EvaluationEvidencePanel = ({
                   <div className="min-w-0">
                     <div className="font-medium truncate">{ev.title} <span className="text-xs text-secondary">• {getCriterionName(ev.criterionId)}</span></div>
                     <div className="text-xs text-secondary truncate">{member ? member.name : ev.memberId} • Sự kiện {ev.scoreEventId || ev.id}</div>
+                    <div className="text-xs text-secondary truncate">Phạm vi: {getEvidenceScopeLabel(ev)}</div>
                     {st.status === 'error' && st.message && (
                       <div className="mt-1 text-xs text-red-600">Lỗi: {st.message}</div>
                     )}
