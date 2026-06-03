@@ -120,25 +120,37 @@ export const EvaluationEvidencePanel = ({
   const [requestTargetMemberId, setRequestTargetMemberId] = useState<string | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
   const [requestedMembers, setRequestedMembers] = useState<Set<string>>(new Set());
+  const evidenceRequestSeqRef = React.useRef(0);
+  const rolesRequestSeqRef = React.useRef(0);
+  const criteriaRequestSeqRef = React.useRef(0);
+  const scoreEventsRequestSeqRef = React.useRef(0);
 
   useEffect(() => {
+    const requestSeq = ++rolesRequestSeqRef.current;
     const fetchCycleRoles = async () => {
       setIsLoadingRoles(true);
       try {
         const res = await getMemberCycleRoles(cycleId, { pageSize: 1000 }, authToken);
+        if (requestSeq !== rolesRequestSeqRef.current) {
+          return;
+        }
+
         if (res?.data?.items) {
           setCycleRoles(res.data.items);
         }
       } catch (err) {
         console.error('Error fetching cycle roles:', err);
       } finally {
-        setIsLoadingRoles(false);
+        if (requestSeq === rolesRequestSeqRef.current) {
+          setIsLoadingRoles(false);
+        }
       }
     };
     fetchCycleRoles();
   }, [authToken, cycleId]);
 
   const fetchEvidenceList = async () => {
+    const requestSeq = ++evidenceRequestSeqRef.current;
     setIsLoading(true);
     try {
       const params: any = { pageSize: 1000 };
@@ -146,22 +158,36 @@ export const EvaluationEvidencePanel = ({
       if (filterStatus) params.status = filterStatus;
 
       const res = await getEvaluationEvidence(cycleId, params, authToken);
+      if (requestSeq !== evidenceRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         setEvidenceList(res.data.items);
       } else if (res?.error) {
         error(fmtError(res.error) || 'Lỗi tải minh chứng', 'Lỗi tải minh chứng');
       }
     } catch (err) {
+      if (requestSeq !== evidenceRequestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Đã xảy ra lỗi khi tải danh sách minh chứng.', 'Lỗi tải dữ liệu');
     } finally {
-      setIsLoading(false);
+      if (requestSeq === evidenceRequestSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   const fetchCriteriaList = async () => {
+    const requestSeq = ++criteriaRequestSeqRef.current;
     try {
-      const res = await getEvaluationCriteria({ isActive: true, pageSize: 1000 }, authToken);
+      const res = await getEvaluationCriteria({ isActive: true, pageSize: 1000, cycleId }, authToken);
+      if (requestSeq !== criteriaRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         // Only select criteria that require evidence
         const filtered = res.data.items.filter(c => c.requiresEvidence);
@@ -171,18 +197,30 @@ export const EvaluationEvidencePanel = ({
         }
       }
     } catch (err) {
+      if (requestSeq !== criteriaRequestSeqRef.current) {
+        return;
+      }
       console.error('Error fetching criteria:', err);
     }
   };
 
   useEffect(() => {
+    setEvidenceList([]);
+    setMissingEvents([]);
+    setCycleRoles([]);
+    setScoreEvents([]);
     fetchEvidenceList();
   }, [authToken, cycleId, filterMemberId, filterStatus]);
 
   useEffect(() => {
+    const requestSeq = ++scoreEventsRequestSeqRef.current;
     const fetchScoreEvents = async () => {
       try {
         const res = await getEvaluationScoreEvents(cycleId, { pageSize: 1000 }, authToken);
+        if (requestSeq !== scoreEventsRequestSeqRef.current) {
+          return;
+        }
+
         if (res?.data?.items) {
           setScoreEvents(res.data.items);
         }
@@ -217,8 +255,9 @@ export const EvaluationEvidencePanel = ({
   }, [scoreEvents, evidenceList, criteriaMap]);
 
   useEffect(() => {
+    setCriteria([]);
     fetchCriteriaList();
-  }, [authToken]);
+  }, [authToken, cycleId]);
 
   const CheckingIndicator = ({ small = false }: { small?: boolean }) => (
     <div className={`inline-flex items-center gap-2 ${small ? 'text-sm' : 'text-base'}`}>

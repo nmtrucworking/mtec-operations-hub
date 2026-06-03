@@ -89,25 +89,35 @@ export const EvaluationScoreEventsPanel = ({
   const [filterMemberId, setFilterMemberId] = useState('');
   const [filterCriterionCode, setFilterCriterionCode] = useState('');
   const [filterEventType, setFilterEventType] = useState('');
+  const eventsRequestSeqRef = React.useRef(0);
+  const rolesRequestSeqRef = React.useRef(0);
+  const criteriaRequestSeqRef = React.useRef(0);
 
   useEffect(() => {
+    const requestSeq = ++rolesRequestSeqRef.current;
     const fetchCycleRoles = async () => {
       setIsLoadingRoles(true);
       try {
         const res = await getMemberCycleRoles(cycleId, { pageSize: 1000 }, authToken);
+        if (requestSeq !== rolesRequestSeqRef.current) {
+          return;
+        }
         if (res?.data?.items) {
           setCycleRoles(res.data.items);
         }
       } catch (err) {
         console.error('Error fetching cycle roles:', err);
       } finally {
-        setIsLoadingRoles(false);
+        if (requestSeq === rolesRequestSeqRef.current) {
+          setIsLoadingRoles(false);
+        }
       }
     };
     fetchCycleRoles();
   }, [authToken, cycleId]);
 
   const fetchEventsList = async () => {
+    const requestSeq = ++eventsRequestSeqRef.current;
     setIsLoading(true);
     try {
       const params: any = { pageSize: 1000 };
@@ -116,22 +126,34 @@ export const EvaluationScoreEventsPanel = ({
       if (filterEventType) params.eventType = filterEventType;
 
       const res = await getEvaluationScoreEvents(cycleId, params, authToken);
+      if (requestSeq !== eventsRequestSeqRef.current) {
+        return;
+      }
       if (res?.data?.items) {
         setEvents(res.data.items);
       } else if (res?.error) {
         error(res.error, 'Lỗi tải sự kiện điểm');
       }
     } catch (err) {
+      if (requestSeq !== eventsRequestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Đã xảy ra lỗi khi tải danh sách sự kiện điểm.', 'Lỗi tải dữ liệu');
     } finally {
-      setIsLoading(false);
+      if (requestSeq === eventsRequestSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   const fetchCriteriaList = async () => {
+    const requestSeq = ++criteriaRequestSeqRef.current;
     try {
-      const res = await getEvaluationCriteria({ isActive: true, pageSize: 100 }, authToken);
+      const res = await getEvaluationCriteria({ isActive: true, pageSize: 100, cycleId }, authToken);
+      if (requestSeq !== criteriaRequestSeqRef.current) {
+        return;
+      }
       if (res?.data?.items) {
         const items = res.data.items;
         setCriteria(items);
@@ -140,17 +162,23 @@ export const EvaluationScoreEventsPanel = ({
         }
       }
     } catch (err) {
+      if (requestSeq !== criteriaRequestSeqRef.current) {
+        return;
+      }
       console.error('Error fetching criteria:', err);
     }
   };
 
   useEffect(() => {
+    setEvents([]);
+    setCycleRoles([]);
     fetchEventsList();
   }, [authToken, cycleId, filterMemberId, filterCriterionCode, filterEventType]);
 
   useEffect(() => {
+    setCriteria([]);
     fetchCriteriaList();
-  }, [authToken]);
+  }, [authToken, cycleId]);
 
   // Create member mapping
   const memberMap = useMemo(() => {

@@ -87,12 +87,16 @@ export const EvaluationResultsPanel = ({
   const [validationReportOpen, setValidationReportOpen] = useState(false);
   const [validationReport, setValidationReport] = useState<any | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const resultsRequestSeqRef = useRef(0);
+  const rolesRequestSeqRef = useRef(0);
+  const breakdownRequestSeqRef = useRef(0);
 
   // Filters
   const [filterUnit, setFilterUnit] = useState('');
   const [filterClassification, setFilterClassification] = useState('');
 
   const fetchResultsList = async (fresh = false) => {
+    const requestSeq = ++resultsRequestSeqRef.current;
     setIsLoading(true);
     try {
       const params: any = { pageSize: 1000 };
@@ -100,6 +104,10 @@ export const EvaluationResultsPanel = ({
       if (filterClassification) params.classification = filterClassification;
 
       const res = await getEvaluationMemberResults(cycleId, params, authToken, { noCache: fresh });
+      if (requestSeq !== resultsRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         setResults(res.data.items);
       } else if (res?.error) {
@@ -114,13 +122,21 @@ export const EvaluationResultsPanel = ({
   };
 
   useEffect(() => {
+    setResults([]);
+    setCycleRoles([]);
     fetchResultsList();
   }, [authToken, cycleId, filterUnit, filterClassification]);
 
   useEffect(() => {
+    setCycleRoles([]);
+    const requestSeq = ++rolesRequestSeqRef.current;
     const fetchCycleRoles = async () => {
       try {
         const res = await getMemberCycleRoles(cycleId, { pageSize: 1000 }, authToken);
+        if (requestSeq !== rolesRequestSeqRef.current) {
+          return;
+        }
+
         if (res?.data?.items) {
           setCycleRoles(res.data.items);
         }
@@ -447,6 +463,7 @@ export const EvaluationResultsPanel = ({
   };
 
   const handleOpenBreakdown = async (result: MemberEvaluation, member: Member) => {
+    const requestSeq = ++breakdownRequestSeqRef.current;
     setSelectedMember(member);
     setSelectedResult(result);
     setBreakdowns([]);
@@ -455,6 +472,10 @@ export const EvaluationResultsPanel = ({
 
     try {
       const res = await getEvaluationMemberBreakdowns(cycleId, member.id, authToken);
+      if (requestSeq !== breakdownRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         setBreakdowns(res.data.items);
       } else if (res?.error) {
@@ -464,7 +485,9 @@ export const EvaluationResultsPanel = ({
       console.error(err);
       error('Lỗi hệ thống khi tải chi tiết điểm.', 'Lỗi tải breakdown');
     } finally {
-      setIsLoadingBreakdowns(false);
+      if (requestSeq === breakdownRequestSeqRef.current) {
+        setIsLoadingBreakdowns(false);
+      }
     }
   };
 

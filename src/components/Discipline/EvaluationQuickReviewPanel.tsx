@@ -32,12 +32,14 @@ export const EvaluationQuickReviewPanel = ({
   const { error } = useToast();
   const [data, setData] = useState<EvaluationQuickReviewCycle | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const requestSeqRef = React.useRef(0);
 
   const memberMap = useMemo(() => {
     return new Map(allMembers.map((member) => [member.id, member]));
   }, [allMembers]);
 
   const fetchQuickReview = async () => {
+    const requestSeq = ++requestSeqRef.current;
     setIsLoading(true);
     try {
       const res = await getEvaluationQuickReviewCycle(
@@ -45,6 +47,10 @@ export const EvaluationQuickReviewPanel = ({
         { strict: false, evidenceMode: 'draft' },
         authToken
       );
+
+      if (requestSeq !== requestSeqRef.current) {
+        return;
+      }
 
       if (res.error) {
         error(res.error, 'Không tải được Quick Review');
@@ -54,14 +60,20 @@ export const EvaluationQuickReviewPanel = ({
 
       setData(res.data || null);
     } catch (err) {
+      if (requestSeq !== requestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Lỗi hệ thống khi tải Quick Review.', 'Quick Review');
     } finally {
-      setIsLoading(false);
+      if (requestSeq === requestSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    setData(null);
     fetchQuickReview();
   }, [authToken, cycleId]);
 

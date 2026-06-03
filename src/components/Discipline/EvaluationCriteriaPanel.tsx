@@ -17,9 +17,10 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 interface EvaluationCriteriaPanelProps {
   authToken?: string;
   currentUser: UserAccount;
+  cycleId?: string | null;
 }
 
-export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCriteriaPanelProps) => {
+export const EvaluationCriteriaPanel = ({ authToken, currentUser, cycleId }: EvaluationCriteriaPanelProps) => {
   const { success, error } = useToast();
   const [criteria, setCriteria] = useState<EvaluationCriterion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,37 +31,51 @@ export const EvaluationCriteriaPanel = ({ authToken, currentUser }: EvaluationCr
   const [selectedCriterion, setSelectedCriterion] = useState<EvaluationCriterion | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfirmSeedOpen, setIsConfirmSeedOpen] = useState(false);
+  const criteriaRequestSeqRef = React.useRef(0);
 
   const fetchCriteriaList = async () => {
+    const requestSeq = ++criteriaRequestSeqRef.current;
     setIsLoading(true);
     try {
       const params: {
         component?: string;
         unitCode?: string;
         isActive?: boolean;
+        cycleId?: string;
         pageSize?: number;
       } = { pageSize: 1000 };
       if (filterComponent) params.component = filterComponent;
       if (filterUnit) params.unitCode = filterUnit;
       if (filterActive !== '') params.isActive = filterActive === 'true';
+      if (cycleId) params.cycleId = cycleId;
 
       const res = await getEvaluationCriteria(params, authToken);
+      if (requestSeq !== criteriaRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         setCriteria(res.data.items);
       } else if (res?.error) {
         error(res.error, 'Lỗi tải tiêu chí');
       }
     } catch (err) {
+      if (requestSeq !== criteriaRequestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Đã xảy ra lỗi khi tải danh sách tiêu chí.', 'Lỗi tải tiêu chí');
     } finally {
-      setIsLoading(false);
+      if (requestSeq === criteriaRequestSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    setCriteria([]);
     fetchCriteriaList();
-  }, [authToken, filterComponent, filterUnit, filterActive]);
+  }, [authToken, filterComponent, filterUnit, filterActive, cycleId]);
 
   const hasRole = (allowedRoles: UserRole[]) => {
     if (currentUser.roles && currentUser.roles.length > 0) {

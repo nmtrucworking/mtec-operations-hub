@@ -46,11 +46,30 @@ export const EvaluationSyncPanel = ({
   const [isSyncingCompetition, setIsSyncingCompetition] = useState(false);
 
   const [confirmSyncAction, setConfirmSyncAction] = useState<{ type: 'attendance' | 'competition', msg: string } | null>(null);
+  const meetingsRequestSeqRef = React.useRef(0);
+  const competitionsRequestSeqRef = React.useRef(0);
+
+  const getLocalDateString = (dateInput: any) => {
+    try {
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch {
+      return '';
+    }
+  };
 
   const fetchMeetingsList = async () => {
+    const requestSeq = ++meetingsRequestSeqRef.current;
     setIsLoadingMeetings(true);
     try {
       const res = await getMeetings(authToken);
+      if (requestSeq !== meetingsRequestSeqRef.current) {
+        return;
+      }
       if (res.error) {
         error(res.error, 'Không tải được danh sách cuộc họp');
         setMeetings([]);
@@ -59,20 +78,34 @@ export const EvaluationSyncPanel = ({
       }
 
       const data = Array.isArray(res.data) ? res.data : [];
-      setMeetings(data);
-      setSelectedMeetingId(data[0]?.id || '');
+      const filtered = data.filter((m: Meeting) => {
+        if (!m.date) return false;
+        const mDateStr = getLocalDateString(m.date);
+        return mDateStr >= cycle.startDate && mDateStr <= cycle.endDate;
+      });
+      setMeetings(filtered);
+      setSelectedMeetingId(filtered[0]?.id || '');
     } catch (err) {
+      if (requestSeq !== meetingsRequestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Lỗi hệ thống khi tải danh sách cuộc họp.', 'Đồng bộ');
     } finally {
-      setIsLoadingMeetings(false);
+      if (requestSeq === meetingsRequestSeqRef.current) {
+        setIsLoadingMeetings(false);
+      }
     }
   };
 
   const fetchCompetitionsList = async () => {
+    const requestSeq = ++competitionsRequestSeqRef.current;
     setIsLoadingCompetitions(true);
     try {
       const res = await getCompetitions(authToken);
+      if (requestSeq !== competitionsRequestSeqRef.current) {
+        return;
+      }
       if (res.error) {
         error(res.error, 'Không tải được danh sách cuộc thi');
         setCompetitions([]);
@@ -81,20 +114,34 @@ export const EvaluationSyncPanel = ({
       }
 
       const data = Array.isArray(res.data) ? res.data : [];
-      setCompetitions(data);
-      setSelectedCompetitionId(data[0]?.id || '');
+      const filtered = data.filter((c: Competition) => {
+        if (!c.date) return false;
+        const cDateStr = getLocalDateString(c.date);
+        return cDateStr >= cycle.startDate && cDateStr <= cycle.endDate;
+      });
+      setCompetitions(filtered);
+      setSelectedCompetitionId(filtered[0]?.id || '');
     } catch (err) {
+      if (requestSeq !== competitionsRequestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Lỗi hệ thống khi tải danh sách cuộc thi.', 'Đồng bộ');
     } finally {
-      setIsLoadingCompetitions(false);
+      if (requestSeq === competitionsRequestSeqRef.current) {
+        setIsLoadingCompetitions(false);
+      }
     }
   };
 
   useEffect(() => {
+    setMeetings([]);
+    setCompetitions([]);
+    setSelectedMeetingId('');
+    setSelectedCompetitionId('');
     fetchMeetingsList();
     fetchCompetitionsList();
-  }, [authToken]);
+  }, [authToken, cycleId]);
 
   // Helper check roles
   const hasRole = (allowedRoles: UserRole[]) => {

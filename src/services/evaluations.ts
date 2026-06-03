@@ -346,12 +346,13 @@ export const seedEvaluationCriteria = async (
 };
 
 export const getEvaluationCriteria = async (
-  params: { component?: string; unitCode?: string; isActive?: boolean; search?: string; page?: number; pageSize?: number } = {},
+  params: { component?: string; unitCode?: string; cycleId?: string; isActive?: boolean; search?: string; page?: number; pageSize?: number } = {},
   token?: string
 ): Promise<ApiResponse<{ items: EvaluationCriterion[]; total: number }>> => {
   const query = new URLSearchParams();
   if (params.component) query.set('component', params.component);
   if (params.unitCode) query.set('unitCode', params.unitCode);
+  if (params.cycleId) query.set('cycleId', params.cycleId);
   if (params.isActive !== undefined) query.set('isActive', String(params.isActive));
   if (params.search) query.set('search', params.search);
   if (params.page) query.set('page', String(params.page));
@@ -697,4 +698,3 @@ export const validateEvaluationCycleData = async (
   const res = await apiCall(`${BASE}/cycles/${cycleId}/validate${query.toString() ? `?${query.toString()}` : ''}`, {}, token);
   return unwrapData<any>(res);
 };
-

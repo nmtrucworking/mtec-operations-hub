@@ -60,6 +60,7 @@ export const EvaluationMemberRolesPanel = ({
   const [filterDept, setFilterDept] = useState<string>('');
   const [editingRole, setEditingRole] = useState<MemberCycleRole | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ roleId: string, memberName: string } | null>(null);
+  const rolesRequestSeqRef = React.useRef(0);
 
   // Filtered members for selector in Modal
   const filteredMembers = useMemo(() => {
@@ -138,23 +139,34 @@ export const EvaluationMemberRolesPanel = ({
   }, [formData.memberId, editingRole, allMembers]);
 
   const fetchRolesList = async () => {
+    const requestSeq = ++rolesRequestSeqRef.current;
     setIsLoading(true);
     try {
       const res = await getMemberCycleRoles(cycleId, { pageSize: 1000 }, authToken);
+      if (requestSeq !== rolesRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         setRoles(res.data.items);
       } else if (res?.error) {
         error(res.error, 'Lỗi tải danh sách vai trò');
       }
     } catch (err) {
+      if (requestSeq !== rolesRequestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Đã xảy ra lỗi khi tải danh sách vai trò thành viên.', 'Lỗi tải vai trò');
     } finally {
-      setIsLoading(false);
+      if (requestSeq === rolesRequestSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    setRoles([]);
     fetchRolesList();
   }, [authToken, cycleId]);
 

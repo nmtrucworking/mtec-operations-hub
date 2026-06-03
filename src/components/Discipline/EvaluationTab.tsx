@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardCheck,
   Scale,
@@ -57,55 +57,80 @@ type InnerTabType =
 export const EvaluationTab = ({ authToken, currentUser, allMembers }: EvaluationTabProps) => {
   const { t } = useTranslation();
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
-  const [selectedCycle, setSelectedCycle] = useState<EvaluationCycle | null>(null);
   const [innerTab, setInnerTab] = useState<InnerTabType>('guide');
   const [cycles, setCycles] = useState<EvaluationCycle[]>([]);
   const [summary, setSummary] = useState<EvaluationCycleSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const cyclesRequestSeqRef = useRef(0);
+  const summaryRequestSeqRef = useRef(0);
+
+  const selectedCycle = useMemo(
+    () => cycles.find((cycle) => cycle.id === selectedCycleId) || null,
+    [cycles, selectedCycleId]
+  );
 
   const fetchCycles = async () => {
+    const requestSeq = ++cyclesRequestSeqRef.current;
     try {
       const res = await getEvaluationCycles({ pageSize: 100 }, authToken);
+      if (requestSeq !== cyclesRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         setCycles(res.data.items);
-        if (selectedCycleId) {
-          const updated = res.data.items.find((cycle) => cycle.id === selectedCycleId);
-          if (updated) setSelectedCycle(updated);
-        }
       }
     } catch (error) {
       console.error('Error fetching cycles in tab:', error);
     }
   };
 
-  useEffect(() => {
-    fetchCycles();
-  }, [authToken, selectedCycleId]);
+  const refreshSelectedCycleSummary = async () => {
+    const requestSeq = ++summaryRequestSeqRef.current;
+    if (!selectedCycleId) {
+      setSummary(null);
+      setIsLoadingSummary(false);
+      return;
+    }
 
-  useEffect(() => {
-    const fetchSummary = async () => {
-      if (!selectedCycleId) {
-        setSummary(null);
+    setSummary(null);
+    setIsLoadingSummary(true);
+    try {
+      const res = await getEvaluationCycleSummary(selectedCycleId, authToken);
+      if (requestSeq !== summaryRequestSeqRef.current) {
         return;
       }
 
-      setIsLoadingSummary(true);
-      try {
-        const res = await getEvaluationCycleSummary(selectedCycleId, authToken);
-        if (res?.data) setSummary(res.data);
-      } catch (error) {
-        console.error('Error fetching cycle summary:', error);
-      } finally {
+      if (res?.data) {
+        setSummary(res.data);
+      }
+    } catch (error) {
+      if (requestSeq !== summaryRequestSeqRef.current) {
+        return;
+      }
+      console.error('Error fetching cycle summary:', error);
+    } finally {
+      if (requestSeq === summaryRequestSeqRef.current) {
         setIsLoadingSummary(false);
       }
-    };
+    }
+  };
 
-    fetchSummary();
+  useEffect(() => {
+    fetchCycles();
+  }, [authToken]);
+
+  useEffect(() => {
+    refreshSelectedCycleSummary();
   }, [selectedCycleId, authToken]);
 
   const handleCycleSelect = (cycle: EvaluationCycle | null) => {
-    setSelectedCycle(cycle);
     setSelectedCycleId(cycle ? cycle.id : null);
+    setInnerTab((currentTab) =>
+      cycle || currentTab === 'guide' || currentTab === 'cycles' || currentTab === 'criteria'
+        ? currentTab
+        : 'guide'
+    );
   };
 
   const getStatusBadgeColor = (status?: string) => {
@@ -302,7 +327,7 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
             onCyclesUpdated={fetchCycles}
           />
         )}
-        {innerTab === 'criteria' && <EvaluationCriteriaPanel authToken={authToken} currentUser={currentUser} />}
+        {innerTab === 'criteria' && <EvaluationCriteriaPanel authToken={authToken} currentUser={currentUser} cycleId={selectedCycleId} />}
 
         {selectedCycleId && selectedCycle && (
           <>
@@ -349,14 +374,10 @@ export const EvaluationTab = ({ authToken, currentUser, allMembers }: Evaluation
                 cycleId={selectedCycleId}
                 cycle={selectedCycle}
                 allMembers={allMembers}
-                onComputeComplete={() => {
-                  if (selectedCycleId) {
-                    getEvaluationCycleSummary(selectedCycleId, authToken)
-                      .then((res) => res?.data && setSummary(res.data))
-                      .catch(console.error);
-                  }
-                }}
-              />
+              onComputeComplete={() => {
+                refreshSelectedCycleSummary().catch(console.error);
+              }}
+            />
             )}
             {innerTab === 'sync' && (
               <EvaluationSyncPanel

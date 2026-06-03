@@ -52,6 +52,8 @@ export const EvaluationAppealsPanel = ({
   const [cycleRoles, setCycleRoles] = useState<MemberCycleRole[]>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   const [modalFilterDept, setModalFilterDept] = useState('');
+  const appealsRequestSeqRef = React.useRef(0);
+  const rolesRequestSeqRef = React.useRef(0);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -61,38 +63,57 @@ export const EvaluationAppealsPanel = ({
   });
 
   const fetchAppealsList = async () => {
+    const requestSeq = ++appealsRequestSeqRef.current;
     setIsLoading(true);
     try {
       const res = await getEvaluationAppeals(cycleId, authToken);
+      if (requestSeq !== appealsRequestSeqRef.current) {
+        return;
+      }
+
       if (res?.data?.items) {
         setAppeals(res.data.items);
       } else if (res?.error) {
         error(res.error, 'Lỗi tải khiếu nại');
       }
     } catch (err) {
+      if (requestSeq !== appealsRequestSeqRef.current) {
+        return;
+      }
       console.error(err);
       error('Đã xảy ra lỗi khi tải danh sách khiếu nại.', 'Lỗi tải dữ liệu');
     } finally {
-      setIsLoading(false);
+      if (requestSeq === appealsRequestSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    setAppeals([]);
+    setCycleRoles([]);
     fetchAppealsList();
   }, [authToken, cycleId]);
 
   useEffect(() => {
+    const requestSeq = ++rolesRequestSeqRef.current;
     const fetchCycleRoles = async () => {
       setIsLoadingRoles(true);
       try {
         const res = await getMemberCycleRoles(cycleId, { pageSize: 1000 }, authToken);
+        if (requestSeq !== rolesRequestSeqRef.current) {
+          return;
+        }
+
         if (res?.data?.items) {
           setCycleRoles(res.data.items);
         }
       } catch (err) {
         console.error('Error fetching cycle roles:', err);
       } finally {
-        setIsLoadingRoles(false);
+        if (requestSeq === rolesRequestSeqRef.current) {
+          setIsLoadingRoles(false);
+        }
       }
     };
     fetchCycleRoles();
