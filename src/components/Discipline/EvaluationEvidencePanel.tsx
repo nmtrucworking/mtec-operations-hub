@@ -29,6 +29,7 @@ import {
   EvaluationScoreEvent,
   getEvaluationCriteria,
   EvaluationCriterion,
+  EvaluationCriterionMetadata,
   MemberCycleRole,
   getMemberCycleRoles
 } from '../../services/evaluations';
@@ -43,6 +44,25 @@ interface EvaluationEvidencePanelProps {
   cycle: EvaluationCycle;
   allMembers: Member[];
 }
+
+type MissingEvidenceRecordGroup = {
+  evidenceKey: string;
+  evidenceLabel: string;
+  criteria: Array<{
+    criterionId: string;
+    criterionCode: string;
+    criterionName: string;
+    eventCount: number;
+  }>;
+  events: EvaluationScoreEvent[];
+};
+
+type MissingEvidenceMemberGroup = {
+  memberId: string;
+  member?: Member;
+  records: MissingEvidenceRecordGroup[];
+  eventCount: number;
+};
 
 export const EvaluationEvidencePanel = ({ 
   authToken, 
@@ -100,6 +120,7 @@ export const EvaluationEvidencePanel = ({
     memberId: '',
     criterionId: '',
     scoreEventId: '',
+    appliedScoreEventIds: [] as string[],
     evidenceType: 'LINK', // LINK, TEXT, FILE
     title: '',
     url: '',
@@ -237,12 +258,27 @@ export const EvaluationEvidencePanel = ({
     return new Map(criteria.map(c => [c.id, c]));
   }, [criteria]);
 
+  const getEvidenceGroupingLabel = (criterion?: EvaluationCriterion | null) => {
+    if (!criterion) return 'Đánh giá chung';
+
+    const metadata = criterion.metadata as EvaluationCriterionMetadata | null | undefined;
+    const explicitEvidence = typeof metadata?.evidence === 'string' ? metadata.evidence.trim() : '';
+    const sourceSheet = typeof metadata?.source?.sheet === 'string' ? metadata.source.sheet.trim() : '';
+    return explicitEvidence || sourceSheet || criterion.description?.trim() || `${criterion.code} - ${criterion.name}`;
+  };
+
   useEffect(() => {
     // compute missing events: score events whose criterion requires evidence and no pending/verified evidence linked
     const mapEvidenceByEvent = new Map<string, number>();
     const mapEvidenceByCriterionMember = new Map<string, number>();
     for (const ev of evidenceList) {
       if (ev.status === 'REJECTED') {
+        continue;
+      }
+      if (ev.appliedScoreEventIds && ev.appliedScoreEventIds.length > 0) {
+        for (const scoreEventId of ev.appliedScoreEventIds) {
+          mapEvidenceByEvent.set(scoreEventId, (mapEvidenceByEvent.get(scoreEventId) || 0) + 1);
+        }
         continue;
       }
       if (ev.scoreEventId) {
@@ -343,6 +379,7 @@ export const EvaluationEvidencePanel = ({
       memberId: cycleMembers[0]?.id || '',
       criterionId: criteria[0]?.id || '',
       scoreEventId: '',
+      appliedScoreEventIds: [],
       evidenceType: 'LINK',
       title: '',
       url: '',
@@ -351,22 +388,26 @@ export const EvaluationEvidencePanel = ({
     setIsModalOpen(true);
   };
 
-  const handleOpenMissingEvidenceModal = (event: EvaluationScoreEvent) => {
-    const criterion = criteriaMap.get(event.criterionId ?? '');
-    const member = memberMap.get(event.memberId);
+  const handleOpenMissingEvidenceModal = (record: MissingEvidenceRecordGroup, memberId: string) => {
+    const firstEvent = record.events[0];
+    const criterion = criteriaMap.get(firstEvent?.criterionId ?? '');
+    const member = memberMap.get(memberId);
+    const selectedEventIds = record.events.map(event => event.id);
+    const uniqueCriterionIds = Array.from(new Set(record.events.map(event => event.criterionId).filter(Boolean) as string[]));
 
     setModalFilterDept('');
-    setEvidenceContextEventId(event.id);
+    setEvidenceContextEventId(firstEvent?.id ?? null);
     setFormData({
-      memberId: event.memberId,
-      criterionId: event.criterionId || '',
+      memberId,
+      criterionId: uniqueCriterionIds.length === 1 ? uniqueCriterionIds[0] : '',
       scoreEventId: '',
+      appliedScoreEventIds: selectedEventIds,
       evidenceType: 'LINK',
       title: criterion
-        ? `Minh chứng tiêu chí ${criterion.code} - ${member?.name ?? event.memberId}`
-        : `Minh chứng cho ${member?.name ?? event.memberId}`,
+        ? `Minh chứng cụm ${record.evidenceLabel} - ${member?.name ?? memberId}`
+        : `Minh chứng cho ${member?.name ?? memberId}`,
       url: '',
-      description: `Bổ sung minh chứng cấp tiêu chí cho ${event.criterionCode || criterion?.code || event.criterionId}. Minh chứng này sẽ được dùng chung cho các sự kiện cùng tiêu chí nếu phù hợp. Điểm ghi nhận: ${event.scoreDelta}.`
+      description: `Bổ sung minh chứng cho cụm ${record.evidenceLabel} của ${member?.name ?? memberId}. Minh chứng này được gắn cho ${selectedEventIds.length} sự kiện trong chu kỳ hiện tại.`
     });
     setIsModalOpen(true);
   };
@@ -392,12 +433,18 @@ export const EvaluationEvidencePanel = ({
       return;
     }
 
+    if (evidenceContextEventId && formData.appliedScoreEventIds.length === 0) {
+      warning('Hãy chọn ít nhất một sự kiện để áp dụng minh chứng này.', 'Thiếu sự kiện áp dụng');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-    const res = await createEvaluationEvidence(cycleId, {
+      const res = await createEvaluationEvidence(cycleId, {
         memberId: formData.memberId,
         criterionId: formData.criterionId || undefined,
         scoreEventId: formData.scoreEventId || undefined,
+        appliedScoreEventIds: formData.appliedScoreEventIds.length > 0 ? formData.appliedScoreEventIds : undefined,
         evidenceType: formData.evidenceType,
         title: trimmedTitle,
         url: trimmedUrl || undefined,
@@ -498,13 +545,13 @@ export const EvaluationEvidencePanel = ({
     if (!requestTargetMemberId) return;
     setIsRequesting(true);
     try {
-      // Build a simple content listing missing criteria for the member
-      const missingForMember = missingEvents.filter(me => {
-        // scoreEvents have memberId field
-        return me.memberId === requestTargetMemberId;
+      const memberGroup = missingEvidenceByMember.find(item => item.memberId === requestTargetMemberId);
+      const records = memberGroup?.records || [];
+      const lines = records.map(record => {
+        const criteriaCodes = record.criteria.map(item => item.criterionCode).join(', ');
+        return `- ${record.evidenceLabel} [${criteriaCodes}] (${record.events.length} sự kiện)`;
       });
-      const lines = missingForMember.map(m => `- ${m.criterionCode || m.criterionId} (sự kiện ${m.id})`);
-      const content = `Yêu cầu cung cấp minh chứng cho các tiêu chí sau:\n${lines.join('\n')}`;
+      const content = `Yêu cầu cung cấp minh chứng theo cụm cho thành viên.\n${lines.join('\n')}`;
 
       const res = await createEvaluationAppeal(cycleId, {
         memberId: requestTargetMemberId,
@@ -612,8 +659,17 @@ export const EvaluationEvidencePanel = ({
 
   const getEvidenceScopeLabel = (evidence: EvaluationEvidence) => {
     if (evidence.scoreEventId) return 'Sự kiện';
+    if ((evidence.appliedScoreEventIds?.length || 0) > 0) {
+      const count = evidence.appliedScoreEventIds?.length || 0;
+      return count === 1 ? '1 sự kiện' : `${count} sự kiện`;
+    }
     if (evidence.criterionId) return 'Tiêu chí';
     return 'Đánh giá chung';
+  };
+
+  const getEvidenceAppliedEventCount = (evidence: EvaluationEvidence) => {
+    if (evidence.scoreEventId) return 1;
+    return evidence.appliedScoreEventIds?.length || 0;
   };
 
   const getCriterionName = (id?: string | null) => {
@@ -635,6 +691,14 @@ export const EvaluationEvidencePanel = ({
     }
 
     for (const evidence of evidenceList) {
+      if (evidence.appliedScoreEventIds && evidence.appliedScoreEventIds.length > 0) {
+        for (const scoreEventId of evidence.appliedScoreEventIds) {
+          const current = grouped.get(scoreEventId) ?? [];
+          current.push(evidence);
+          grouped.set(scoreEventId, current);
+        }
+        continue;
+      }
       if (evidence.scoreEventId) {
         const current = grouped.get(evidence.scoreEventId) ?? [];
         current.push(evidence);
@@ -653,29 +717,120 @@ export const EvaluationEvidencePanel = ({
     return grouped;
   }, [evidenceList, scoreEvents]);
 
+  const candidateScoreEvents = useMemo(() => {
+    if (!formData.memberId) return [];
+    return scoreEvents
+      .filter(event => event.memberId === formData.memberId && !event.isVoid)
+      .sort((left, right) => {
+        const leftCriterion = left.criterionCode || criteriaMap.get(left.criterionId || '')?.code || left.criterionId || '';
+        const rightCriterion = right.criterionCode || criteriaMap.get(right.criterionId || '')?.code || right.criterionId || '';
+        if (leftCriterion !== rightCriterion) {
+          return leftCriterion.localeCompare(rightCriterion);
+        }
+        return (left.recordedAt || '').localeCompare(right.recordedAt || '');
+      });
+  }, [criteriaMap, formData.memberId, scoreEvents]);
+
+  const selectedAppliedEvents = useMemo(() => {
+    if (formData.appliedScoreEventIds.length === 0) return [];
+    const selectedIds = new Set(formData.appliedScoreEventIds);
+    return candidateScoreEvents.filter(event => selectedIds.has(event.id));
+  }, [candidateScoreEvents, formData.appliedScoreEventIds]);
+
   const activeEvidenceContextEvent = useMemo(
-    () => scoreEvents.find(event => event.id === (formData.scoreEventId || evidenceContextEventId)) ?? null,
-    [evidenceContextEventId, formData.scoreEventId, scoreEvents]
+    () => scoreEvents.find(event => event.id === (formData.scoreEventId || formData.appliedScoreEventIds[0] || evidenceContextEventId)) ?? null,
+    [evidenceContextEventId, formData.appliedScoreEventIds, formData.scoreEventId, scoreEvents]
   );
 
-  const missingEventsByMember = useMemo(() => {
-    const grouped = new Map<string, EvaluationScoreEvent[]>();
+  const missingEvidenceByMember = useMemo(() => {
+    const grouped = new Map<string, Map<string, MissingEvidenceRecordGroup>>();
+
     for (const event of missingEvents) {
-      const current = grouped.get(event.memberId) ?? [];
-      current.push(event);
-      grouped.set(event.memberId, current);
+      const criterion = criteriaMap.get(event.criterionId ?? '');
+      const evidenceLabel = getEvidenceGroupingLabel(criterion);
+      const evidenceKey = evidenceLabel.toLowerCase().replace(/\s+/g, ' ').trim();
+
+      const memberGroups = grouped.get(event.memberId) ?? new Map<string, MissingEvidenceRecordGroup>();
+      const current = memberGroups.get(evidenceKey) ?? {
+        evidenceKey,
+        evidenceLabel,
+        criteria: [],
+        events: [],
+      };
+
+      current.events.push(event);
+      current.criteria.push({
+        criterionId: event.criterionId ?? '',
+        criterionCode: event.criterionCode || criterion?.code || event.criterionId || 'UNKNOWN',
+        criterionName: criterion?.name || event.criterionCode || event.criterionId || 'Không rõ',
+        eventCount: 1,
+      });
+      memberGroups.set(evidenceKey, current);
+      grouped.set(event.memberId, memberGroups);
     }
 
     return Array.from(grouped.entries())
-      .map(([memberId, events]) => ({
+      .map(([memberId, records]) => ({
         memberId,
         member: memberMap.get(memberId),
-        events: events.sort((left, right) => (left.criterionCode || '').localeCompare(right.criterionCode || ''))
+        records: Array.from(records.values())
+          .map((record) => ({
+            ...record,
+            criteria: record.criteria
+              .reduce((acc, item) => {
+                const existing = acc.find((entry) => entry.criterionId === item.criterionId);
+                if (existing) {
+                  existing.eventCount += item.eventCount;
+                  return acc;
+                }
+                acc.push({ ...item });
+                return acc;
+              }, [] as MissingEvidenceRecordGroup['criteria'])
+              .sort((left, right) => left.criterionCode.localeCompare(right.criterionCode)),
+            events: record.events.sort((left, right) => (left.criterionCode || '').localeCompare(right.criterionCode || '')),
+          }))
+          .sort((left, right) => {
+            if (right.events.length !== left.events.length) {
+              return right.events.length - left.events.length;
+            }
+            return left.evidenceLabel.localeCompare(right.evidenceLabel);
+          }),
+        eventCount: Array.from(records.values()).reduce((sum, record) => sum + record.events.length, 0),
       }))
       .sort((left, right) => (left.member?.name || left.memberId).localeCompare(right.member?.name || right.memberId));
-  }, [missingEvents, memberMap]);
+  }, [missingEvents, memberMap, criteriaMap]);
+
+  const missingRecordCount = useMemo(
+    () => missingEvidenceByMember.reduce((sum, group) => sum + group.records.length, 0),
+    [missingEvidenceByMember]
+  );
 
   const selectedScoreEvent = activeEvidenceContextEvent;
+  const selectedAppliedEventCount = formData.appliedScoreEventIds.length;
+  useEffect(() => {
+    if (!formData.memberId) return;
+    setFormData(prev => {
+      const validIds = new Set(candidateScoreEvents.map(event => event.id));
+      const filteredIds = prev.appliedScoreEventIds.filter(id => validIds.has(id));
+      if (filteredIds.length === prev.appliedScoreEventIds.length) return prev;
+      return { ...prev, appliedScoreEventIds: filteredIds };
+    });
+  }, [candidateScoreEvents, formData.memberId]);
+
+  const toggleAppliedScoreEvent = (eventId: string) => {
+    setFormData(prev => {
+      const next = new Set(prev.appliedScoreEventIds);
+      if (next.has(eventId)) {
+        next.delete(eventId);
+      } else {
+        next.add(eventId);
+      }
+      return { ...prev, appliedScoreEventIds: Array.from(next) };
+    });
+  };
+  const setAppliedScoreEventSelection = (nextIds: string[]) => {
+    setFormData(prev => ({ ...prev, appliedScoreEventIds: Array.from(new Set(nextIds)) }));
+  };
 
   const formatScoreDelta = (value: number) => (value > 0 ? `+${value}` : String(value));
 
@@ -715,23 +870,28 @@ export const EvaluationEvidencePanel = ({
                 <h4 className="font-bold text-foreground">Checklist minh chứng còn thiếu</h4>
               </div>
               <p className="text-sm text-secondary mt-1">
-                Có {missingEvents.length} sự kiện điểm thuộc tiêu chí bắt buộc minh chứng nhưng chưa có minh chứng PENDING/VERIFIED liên kết.
+                Có {missingEvents.length} sự kiện điểm chưa được che phủ, tương ứng {missingRecordCount} cụm minh chứng đề xuất.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
-                {missingEventsByMember.length} thành viên
+                {missingEvidenceByMember.length} thành viên
               </Badge>
               <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
-                {missingEvents.length} mục cần nộp
+                {missingRecordCount} cụm minh chứng
+              </Badge>
+              <Badge variant="outline" className="bg-white/70 dark:bg-background/40 border-amber-200 dark:border-amber-800 font-bold">
+                {missingEvents.length} sự kiện ảnh hưởng
               </Badge>
             </div>
           </div>
 
           <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-            {missingEventsByMember.map(group => {
+            {missingEvidenceByMember.map(group => {
               const unitCode = cycleRoles.find(role => role.memberId === group.memberId)?.unitCode;
               const unitLabel = EVALUATION_UNIT_CODES.find(unit => unit.value === unitCode)?.label || unitCode;
+              const previewRecords = group.records.slice(0, 3);
+              const remainingRecords = group.records.length - previewRecords.length;
 
               return (
                 <div key={group.memberId} className="bg-card border border-border/50 rounded-xl overflow-hidden">
@@ -742,7 +902,10 @@ export const EvaluationEvidencePanel = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-                        {group.events.length} thiếu
+                        {group.records.length} cụm
+                      </Badge>
+                      <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                        {group.eventCount} sự kiện
                       </Badge>
                       {canSubmitEvidence && (
                         <Button
@@ -758,68 +921,49 @@ export const EvaluationEvidencePanel = ({
                   </div>
 
                   <div className="divide-y divide-border/40">
-                    {group.events.map(event => {
-                      const criterion = criteriaMap.get(event.criterionId || '');
-                      const existingLinkedEvidence = evidenceByScoreEvent.get(event.id) || [];
-                      const rejectedEvidence = existingLinkedEvidence.find(item => item.status === 'REJECTED');
-
-                      return (
-                        <div key={event.id} className="p-4 flex flex-col xl:flex-row xl:items-center gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className="font-bold bg-background">
-                                {event.criterionCode || criterion?.code || 'Tiêu chí'}
-                              </Badge>
-                              {rejectedEvidence ? (
-                                <Badge variant="outline" className="font-bold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-                                  Đã bị từ chối
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-                                  Chưa nộp
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="mt-2 font-semibold text-foreground">
-                              {criterion?.name || event.criterionId || 'Sự kiện điểm'}
-                            </div>
-                            <div className="mt-1 text-xs text-secondary flex flex-wrap gap-x-3 gap-y-1">
-                              <span>Sự kiện: {event.id}</span>
-                              <span>Điểm: {formatScoreDelta(event.scoreDelta)}</span>
-                              {event.sourceType && <span>Nguồn: {event.sourceType}</span>}
-                            </div>
-                            {rejectedEvidence?.reviewNote && (
-                              <div className="mt-2 text-xs text-red-700 dark:text-red-300">
-                                Lý do từ chối: {rejectedEvidence.reviewNote}
-                              </div>
-                            )}
+                    {previewRecords.map(record => (
+                      <div key={record.evidenceKey} className="p-4 flex flex-col xl:flex-row xl:items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="font-bold bg-background">
+                              {record.evidenceLabel}
+                            </Badge>
+                            <Badge variant="outline" className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                              {record.criteria.length} tiêu chí
+                            </Badge>
                           </div>
-
-                          <div className="flex flex-wrap items-center justify-end gap-2">
-                            {rejectedEvidence && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                onClick={() => setDetailsEvidenceId(rejectedEvidence.id)}
-                              >
-                                Xem phản hồi
-                              </Button>
-                            )}
-                            {canSubmitEvidence && (
-                              <Button
-                                size="sm"
-                                className="rounded-lg bg-primary text-white"
-                                onClick={() => handleOpenMissingEvidenceModal(event)}
-                              >
-                                <FileCheck size={14} className="mr-1.5" />
-                                {rejectedEvidence ? 'Nộp lại' : 'Nộp theo tiêu chí'}
-                              </Button>
-                            )}
+                          <div className="mt-2 font-semibold text-foreground">
+                            {record.criteria.map((item) => item.criterionCode).join(', ')}
+                          </div>
+                          <div className="mt-1 text-xs text-secondary flex flex-wrap gap-x-3 gap-y-1">
+                            <span>{record.events.length} sự kiện cần che phủ</span>
+                            <span>{record.criteria.length} mã tiêu chí</span>
+                          </div>
+                          <div className="mt-2 text-xs text-secondary">
+                            {record.criteria.slice(0, 4).map((item) => item.criterionName).join(' • ')}
+                            {record.criteria.length > 4 ? ` • +${record.criteria.length - 4} tiêu chí nữa` : ''}
                           </div>
                         </div>
-                      );
-                    })}
+
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {canSubmitEvidence && (
+                          <Button
+                            size="sm"
+                            className="rounded-lg bg-primary text-white"
+                            onClick={() => handleOpenMissingEvidenceModal(record, group.memberId)}
+                          >
+                            <FileCheck size={14} className="mr-1.5" />
+                            Nộp cụm này
+                          </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {remainingRecords > 0 && (
+                      <div className="p-4 text-xs text-secondary bg-muted/10">
+                        +{remainingRecords} cụm minh chứng khác trong cùng thành viên
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -964,7 +1108,10 @@ export const EvaluationEvidencePanel = ({
                                 <TableCell className="font-semibold max-w-[200px] truncate" title={ev.title}>{ev.title}</TableCell>
                                 <TableCell className="text-sm font-medium max-w-[150px] truncate" title={getCriterionName(ev.criterionId)}>
                                   {getCriterionName(ev.criterionId)}
-                                  <div className="mt-1 text-xs text-secondary">{getEvidenceScopeLabel(ev)}</div>
+                                  <div className="mt-1 text-xs text-secondary">
+                                    {getEvidenceScopeLabel(ev)}
+                                    {getEvidenceAppliedEventCount(ev) > 0 ? ` • ${getEvidenceAppliedEventCount(ev)} sự kiện` : ''}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-xs font-semibold text-secondary-foreground">{getEvidenceTypeLabel(ev.evidenceType)}</TableCell>
                                 <TableCell className="max-w-[200px]">
@@ -1038,7 +1185,13 @@ export const EvaluationEvidencePanel = ({
           setIsModalOpen(false);
           setEvidenceContextEventId(null);
         }}
-        title={formData.scoreEventId ? 'Nộp minh chứng cho mục còn thiếu' : (evidenceContextEventId ? 'Nộp minh chứng theo tiêu chí' : 'Nộp minh chứng đánh giá mới')}
+        title={
+          selectedAppliedEventCount > 0
+            ? `Nộp minh chứng cho ${selectedAppliedEventCount} sự kiện`
+            : formData.scoreEventId
+              ? 'Nộp minh chứng cho mục còn thiếu'
+              : (evidenceContextEventId ? 'Nộp minh chứng theo cụm sự kiện' : 'Nộp minh chứng đánh giá mới')
+        }
       >
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
           {selectedScoreEvent && (
@@ -1046,18 +1199,23 @@ export const EvaluationEvidencePanel = ({
               <Info size={18} className="text-primary shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <div className="font-bold text-foreground">
-                  {evidenceContextEventId && !formData.scoreEventId
-                    ? 'Đang nộp minh chứng cấp tiêu chí'
-                    : 'Đang nộp cho sự kiện điểm cụ thể'}
+                  {selectedAppliedEventCount > 0
+                    ? `Đang nộp cho ${selectedAppliedEventCount} sự kiện`
+                    : evidenceContextEventId
+                      ? 'Đang nộp minh chứng theo cụm sự kiện'
+                      : 'Đang nộp minh chứng mới'}
                 </div>
                 <div className="text-sm text-secondary mt-1">
                   {selectedScoreEvent.criterionCode || getCriterionName(selectedScoreEvent.criterionId)} • Điểm {formatScoreDelta(selectedScoreEvent.scoreDelta)}
                 </div>
                 <div className="text-xs text-secondary mt-1 break-all">
-                  {evidenceContextEventId && !formData.scoreEventId ? (
-                    <>Áp dụng cho các sự kiện cùng tiêu chí trong cùng chu kỳ và cùng thành viên.</>
+                  {selectedAppliedEventCount > 0 ? (
+                    <>
+                      {selectedAppliedEvents.slice(0, 3).map(event => event.criterionCode || getCriterionName(event.criterionId)).join(', ')}
+                      {selectedAppliedEventCount > 3 ? `, +${selectedAppliedEventCount - 3} sự kiện nữa` : ''}
+                    </>
                   ) : (
-                    <>Sự kiện: {selectedScoreEvent.id}</>
+                    <>Chưa chọn sự kiện nào để áp dụng minh chứng.</>
                   )}
                 </div>
               </div>
@@ -1087,7 +1245,10 @@ export const EvaluationEvidencePanel = ({
               </label>
               <Select 
                 value={formData.memberId} 
-                onChange={e => setFormData({ ...formData, memberId: e.target.value })} 
+                onChange={e => {
+                  setEvidenceContextEventId(null);
+                  setFormData({ ...formData, memberId: e.target.value, scoreEventId: '', appliedScoreEventIds: [] });
+                }} 
                 disabled={Boolean(formData.scoreEventId)}
                 className="w-full rounded-xl"
               >
@@ -1117,6 +1278,94 @@ export const EvaluationEvidencePanel = ({
                 <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
               ))}
             </Select>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-foreground">
+                  Sự kiện áp dụng minh chứng <span className="text-red-500">*</span>
+                </div>
+                <div className="text-xs text-secondary mt-1">
+                  Chọn các sự kiện mà minh chứng này sẽ che phủ trong chu kỳ hiện tại.
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="font-bold bg-background">
+                  {selectedAppliedEventCount}/{candidateScoreEvents.length} đã chọn
+                </Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={candidateScoreEvents.length === 0}
+                  onClick={() => setAppliedScoreEventSelection(candidateScoreEvents.map(event => event.id))}
+                >
+                  Chọn tất cả
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={selectedAppliedEventCount === 0}
+                  onClick={() => setAppliedScoreEventSelection([])}
+                >
+                  Bỏ chọn
+                </Button>
+              </div>
+            </div>
+
+            {candidateScoreEvents.length === 0 ? (
+              <div className="text-sm text-secondary p-3 bg-background rounded-lg border border-dashed border-border/70">
+                Chọn thành viên trước để hệ thống hiển thị các sự kiện có thể gắn minh chứng.
+              </div>
+            ) : (
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                {candidateScoreEvents.map(event => {
+                  const checked = formData.appliedScoreEventIds.includes(event.id);
+                  return (
+                    <label
+                      key={event.id}
+                      className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                        checked
+                          ? 'border-primary/40 bg-primary/5'
+                          : 'border-border/60 bg-background hover:bg-muted/30'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleAppliedScoreEvent(event.id)}
+                        className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-foreground">
+                            {event.criterionCode || getCriterionName(event.criterionId)}
+                          </span>
+                          <Badge variant="outline" className="font-bold bg-background">
+                            Điểm {formatScoreDelta(event.scoreDelta)}
+                          </Badge>
+                          <Badge variant="outline" className="font-bold bg-background">
+                            {event.eventType}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-secondary mt-1 break-all">
+                          Sự kiện: {event.id}
+                        </div>
+                        {event.note && (
+                          <div className="text-xs text-secondary mt-1">
+                            {event.note}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1295,7 +1544,10 @@ export const EvaluationEvidencePanel = ({
                     <div>
                       <span className="text-xs text-secondary mr-2">Tiêu chí:</span> {getCriterionName(ev.criterionId)}
                     </div>
-                    <div><span className="text-xs text-secondary mr-2">Phạm vi:</span> {getEvidenceScopeLabel(ev)}</div>
+                    <div>
+                      <span className="text-xs text-secondary mr-2">Phạm vi:</span> {getEvidenceScopeLabel(ev)}
+                      {getEvidenceAppliedEventCount(ev) > 0 ? ` • ${getEvidenceAppliedEventCount(ev)} sự kiện` : ''}
+                    </div>
                     <div><span className="text-xs text-secondary mr-2">Loại MH:</span> {getEvidenceTypeLabel(ev.evidenceType)}</div>
                   </div>
                   
@@ -1364,14 +1616,19 @@ export const EvaluationEvidencePanel = ({
         title="Gửi yêu cầu minh chứng cho thành viên"
       >
         <div className="space-y-4 pt-2">
-          <div className="text-sm text-secondary">Kiểm tra các tiêu chí/sự kiện còn thiếu minh chứng cho thành viên dưới đây. Hệ thống sẽ gửi thông báo yêu cầu nộp minh chứng.</div>
+          <div className="text-sm text-secondary">Kiểm tra các cụm minh chứng còn thiếu cho thành viên dưới đây. Mỗi cụm có thể che phủ nhiều sự kiện hoặc nhiều tiêu chí có cùng nhu cầu minh chứng.</div>
           <div className="p-3 bg-muted/20 rounded-lg border border-border">
             <div className="text-xs text-secondary mb-1">Thành viên</div>
             <div className="font-bold">{requestTargetMemberId ? (memberMap.get(requestTargetMemberId)?.name || requestTargetMemberId) : '-'}</div>
           </div>
           <div className="p-3 bg-muted/10 rounded-lg border border-border max-h-56 overflow-y-auto">
-            {(requestTargetMemberId ? missingEvents.filter(me => me.memberId === requestTargetMemberId) : []).map(me => (
-              <div key={me.id} className="text-sm py-1 border-b last:border-b-0">{me.criterionCode || me.criterionId} — Sự kiện {me.id}</div>
+            {(requestTargetMemberId ? (missingEvidenceByMember.find(item => item.memberId === requestTargetMemberId)?.records || []) : []).map(record => (
+              <div key={record.evidenceKey} className="text-sm py-2 border-b last:border-b-0">
+                <div className="font-medium">{record.evidenceLabel}</div>
+                <div className="text-xs text-secondary mt-1">
+                  {record.criteria.map((item) => item.criterionCode).join(', ')} • {record.events.length} sự kiện
+                </div>
+              </div>
             ))}
           </div>
 
@@ -1420,8 +1677,14 @@ export const EvaluationEvidencePanel = ({
                 <div key={ev.id} className="flex items-start justify-between gap-3 py-2 border-b last:border-b-0">
                   <div className="min-w-0">
                     <div className="font-medium truncate">{ev.title} <span className="text-xs text-secondary">• {getCriterionName(ev.criterionId)}</span></div>
-                    <div className="text-xs text-secondary truncate">{member ? member.name : ev.memberId} • Sự kiện {ev.scoreEventId || ev.id}</div>
-                    <div className="text-xs text-secondary truncate">Phạm vi: {getEvidenceScopeLabel(ev)}</div>
+                                <div className="text-xs text-secondary truncate">
+                                  {member ? member.name : ev.memberId} • Sự kiện {ev.scoreEventId || ev.appliedScoreEventIds?.[0] || ev.id}
+                                  {getEvidenceAppliedEventCount(ev) > 1 ? ` (+${getEvidenceAppliedEventCount(ev) - 1})` : ''}
+                                </div>
+                    <div className="text-xs text-secondary truncate">
+                      Phạm vi: {getEvidenceScopeLabel(ev)}
+                      {getEvidenceAppliedEventCount(ev) > 0 ? ` • ${getEvidenceAppliedEventCount(ev)} sự kiện` : ''}
+                    </div>
                     {st.status === 'error' && st.message && (
                       <div className="mt-1 text-xs text-red-600">Lỗi: {st.message}</div>
                     )}
